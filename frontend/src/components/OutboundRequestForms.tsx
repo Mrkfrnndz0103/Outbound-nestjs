@@ -156,6 +156,8 @@ export function InlineCreateRow({
         Truck Size
         <select className={inlineCreateInputClass} name="truck_size" defaultValue="6W">
           <option>4W</option>
+          <option>4WAUV</option>
+          <option>4WCV</option>
           <option>6W</option>
           <option>10W</option>
           <option>6WF</option>

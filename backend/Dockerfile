@@ -23,6 +23,9 @@ COPY docker/supervisord.conf /etc/supervisord.conf
 RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache \
  /tmp/nginx/{client_temp,proxy_temp,fastcgi_temp,uwsgi_temp,scgi_temp} \
  && chown -R www-data:www-data storage bootstrap/cache /tmp/nginx
+RUN mkdir -p /var/log/nginx /run/nginx \
+    && chown -R www-data:www-data /var/log/nginx /run/nginx \
+    && chown www-data:www-data /var/lib/nginx
 RUN php artisan package:discover --ansi
 RUN chmod -R a+rX app bootstrap config public routes \
  && chmod a+r artisan composer.json composer.lock \

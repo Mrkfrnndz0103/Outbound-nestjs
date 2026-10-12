@@ -107,7 +107,7 @@ final class RequestController
             'dock_no' => 'required|string|max:50',
             'backlogs' => 'required|integer|min:0',
             'backlogs_timestamp' => 'nullable|date',
-            'truck_size' => 'required|in:4W,6W,10W,6WF',
+            'truck_size' => 'required|in:4W,4WAUV,4WCV,6W,10W,6WF',
             'truck_type' => 'required|in:WETLEASE,DRYLEASE',
         ];
     }
@@ -125,7 +125,7 @@ final class RequestController
             'assign-truck' => [
                 'plate_number' => 'required|string|max:50',
                 'provide_time' => 'sometimes|nullable|date',
-                'truck_size' => 'required|in:4W,6W,10W,6WF',
+                'truck_size' => 'required|in:4W,4WAUV,4WCV,6W,10W,6WF',
                 'truck_type' => 'required|in:WETLEASE,DRYLEASE',
             ],
             'mark-docked' => $role === 'doc_officer'

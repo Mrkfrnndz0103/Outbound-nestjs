@@ -842,6 +842,8 @@ function MidmileActionDialog({
                 defaultValue={selection.request.truck_size}
               >
                 <option>4W</option>
+                <option>4WAUV</option>
+                <option>4WCV</option>
                 <option>6W</option>
                 <option>10W</option>
                 <option>6WF</option>

@@ -195,7 +195,7 @@ export function Overview({
       total,
     };
   }, [intraday.data?.data]);
-  const sizes = ["4W", "6W", "10W", "6WF"] as const;
+  const sizes = ["4W", "4WAUV", "4WCV", "6W", "10W", "6WF"] as const;
   const truckSizes = analytics.data?.truck_sizes ?? {};
   const sizeTotal = sizes.reduce(
     (sum, size) => sum + (truckSizes[size] ?? 0),

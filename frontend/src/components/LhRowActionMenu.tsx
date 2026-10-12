@@ -71,7 +71,7 @@ export function LhRowActionMenu({
     <span className={rowMenuWrapClass}>
       <button
         ref={triggerRef}
-        className={`${className}${open ? " border-[#a2c500] bg-[#eef6d9] text-soc5-lime-deep shadow-[0_0_0_.15rem_rgb(162_197_0_/_12%)]" : ""}`}
+        className={`${className}${open ? " border-[#a2c500] bg-linehaul-lime-surface text-linehaul-lime-ink shadow-[0_0_0_.15rem_rgb(162_197_0_/_12%)]" : ""}`}
         type="button"
         aria-label={ariaLabel}
         aria-haspopup="menu"

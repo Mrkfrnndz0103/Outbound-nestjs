@@ -51,7 +51,7 @@ export function IntradayDateSelector({
       </span>
       <input
         id="intraday-date-filter"
-        className="min-w-0 flex-1 rounded-[.5rem] border border-transparent bg-transparent px-1 text-xs font-bold text-[#162538] outline-none focus:border-[#9bd7cf] focus:bg-white focus:ring-[.2rem] focus:ring-[rgb(20_184_166_/_14%)] max-[600px]:w-full"
+        className="min-w-0 flex-1 rounded-[.5rem] border border-transparent bg-transparent px-1 text-xs font-bold text-soc5-ink outline-none focus:border-soc5-line focus:bg-soc5-panel focus:ring-[.2rem] focus:ring-[rgb(20_184_166_/_14%)] max-[600px]:w-full"
         type="date"
         value={value}
         onChange={(event) => {
@@ -109,7 +109,7 @@ export function IntradayLiveStatus({
 }) {
   return (
     <span
-      className={`${intradayLiveStatusClass}${error ? " text-[#a8523d]" : ""}`}
+      className={`${intradayLiveStatusClass}${error ? " text-status-danger-ink" : ""}`}
       aria-live="polite"
     >
       <i className={intradayLiveDotClass} aria-hidden="true" />

@@ -14,6 +14,8 @@ interface FteLoginFormProps {
   onSubmit: (e: React.FormEvent, submittedCode?: string) => void;
   onResendCode: () => void;
   onGoogleSignIn: () => void;
+  onBackToEmail: () => void;
+  pendingAction?: "verify" | "resend";
 }
 
 export function FteLoginForm({
@@ -28,6 +30,8 @@ export function FteLoginForm({
   onSubmit,
   onResendCode,
   onGoogleSignIn,
+  onBackToEmail,
+  pendingAction,
 }: FteLoginFormProps) {
   const handleOtpSubmit = (
     event: React.FormEvent<HTMLFormElement>,
@@ -37,43 +41,45 @@ export function FteLoginForm({
     onSubmit(event, otpCode);
   };
 
-  const handleBackToEmail = () => {
-    onEmailChange("");
-    onCodeChange("");
-  };
-
   if (codeSent) {
     return (
       <OtpVerify
         destination={email}
         resendAfter={resendAfter}
-        onBack={handleBackToEmail}
+        onBack={onBackToEmail}
         onDone={handleOtpSubmit}
         onResend={onResendCode}
         backLabel="Change email"
+        busy={busy}
+        error={error}
+        pendingAction={pendingAction}
       />
     );
   }
 
   return (
-    <form noValidate onSubmit={onSubmit} className="w-full animate-login-rise motion-reduce:animate-none">
-      <h2 className="font-display text-base font-semibold text-ink leading-snug tracking-tight">
+    <form
+      noValidate
+      onSubmit={onSubmit}
+      className="w-full animate-login-rise motion-reduce:animate-none"
+    >
+      <h2 className="font-display text-base font-semibold text-auth-ink leading-snug tracking-tight">
         Continue with work email
       </h2>
-      <p className="mt-1.5 text-xs text-muted leading-relaxed">
+      <p className="mt-1.5 text-xs text-auth-muted leading-relaxed">
         We'll send an OTP to your @spxexpress.com email — no password needed.
       </p>
 
       <label
         htmlFor="email-input"
-        className="mt-4 block text-sm font-medium text-faint"
+        className="mt-4 block text-sm font-medium text-auth-faint"
       >
         Work Email
       </label>
       <div
-        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/20 ${error ? "border-danger/70" : "border-line"}`}
+        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-auth-accent focus-within:ring-4 focus-within:ring-auth-accent/20 ${error ? "border-auth-danger/70" : "border-auth-line"}`}
       >
-        <span className="grid w-10 shrink-0 place-items-center text-faint">
+        <span className="grid w-10 shrink-0 place-items-center text-auth-faint">
           <AtSign className="h-4 w-4" />
         </span>
         <input
@@ -83,12 +89,12 @@ export function FteLoginForm({
           onChange={(e) => onEmailChange(e.target.value)}
           placeholder="name@spxexpress.com"
           aria-label="Work email"
-          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 bg-transparent text-base text-auth-ink outline-none placeholder:text-auth-faint"
         />
       </div>
 
       {error && (
-        <p className="mt-2.5 text-xs font-medium text-danger leading-snug">
+        <p className="mt-2.5 text-xs font-medium text-auth-danger leading-snug">
           {error}
         </p>
       )}
@@ -96,7 +102,7 @@ export function FteLoginForm({
       <button
         type="submit"
         disabled={busy}
-        className={`${loginShineButtonClass} group mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 font-display text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
+        className={`${loginShineButtonClass} group mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-auth-accent to-auth-accent-2 font-display text-sm font-semibold text-white shadow-lg shadow-auth-accent/30 transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
       >
         {busy ? (
           <>
@@ -112,18 +118,18 @@ export function FteLoginForm({
       </button>
 
       <div className="mt-4 flex items-center gap-3">
-        <div className="h-px flex-1 bg-line" />
-        <span className="text-xs font-semibold uppercase tracking-widest text-faint">
+        <div className="h-px flex-1 bg-auth-line" />
+        <span className="text-xs font-semibold uppercase tracking-widest text-auth-faint">
           or
         </span>
-        <div className="h-px flex-1 bg-line" />
+        <div className="h-px flex-1 bg-auth-line" />
       </div>
 
       <button
         type="button"
         onClick={onGoogleSignIn}
         disabled={busy}
-        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.07] font-display text-sm font-semibold text-ink transition-all duration-300 hover:bg-white/[0.11] disabled:cursor-wait disabled:opacity-50"
+        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-auth-line bg-white/[0.07] font-display text-sm font-semibold text-auth-ink transition-all duration-300 hover:bg-white/[0.11] disabled:cursor-wait disabled:opacity-50"
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -146,18 +152,18 @@ export function FteLoginForm({
         Continue with Google
       </button>
 
-      <p className="mt-3 text-center text-xs text-muted">
+      <p className="mt-3 text-center text-xs text-auth-muted">
         By continuing you agree to the{" "}
         <a
           href="/privacy"
-          className="font-semibold text-link underline-offset-4 hover:underline"
+          className="font-semibold text-auth-link underline-offset-4 hover:underline"
         >
           Privacy Policy
         </a>{" "}
         &{" "}
         <a
           href="/terms"
-          className="font-semibold text-link underline-offset-4 hover:underline"
+          className="font-semibold text-auth-link underline-offset-4 hover:underline"
         >
           Terms of Use
         </a>

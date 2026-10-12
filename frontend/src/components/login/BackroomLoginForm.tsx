@@ -70,15 +70,15 @@ export function BackroomLoginForm({
   if (requestOpen) {
     return (
       <form className="w-full animate-login-rise motion-reduce:animate-none" onSubmit={submitAccessRequest}>
-        <h2 className="font-display text-base font-semibold text-ink leading-snug tracking-tight">
+        <h2 className="font-display text-base font-semibold text-auth-ink leading-snug tracking-tight">
           Request Backroom access
         </h2>
-        <p className="mt-1.5 text-xs text-muted leading-relaxed">
+        <p className="mt-1.5 text-xs text-auth-muted leading-relaxed">
           An FTE user will review your details before creating an account.
         </p>
         <label
           htmlFor="access-request-name"
-          className="mt-4 block text-sm font-medium text-faint"
+          className="mt-4 block text-sm font-medium text-auth-faint"
         >
           Full name
         </label>
@@ -88,11 +88,11 @@ export function BackroomLoginForm({
           onChange={(event) => setRequestName(event.target.value)}
           required
           maxLength={120}
-          className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white/[0.07] px-3 text-xs text-ink outline-none focus:border-accent focus:ring-4 focus:ring-accent/20"
+          className="mt-1.5 h-10 w-full rounded-lg border border-auth-line bg-white/[0.07] px-3 text-base text-auth-ink outline-none focus:border-auth-accent focus:ring-4 focus:ring-auth-accent/20"
         />
         <label
           htmlFor="access-request-ops-id"
-          className="mt-3 block text-xs font-semibold uppercase tracking-wider text-faint"
+          className="mt-3 block text-xs font-semibold uppercase tracking-wider text-auth-faint"
         >
           Requested Ops ID
         </label>
@@ -106,15 +106,15 @@ export function BackroomLoginForm({
           required
           pattern="[Oo][Pp][Ss][0-9]+"
           maxLength={40}
-          className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white/[0.07] px-3 text-xs uppercase text-ink outline-none placeholder:text-faint focus:border-accent focus:ring-4 focus:ring-accent/20"
+          className="mt-1.5 h-10 w-full rounded-lg border border-auth-line bg-white/[0.07] px-3 text-base uppercase text-auth-ink outline-none placeholder:text-auth-faint focus:border-auth-accent focus:ring-4 focus:ring-auth-accent/20"
         />
         {requestError && (
-          <p className="mt-2 text-xs font-medium text-danger leading-snug">
+          <p className="mt-2 text-xs font-medium text-auth-danger leading-snug">
             {requestError}
           </p>
         )}
         {requestSent ? (
-          <p className="mt-3 text-xs font-medium text-success leading-snug">
+          <p className="mt-3 text-xs font-medium text-auth-success leading-snug">
             Request sent. An FTE user will review and create your account.
           </p>
         ) : (
@@ -122,14 +122,14 @@ export function BackroomLoginForm({
             <button
               type="submit"
               disabled={requestBusy}
-              className="text-xs font-semibold text-link disabled:opacity-50"
+              className="text-xs font-semibold text-auth-link disabled:opacity-50"
             >
               {requestBusy ? "Sending..." : "Send request"}
             </button>
             <button
               type="button"
               onClick={() => setRequestOpen(false)}
-              className="text-xs font-semibold text-muted hover:text-ink"
+              className="text-xs font-semibold text-auth-muted hover:text-auth-ink"
             >
               Cancel
             </button>
@@ -141,26 +141,26 @@ export function BackroomLoginForm({
 
   return (
     <form noValidate onSubmit={onSubmit} className="w-full animate-login-rise motion-reduce:animate-none">
-      <h2 className="font-display text-base font-semibold text-ink leading-snug tracking-tight">
+      <h2 className="font-display text-base font-semibold text-auth-ink leading-snug tracking-tight">
         Backroom sign in
       </h2>
-      <p className="mt-1.5 text-xs text-muted leading-relaxed">
+      <p className="mt-1.5 text-xs text-auth-muted leading-relaxed">
         Use your assigned Ops ID and password.
       </p>
 
       {/* Ops ID */}
       <label
         htmlFor="backroom-ops-id"
-        className="mt-4 block text-xs font-semibold uppercase tracking-wider text-faint"
+        className="mt-4 block text-xs font-semibold uppercase tracking-wider text-auth-faint"
       >
         Ops ID
       </label>
       <div
-        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-accent focus-within:bg-white/11 focus-within:ring-4 focus-within:ring-accent/20 ${
+        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-auth-accent focus-within:bg-white/11 focus-within:ring-4 focus-within:ring-auth-accent/20 ${
           shaking ? "animate-login-shake motion-reduce:animate-none" : ""
-        } ${error ? "border-danger/70" : "border-line"}`}
+        } ${error ? "border-auth-danger/70" : "border-auth-line"}`}
       >
-        <span className="grid w-10 shrink-0 place-items-center text-faint">
+        <span className="grid w-10 shrink-0 place-items-center text-auth-faint">
           <IdCard className="h-4 w-4" />
         </span>
         <input
@@ -170,22 +170,22 @@ export function BackroomLoginForm({
           id="backroom-ops-id"
           aria-label="Ops ID"
           autoComplete="username"
-          className="min-w-0 flex-1 bg-transparent pr-3 text-sm tracking-wide text-ink outline-none placeholder:text-faint uppercase"
+          className="min-w-0 flex-1 bg-transparent pr-3 text-base tracking-wide text-auth-ink outline-none placeholder:text-auth-faint uppercase"
         />
       </div>
 
       <label
         htmlFor="backroom-password"
-        className="mt-3.5 block text-xs font-semibold uppercase tracking-wider text-faint"
+        className="mt-3.5 block text-xs font-semibold uppercase tracking-wider text-auth-faint"
       >
         Password
       </label>
       <div
-        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-accent focus-within:bg-white/[0.11] focus-within:ring-4 focus-within:ring-accent/20 ${
+        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-auth-accent focus-within:bg-white/[0.11] focus-within:ring-4 focus-within:ring-auth-accent/20 ${
           shaking ? "animate-login-shake motion-reduce:animate-none" : ""
-        } ${error ? "border-danger/70" : "border-line"}`}
+        } ${error ? "border-auth-danger/70" : "border-auth-line"}`}
       >
-        <span className="grid w-10 shrink-0 place-items-center text-faint">
+        <span className="grid w-10 shrink-0 place-items-center text-auth-faint">
           <KeyRound className="h-4 w-4" />
         </span>
         <input
@@ -196,23 +196,23 @@ export function BackroomLoginForm({
           aria-label="Password"
           autoComplete="current-password"
           required
-          className="min-w-0 flex-1 bg-transparent pr-3 text-sm tracking-wide text-ink outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 bg-transparent pr-3 text-base tracking-wide text-auth-ink outline-none placeholder:text-auth-faint"
         />
       </div>
 
       {error && (
-        <p className="mt-2.5 text-xs font-medium text-danger leading-snug">
+        <p className="mt-2.5 text-xs font-medium text-auth-danger leading-snug">
           {error}
         </p>
       )}
 
       <div className="mt-3.5 flex items-center justify-between">
-        <label className="group flex cursor-pointer items-center gap-2 text-xs font-medium text-muted leading-snug">
+        <label className="group flex cursor-pointer items-center gap-2 text-xs font-medium text-auth-muted leading-snug">
           <span
             className={`grid h-4 w-4 place-items-center rounded border transition-all duration-200 ${
               keepSignedIn
-                ? "border-accent bg-accent"
-                : "border-line bg-transparent"
+                ? "border-auth-accent bg-auth-accent"
+                : "border-auth-line bg-transparent"
             }`}
           >
             {keepSignedIn && (
@@ -239,7 +239,7 @@ export function BackroomLoginForm({
         <button
           type="button"
           onClick={onForgotPassword}
-          className="text-xs font-semibold text-link underline-offset-4 hover:underline tracking-tight"
+          className="text-xs font-semibold text-auth-link underline-offset-4 hover:underline tracking-tight"
         >
           Forgot password?
         </button>
@@ -248,7 +248,7 @@ export function BackroomLoginForm({
       <button
         type="submit"
         disabled={busy}
-        className={`${loginShineButtonClass} group mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 font-display text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-accent/40 hover:brightness-110 active:translate-y-0 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
+        className={`${loginShineButtonClass} group mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-auth-accent to-auth-accent-2 font-display text-sm font-semibold text-white shadow-lg shadow-auth-accent/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-auth-accent/40 hover:brightness-110 active:translate-y-0 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
       >
         {busy ? (
           <>
@@ -263,12 +263,12 @@ export function BackroomLoginForm({
         )}
       </button>
 
-      <p className="mt-3.5 text-center text-xs text-muted leading-snug">
+      <p className="mt-3.5 text-center text-xs text-auth-muted leading-snug">
         Need an Ops ID?{" "}
         <button
           type="button"
           onClick={() => setRequestOpen(true)}
-          className="font-semibold text-link underline-offset-4 hover:underline tracking-tight"
+          className="font-semibold text-auth-link underline-offset-4 hover:underline tracking-tight"
         >
           Request access
         </button>

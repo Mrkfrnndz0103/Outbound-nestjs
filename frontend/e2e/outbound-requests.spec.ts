@@ -203,7 +203,7 @@ test('switches views and supports row view and edit actions', async ({ page }) =
   await expect(page.locator('.lh-record-card')).toHaveCount(1);
   await page.getByRole('button', { name: 'View details' }).click();
   await expect(
-    page.getByRole('region', { name: 'Details for request request-1' }),
+    page.getByRole('dialog', { name: 'Details for request request-1' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Close request details' }).click();
 
@@ -217,10 +217,11 @@ test('switches views and supports row view and edit actions', async ({ page }) =
   await expect(rowActions).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('menuitem', { name: 'View', exact: true }).click();
   await expect(
-    page.getByRole('region', { name: 'Details for request request-1' }),
+    page.getByRole('dialog', { name: 'Details for request request-1' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Close request details' }).click();
 
+  await expect(rowActions).toBeFocused();
   await rowActions.click();
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   await expect(page.getByLabel('Truck Type')).toHaveValue('WETLEASE');

@@ -1,6 +1,7 @@
 import { isAuthError } from "@supabase/supabase-js";
 import { KeyRound } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
+import { AccessibleDialog } from "../components/AccessibleDialog";
 import { BackroomLoginForm } from "../components/login/BackroomLoginForm";
 import { FteLoginForm } from "../components/login/FteLoginForm";
 import { LoginCard } from "../components/login/LoginCard";
@@ -76,6 +77,9 @@ export function Login({
   const [opsId, setOpsId] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [otpPendingAction, setOtpPendingAction] = useState<"verify" | "resend">(
+    "verify",
+  );
   const [error, setError] = useState("");
   const [forgotOpen, setForgotOpen] = useState(false);
 
@@ -128,7 +132,9 @@ export function Login({
   }
 
   async function resendCode() {
+    if (busy) return;
     setError("");
+    setOtpPendingAction("resend");
     setBusy(true);
     try {
       await sendCode(email.trim().toLowerCase());
@@ -137,6 +143,14 @@ export function Login({
     } finally {
       setBusy(false);
     }
+  }
+
+  function backToEmail() {
+    if (busy) return;
+    setCodeSent(false);
+    setCode("");
+    setError("");
+    setResendAfter(0);
   }
 
   async function startBackroomSession(nextOpsId: string, nextPassword: string) {
@@ -160,7 +174,9 @@ export function Login({
 
   async function submit(event: FormEvent, submittedCode?: string) {
     event.preventDefault();
+    if (busy) return;
     setError("");
+    setOtpPendingAction("verify");
     setBusy(true);
     try {
       if (type === "fte") {
@@ -202,7 +218,7 @@ export function Login({
   return (
     <LoginCard modal={modal} visible={visible}>
       <div className="mb-4">
-        <span className="mb-1.5 block text-xs font-medium text-faint">
+        <span className="mb-1.5 block text-xs font-medium text-auth-faint">
           Login as
         </span>
         <UserTypeToggle value={type} onChange={switchType} />
@@ -222,6 +238,8 @@ export function Login({
           onSubmit={submit}
           onResendCode={resendCode}
           onGoogleSignIn={signInWithGoogle}
+          onBackToEmail={backToEmail}
+          pendingAction={otpPendingAction}
         />
       ) : (
         <BackroomLoginForm
@@ -237,20 +255,20 @@ export function Login({
         />
       )}
       {forgotOpen && type === "backroom" && (
-        <div
-          className={loginModalLayerClass}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Forgot password"
+        <AccessibleDialog
+          open
+          label="Forgot password"
+          onClose={() => setForgotOpen(false)}
+          overlayClassName={loginModalLayerClass}
+          className={`${loginModalCardClass} max-w-[360px] p-6 opacity-100 translate-y-0`}
         >
-          <section className={`${loginModalCardClass} max-w-[360px] p-6 opacity-100 translate-y-0`}>
-            <div className="mx-auto grid h-12 w-12 animate-pulse place-items-center rounded-full bg-accent/15 text-accent">
+            <div className="mx-auto grid h-12 w-12 animate-pulse place-items-center rounded-full bg-auth-accent/15 text-auth-accent">
               <KeyRound size={23} aria-hidden="true" />
             </div>
-            <h2 className="mt-4 text-center font-display text-lg font-semibold text-ink">
+            <h2 className="mt-4 text-center font-display text-lg font-semibold text-auth-ink">
               Forgot password?
             </h2>
-            <p className="mt-2 text-center text-xs leading-relaxed text-muted">
+            <p className="mt-2 text-center text-xs leading-relaxed text-auth-muted">
               To reset your password, please reach out to your FTE for
               assistance.
             </p>
@@ -258,13 +276,12 @@ export function Login({
               <button
                 type="button"
                 onClick={() => setForgotOpen(false)}
-                className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white"
+                className="rounded-xl bg-auth-accent px-4 py-2 text-sm font-semibold text-white"
               >
                 Close
               </button>
             </div>
-          </section>
-        </div>
+        </AccessibleDialog>
       )}
     </LoginCard>
   );

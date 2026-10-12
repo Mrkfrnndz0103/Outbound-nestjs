@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
+import { AccessibleDialog } from "../AccessibleDialog";
 import { Modal } from "../Modal";
 import {
   compactFormDialogClass,
@@ -29,95 +30,93 @@ import type { TruckRequest } from "../../types";
 export function OutboundRequestDrawer({
   request,
   onClose,
+  returnFocus,
 }: {
   request: TruckRequest;
   onClose: () => void;
+  returnFocus?: HTMLElement | null;
 }) {
   return (
-    <>
-      <button
-        type="button"
-        className={requestDrawerBackdropClass}
-        aria-label="Dismiss request details"
-        onClick={onClose}
-      />
-      <section
-        className={requestDrawerClass}
-        aria-label={`Details for request ${request.id}`}
-      >
-        <div className={requestDrawerHeaderClass}>
-          <div>
-            <span className="lh-drawer-eyebrow">Request details</span>
-            <h2>{request.id}</h2>
-          </div>
-          <button
-            className={requestDrawerCloseClass}
-            type="button"
-            aria-label="Close request details"
-            onClick={onClose}
-          >
-            <X size={16} aria-hidden="true" />
-          </button>
+    <AccessibleDialog
+      open
+      label={`Details for request ${request.id}`}
+      onClose={onClose}
+      returnFocus={returnFocus}
+      overlayClassName={requestDrawerBackdropClass}
+      className={`${requestDrawerClass} text-soc5-ink`}
+    >
+      <div className={requestDrawerHeaderClass}>
+        <div>
+          <span className="lh-drawer-eyebrow">Request details</span>
+          <h2>{request.id}</h2>
         </div>
-        <div className={requestDrawerProfileClass}>
-          <div className={requestDrawerAvatarClass} aria-hidden="true">
-            {request.cluster.slice(0, 1).toUpperCase()}
-          </div>
-          <div>
-            <strong>{request.cluster}</strong>
-            <span>
-              {request.region} · Dock {request.dock_no}
-            </span>
-          </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            <StatusBadge status={request.status} uppercase />
-          </div>
+        <button
+          className={requestDrawerCloseClass}
+          type="button"
+          aria-label="Close request details"
+          onClick={onClose}
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
+      <div className={requestDrawerProfileClass}>
+        <div className={requestDrawerAvatarClass} aria-hidden="true">
+          {request.cluster.slice(0, 1).toUpperCase()}
         </div>
-        <dl className={requestDrawerFieldsClass}>
-          <div>
-            <dt>Request time</dt>
-            <dd>{formatRequestDetailDateTime(request.request_timestamp)}</dd>
-          </div>
-          <div>
-            <dt>Backlogs</dt>
-            <dd>{request.backlogs.toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt>LH size</dt>
-            <dd>{request.truck_size}</dd>
-          </div>
-          <div>
-            <dt>Truck type</dt>
-            <dd>{request.truck_type}</dd>
-          </div>
-          <div>
-            <dt>SOC PIC</dt>
-            <dd>
-              {displayRequestValue(request.ob_fte_name ?? request.ob_fte)}
-            </dd>
-          </div>
-          <div>
-            <dt>LH trip #</dt>
-            <dd>{displayRequestValue(request.linehaul_trip_no)}</dd>
-          </div>
-          <div>
-            <dt>Plate #</dt>
-            <dd>{displayRequestValue(request.plate_number)}</dd>
-          </div>
-        </dl>
-      </section>
-    </>
+        <div>
+          <strong>{request.cluster}</strong>
+          <span>
+            {request.region} · Dock {request.dock_no}
+          </span>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <StatusBadge status={request.status} uppercase />
+        </div>
+      </div>
+      <dl className={requestDrawerFieldsClass}>
+        <div>
+          <dt>Request time</dt>
+          <dd>{formatRequestDetailDateTime(request.request_timestamp)}</dd>
+        </div>
+        <div>
+          <dt>Backlogs</dt>
+          <dd>{request.backlogs.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>LH size</dt>
+          <dd>{request.truck_size}</dd>
+        </div>
+        <div>
+          <dt>Truck type</dt>
+          <dd>{request.truck_type}</dd>
+        </div>
+        <div>
+          <dt>SOC PIC</dt>
+          <dd>{displayRequestValue(request.ob_fte_name ?? request.ob_fte)}</dd>
+        </div>
+        <div>
+          <dt>LH trip #</dt>
+          <dd>{displayRequestValue(request.linehaul_trip_no)}</dd>
+        </div>
+        <div>
+          <dt>Plate #</dt>
+          <dd>{displayRequestValue(request.plate_number)}</dd>
+        </div>
+      </dl>
+    </AccessibleDialog>
   );
 }
 
 export function OutboundRejectDialog({
   request,
+  returnFocus,
   busy,
   error,
   onClose,
   onSubmit,
 }: {
   request: TruckRequest;
+  returnFocus?: HTMLElement | null;
   busy: boolean;
   error?: string;
   onClose: () => void;
@@ -131,6 +130,7 @@ export function OutboundRejectDialog({
 
   return (
     <Modal
+      returnFocus={returnFocus}
       open
       onClose={onClose}
       className={compactFormDialogClass}
@@ -139,7 +139,7 @@ export function OutboundRejectDialog({
     >
       <div className={dialogHeadClass}>
         <div>
-          <p className="mb-[0.35rem] text-soc5-lime-deep text-xs font-bold tracking-wider uppercase">
+          <p className="mb-[0.35rem] text-linehaul-lime-ink text-xs font-bold tracking-wider uppercase">
             FTE Ops action
           </p>
           <h2 id="outbound-reject-title">Reject request</h2>

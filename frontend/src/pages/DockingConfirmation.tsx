@@ -140,6 +140,34 @@ export function DockingConfirmation({ user }: { user: User }) {
             <p className={operationalPanelCopyClass}>Assigned trucks requiring dock action or final confirmation</p>
           </div>
         </div>
+        {queue.error && (
+          <div
+            role="alert"
+            className="m-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-danger-ink/20 bg-status-danger-surface p-4 text-sm text-soc5-ink"
+          >
+            <div>
+              <p className="font-semibold">
+                {queue.data
+                  ? "Unable to refresh the docking queue"
+                  : "Unable to load the docking queue"}
+              </p>
+              <p className="mt-1">
+                {queue.data
+                  ? "Showing the last successful update. These records may be outdated."
+                  : "The queue is unavailable. Retry to check for trucks awaiting docking."}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              disabled={queue.isFetching}
+              aria-busy={queue.isFetching}
+              onClick={() => void queue.refetch()}
+            >
+              {queue.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </div>
+        )}
         {queue.isPending ? (
           <div className={loadingShellClass}>
             <div className={loadingToolbarClass}>
@@ -148,13 +176,15 @@ export function DockingConfirmation({ user }: { user: User }) {
             </div>
             <SkeletonTable columns={4} rows={4} compact />
           </div>
-        ) : (
+        ) : queue.data ? (
           <RequestTable
             rows={rows}
             actions={actions}
-            emptyMessage="No trucks are waiting for docking."
+            emptyMessage={queue.error
+              ? "No docking records in the last successful update."
+              : "No trucks are waiting for docking."}
           />
-        )}
+        ) : null}
       </section>
       {selected && (
         <DockDialog
@@ -209,7 +239,7 @@ function DockDialog({
     >
       <div className={dialogHeadClass}>
         <div>
-          <p className="mb-[0.35rem] text-soc5-lime-deep text-xs font-semibold tracking-wide uppercase">
+          <p className="mb-[0.35rem] text-linehaul-lime-ink text-xs font-semibold tracking-wide uppercase">
             {request.cluster}
           </p>
           <h2>Dock truck</h2>

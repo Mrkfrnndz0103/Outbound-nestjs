@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { loginModalCardClass, loginModalLayerClass } from "../../lib/uiClasses";
+import { AccessibleDialog } from "../AccessibleDialog";
 import { AmbientGlows } from "./AmbientGlows";
 import { FooterBar } from "./FooterBar";
 import { QrPanel } from "./QrPanel";
@@ -18,48 +19,44 @@ export function LoginCard({
 }: LoginCardProps) {
   if (modal) {
     return (
-      <div
-        className={`${loginModalLayerClass}${visible ? "" : " pointer-events-none"}`}
-        aria-hidden={!visible}
+      <AccessibleDialog
+        open={visible}
+        label="Sign in to SOC 5 Outbound"
+        dismissible={false}
+        overlayClassName={loginModalLayerClass}
+        className={`${loginModalCardClass} translate-y-0 opacity-100 animate-login-modal-enter motion-reduce:animate-none`}
       >
-        <section
-          className={`${loginModalCardClass}${visible ? " translate-y-0 opacity-100 animate-login-modal-enter motion-reduce:animate-none" : " invisible"}`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Sign in to SOC 5 Outbound"
-        >
-          <div className="relative grid lg:grid-cols-[1fr_1fr]">
-            <QrPanel enabled={visible} compact />
-            <div
-              aria-hidden
-              className="absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-line lg:block"
-            />
-            <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
-              <span className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-muted backdrop-blur-md">
-                OR
-              </span>
-            </div>
-            <div className="flex items-center gap-3 px-5 lg:hidden">
-              <span className="h-px flex-1 bg-line" />
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-muted">
-                OR
-              </span>
-              <span className="h-px flex-1 bg-line" />
-            </div>
-            <section className="flex items-center justify-center px-4 py-4 sm:px-5">
-              <Reveal delay={140} className="w-full max-w: 330px">
-                {children}
-              </Reveal>
-            </section>
+        <div className="relative grid lg:grid-cols-[1fr_1fr]">
+          <QrPanel enabled={visible} compact />
+          <div
+            aria-hidden
+            className="absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-auth-line lg:block"
+          />
+          <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
+            <span className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted backdrop-blur-md">
+              OR
+            </span>
           </div>
-          <FooterBar compact />
-        </section>
-      </div>
+          <div className="flex items-center gap-3 px-5 lg:hidden">
+            <span className="h-px flex-1 bg-auth-line" />
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted">
+              OR
+            </span>
+            <span className="h-px flex-1 bg-auth-line" />
+          </div>
+          <section className="flex items-center justify-center px-4 py-4 sm:px-5">
+            <Reveal delay={140} className="w-full max-w-[330px]">
+              {children}
+            </Reveal>
+          </section>
+        </div>
+        <FooterBar compact />
+      </AccessibleDialog>
     );
   }
 
   return (
-    <div className="relative flex min-height: 100dvh items-center justify-center overflow-hidden bg-linear-to-br from-page via-page to-page-2 px-4 py-6">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-linear-to-br from-auth-page via-auth-page to-auth-page-2 px-4 py-6">
       <AmbientGlows />
 
       <main className="relative w-full max-w-[860px] overflow-hidden rounded-2xl border border-white/20 bg-white/[0.08] shadow-[0_30px_70px_-28px_rgba(14,24,54,0.65)] backdrop-blur-2xl">
@@ -70,21 +67,21 @@ export function LoginCard({
           {/* Vertical divider */}
           <div
             aria-hidden
-            className="absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-line lg:block"
+            className="absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-auth-line lg:block"
           />
           <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
-            <span className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-muted backdrop-blur-md">
+            <span className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted backdrop-blur-md">
               OR
             </span>
           </div>
 
           {/* Mobile divider */}
           <div className="flex items-center gap-3 px-5 lg:hidden">
-            <span className="h-px flex-1 bg-line" />
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-muted">
+            <span className="h-px flex-1 bg-auth-line" />
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted">
               OR
             </span>
-            <span className="h-px flex-1 bg-line" />
+            <span className="h-px flex-1 bg-auth-line" />
           </div>
 
           {/* Right panel - Form */}

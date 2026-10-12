@@ -24,13 +24,13 @@ test('renders the unauthenticated login entry', async ({ page }) => {
 
   await expect(page).toHaveTitle(/SOC 5 Outbound/);
   await expect(
-    page.getByRole('main', { name: 'Primary content' }),
+    page.getByRole('main', { name: 'Primary content', includeHidden: true }),
   ).toBeVisible({ timeout: 10_000 });
   await expect(
-    page.getByRole('link', { name: 'Dashboard', exact: true }),
+    page.getByRole('link', { name: 'Dashboard', exact: true, includeHidden: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('navigation', { name: 'Primary navigation' }),
+    page.getByRole('navigation', { name: 'Primary navigation', includeHidden: true }),
   ).toBeVisible();
   await expect(page.getByText('Login as')).toBeVisible({
     timeout: loginEntryTimeout,
@@ -65,11 +65,11 @@ test('keeps the login modal compact on desktop viewports', async ({ page }) => {
   const box = await dialog.boundingBox();
   expect(box).not.toBeNull();
   expect(box?.width).toBeLessThanOrEqual(500);
-  await expect(dialog).toHaveCSS('overflow-y', 'hidden');
-  await expect(dialog.locator('..')).toHaveCSS('overflow', 'hidden');
+  await expect(dialog).toHaveCSS('overflow-y', 'auto');
+  await expect(dialog.locator('..')).toHaveCSS('overflow-y', 'auto');
 });
 
-test('uses a compact app scale only on desktop viewports', async ({ page }) => {
+test('keeps natural app sizing on desktop and mobile viewports', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
 
@@ -77,7 +77,7 @@ test('uses a compact app scale only on desktop viewports', async ({ page }) => {
   await expect(page.getByText('Login as')).toBeVisible({
     timeout: loginEntryTimeout,
   });
-  await expect(appShell).toHaveCSS('zoom', '0.88');
+  await expect(appShell).toHaveCSS('zoom', '1');
 
   await page.setViewportSize({ width: 800, height: 800 });
   await expect(appShell).toHaveCSS('zoom', '1');

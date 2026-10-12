@@ -1,9 +1,9 @@
 import { Printer, X } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { QRCodeSVG } from "qrcode.react";
 import type { TruckRequest } from "../types";
 import {
-  driverQrActiveCellClass,
-  driverQrCellClass,
   driverQrClass,
   iconButtonClass,
   printDialogClass,
@@ -61,42 +61,20 @@ function dockTime(request: TruckRequest) {
       });
 }
 
-function qrCells(value: string) {
-  const size = 21;
-  let seed = 0;
-  for (let index = 0; index < value.length; index += 1)
-    seed = (seed * 31 + value.charCodeAt(index)) >>> 0;
-  const cells: boolean[] = [];
-  for (let row = 0; row < size; row += 1) {
-    for (let column = 0; column < size; column += 1) {
-      const finder =
-        (row < 7 && column < 7) ||
-        (row < 7 && column > 13) ||
-        (row > 13 && column < 7);
-      const finderInner =
-        finder &&
-        (row % 6 === 0 ||
-          column % 6 === 0 ||
-          (row % 6 >= 2 && row % 6 <= 4 && column % 6 >= 2 && column % 6 <= 4));
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      cells.push(
-        finder ? finderInner : (seed + row * 17 + column * 29) % 5 < 2,
-      );
-    }
-  }
-  return cells;
-}
-
 function loadSlotClass(slot: string) {
   switch (slot) {
     case "load-single":
       return truckLabelLoadSingleClass;
     case "load-left":
     case "load-third":
-      return truckLabelLoadLeftClass;
+      return slot === "load-third"
+        ? "left-[4%] w-[21.2%]"
+        : truckLabelLoadLeftClass;
     case "load-right":
     case "load-first":
-      return truckLabelLoadRightClass;
+      return slot === "load-first"
+        ? "left-[51.1%] w-[21.2%]"
+        : truckLabelLoadRightClass;
     case "load-second":
       return truckLabelLoadSecondClass;
     default:
@@ -104,17 +82,69 @@ function loadSlotClass(slot: string) {
   }
 }
 
-function DriverQr({ value }: { value: string }) {
-  const cells = qrCells(value || "DRIVER");
+function FittedLabelText({
+  value,
+  className = "h-full",
+}: {
+  value: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const fit = () => {
+      element.style.fontSize = "";
+      const maximum = Number.parseFloat(getComputedStyle(element).fontSize);
+      if (!element.clientWidth || !element.clientHeight) return;
+      const fits = () =>
+        element.scrollWidth <= element.clientWidth + 1 &&
+        element.scrollHeight <= element.clientHeight + 1;
+      if (fits()) return;
+      let low = 1;
+      let high = maximum;
+      for (let step = 0; step < 10; step += 1) {
+        const size = (low + high) / 2;
+        element.style.fontSize = `${size}px`;
+        if (fits()) low = size;
+        else high = size;
+      }
+      element.style.fontSize = `${Math.floor(low * 10) / 10}px`;
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(element);
+    window.addEventListener("beforeprint", fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("beforeprint", fit);
+    };
+  }, [value]);
   return (
-    <div className={driverQrClass} role="img" aria-label={`Driver ID QR ${value}`}>
-      {cells.map((active, index) => (
-        <i
-          key={index}
-          className={`${driverQrCellClass}${active ? ` ${driverQrActiveCellClass}` : ""}`}
-        />
-      ))}
-    </div>
+    <span
+      ref={ref}
+      data-label-text
+      className={`block w-full content-center leading-[1.05] transition-none ${className}`}
+    >
+      {value}
+    </span>
+  );
+}
+
+function DriverQr({ value }: { value: string }) {
+  if (!value.trim()) return null;
+  return (
+    <QRCodeSVG
+      value={value}
+      className={driverQrClass}
+      size={128}
+      level="M"
+      marginSize={4}
+      bgColor="#ffffff"
+      fgColor="#000000"
+      role="img"
+      aria-label={`Driver ID QR ${value}`}
+    />
   );
 }
 
@@ -138,62 +168,94 @@ function loadSlots(kind: TemplateKind, values: string[]) {
 export function PrintableTruckLabel({
   request,
   onClose,
+  returnFocus,
 }: {
   request: TruckRequest;
   onClose: () => void;
+  returnFocus?: HTMLElement | null;
 }) {
   const clusterValues = requestedLoads(request);
   const kind = templateKind(clusterValues.length);
 
   return createPortal(
-    <Modal
-      open
-      onClose={onClose}
-      className={printDialogClass}
-      ariaLabel="Printable truck label"
-    >
-      <div className={printToolbarClass}>
-        <strong className={printToolbarTitleClass}>Printable LH label</strong>
-        <div className={printToolbarActionsClass}>
-          <button
-            className={`${secondaryButtonClass} text-xs font-bold`}
-            type="button"
-            onClick={() => window.print()}
-          >
-            <Printer size={16} />
-            Print
-          </button>
-          <button
-            className={iconButtonClass}
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <X size={18} />
-          </button>
-        </div>
-      </div>
-      <div className={printPreviewClass}>
-        <div className={truckLabelClass}>
-          <img className={truckLabelImageClass} src={templateSrc[kind]} alt="" />
-          <div className={`${truckLabelValueClass} ${truckLabelPlateClass}`}>{request.plate_number || ""}</div>
-          <div className={`${truckLabelValueClass} ${truckLabelDriverClass}`}>
-            <DriverQr value={request.driver_id || ""} />
-            <span>{request.driver_id || ""}</span>
-          </div>
-          <div className={`${truckLabelValueClass} ${truckLabelDockClass}`}>{request.dock_no}</div>
-          <div className={`${truckLabelValueClass} ${truckLabelDockTimeClass}`}>{dockTime(request)}</div>
-          {loadSlots(kind, clusterValues).map((slot) => (
-            <div
-              key={slot.className}
-              className={`${truckLabelValueClass} ${truckLabelLoadBaseClass} ${loadSlotClass(slot.className)}`}
+    <div className="truck-label-print-root">
+      <Modal
+        open
+        portal={false}
+        returnFocus={returnFocus}
+        onClose={onClose}
+        className={printDialogClass}
+        ariaLabel="Printable truck label"
+      >
+        <div className={printToolbarClass}>
+          <strong className={printToolbarTitleClass}>Printable LH label</strong>
+          <div className={printToolbarActionsClass}>
+            <button
+              className={`${secondaryButtonClass} text-xs font-bold`}
+              type="button"
+              onClick={() => window.print()}
             >
-              {slot.value}
-            </div>
-          ))}
+              <Printer size={16} />
+              Print
+            </button>
+            <button
+              className={iconButtonClass}
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
-      </div>
-    </Modal>,
+        <div className={printPreviewClass}>
+          <div className={truckLabelClass} data-truck-label>
+            <img
+              className={truckLabelImageClass}
+              src={templateSrc[kind]}
+              alt=""
+            />
+            <div
+              data-label-field="plate"
+              className={`${truckLabelValueClass} ${truckLabelPlateClass}`}
+            >
+              <FittedLabelText value={request.plate_number || ""} />
+            </div>
+            <div
+              data-label-field="driver"
+              className={`${truckLabelValueClass} ${truckLabelDriverClass}`}
+            >
+              <DriverQr value={request.driver_id || ""} />
+              <FittedLabelText
+                value={request.driver_id || ""}
+                className="h-[28%]"
+              />
+            </div>
+            <div
+              data-label-field="dock"
+              className={`${truckLabelValueClass} ${truckLabelDockClass}`}
+            >
+              <FittedLabelText value={request.dock_no} />
+            </div>
+            <div
+              data-label-field="time"
+              className={`${truckLabelValueClass} ${truckLabelDockTimeClass}`}
+            >
+              <FittedLabelText value={dockTime(request)} />
+            </div>
+            {loadSlots(kind, clusterValues).map((slot) => (
+              <div
+                key={slot.className}
+                data-label-field={slot.className}
+                className={`${truckLabelValueClass} ${truckLabelLoadBaseClass} ${loadSlotClass(slot.className)}`}
+              >
+                <FittedLabelText value={slot.value} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
+    </div>,
     document.body,
   );
 }

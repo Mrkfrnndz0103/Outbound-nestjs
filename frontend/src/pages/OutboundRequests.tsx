@@ -1,3 +1,4 @@
+import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
 import {
   BadgeCheck,
   CircleCheck,
@@ -11,7 +12,7 @@ import {
   Table2,
   Truck,
 } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { textButtonClass } from "../lib/uiClasses";
 import {
   compactRequestRowClass,
@@ -195,6 +196,8 @@ export function OutboundRequests({
   const [selectedRequest, setSelectedRequest] = useState<TruckRequest | null>(
     null,
   );
+  const drawerTrigger = useRef<HTMLElement | null>(null);
+  const printTrigger = useRef<HTMLElement | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [rejecting, setRejecting] = useState<TruckRequest | null>(null);
@@ -244,6 +247,10 @@ export function OutboundRequests({
     });
   }
 
+  const emptyMessage = requests.isFetching || requests.error || requests.isPlaceholderData
+    ? "No requests in the last successful results."
+    : "No live requests match the current filters.";
+
   return (
     <div className={requestPageClass}>
       <section className={requestWorkspaceClass} aria-label="Linehaul requests">
@@ -283,6 +290,7 @@ export function OutboundRequests({
         {printRequest && (
           <PrintableTruckLabel
             request={printRequest}
+            returnFocus={printTrigger.current}
             onClose={() => setPrintRequest(null)}
           />
         )}
@@ -290,7 +298,7 @@ export function OutboundRequests({
           className={tableShellClass}
           aria-label="Outbound linehaul request records"
         >
-          <div className="relative z-20 flex min-w-0 flex-wrap items-center justify-start gap-2 border-b border-[rgb(15_42_43/8%)] bg-[linear-gradient(180deg,rgb(248_250_249/98%),rgb(245_249_247/96%))] px-2.5 py-1.5 max-[680px]:flex-col max-[680px]:items-stretch max-[680px]:gap-1.5 max-[680px]:p-[.45rem]">
+          <div className="relative z-20 flex min-w-0 flex-wrap items-center justify-start gap-2 border-b border-soc5-line bg-linehaul-surface-soft px-2.5 py-1.5 max-[680px]:flex-col max-[680px]:items-stretch max-[680px]:gap-1.5 max-[680px]:p-[.45rem]">
             <LhTableToolbar
               filters={filters}
               onChange={changeFilters}
@@ -355,6 +363,13 @@ export function OutboundRequests({
                 </button>
               </fieldset>
             </div>
+            <RequestFetchNotice
+              hasData={requests.data !== undefined}
+              fetching={requests.isFetching}
+              previousFilters={requests.isPlaceholderData}
+              error={requests.error}
+              onRetry={refreshManually}
+            />
           </div>
           {view === "table" ? (
             <div className={recordsScrollClass}>
@@ -461,20 +476,13 @@ export function OutboundRequests({
                   </span>
                 </div>
                 <div className={requestTableBodyClass}>
-                  {requests.isFetching && (
+                  {requests.isPending && (
                     <SkeletonRequestTable
                       rows={6}
                       columns={visibleColumns.length + 1}
                     />
                   )}
-                  {requests.error && (
-                    <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
-                      {requests.error.message}
-                    </div>
-                  )}
-                  {!requests.isFetching &&
-                    !requests.error &&
-                    rows.map((row, index) => {
+                  {rows.map((row, index) => {
                       const isExpanded = expandedRow === row.id;
                       const isAlerting =
                         (row.status === "PENDING" ||
@@ -483,7 +491,7 @@ export function OutboundRequests({
                       return (
                         <div className="contents" key={row.id}>
                           <div
-                            className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${isExpanded ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${isAlerting ? "bg-[#f6f9e9]! ring-1 ring-inset ring-[#a2c500] motion-safe:animate-pulse" : ""}`}
+                            className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${isExpanded ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${isAlerting ? "bg-linehaul-surface-soft! ring-1 ring-inset ring-[#a2c500] motion-safe:animate-pulse" : ""}`}
                             style={
                               { "--row-index": index } as React.CSSProperties
                             }
@@ -596,9 +604,11 @@ export function OutboundRequests({
                             <LhRowActionMenu
                               open={openRow === row.id}
                               ariaLabel={`Actions for request ${row.id}`}
-                              onToggle={() =>
-                                setOpenRow(openRow === row.id ? null : row.id)
-                              }
+                              onToggle={() => {
+                                drawerTrigger.current = document.activeElement instanceof HTMLElement
+                                  ? document.activeElement : null;
+                                setOpenRow(openRow === row.id ? null : row.id);
+                              }}
                             >
                               <button
                                 role="menuitem"
@@ -616,6 +626,7 @@ export function OutboundRequests({
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
+                                  printTrigger.current = drawerTrigger.current;
                                   setPrintRequest(row);
                                   setOpenRow(null);
                                 }}
@@ -653,16 +664,16 @@ export function OutboundRequests({
                           </div>
                           {isExpanded && (
                             <section
-                              className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-[#e5ebe6] border-l-2 border-l-[#a2c500] bg-[#fbfcf7] px-5 py-3 text-xs text-[#202b2e]"
+                              className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-soc5-line border-l-2 border-l-[#a2c500] bg-linehaul-surface-soft px-5 py-3 text-xs text-soc5-ink"
                               aria-label={`Expanded details for request ${row.id}`}
                             >
                               <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
                                 <dl>
-                                  <div className="border-b border-[#e9eeea] pb-3">
-                                    <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#718071]">
+                                  <div className="border-b border-soc5-line pb-3">
+                                    <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
                                       Cluster
                                     </dt>
-                                    <dd className="wrap-break-word text-base font-semibold leading-6 tracking-normal text-[#26352d]">
+                                    <dd className="wrap-break-word text-base font-semibold leading-6 tracking-normal text-soc5-ink">
                                       {formatCluster(row.cluster)}
                                     </dd>
                                   </div>
@@ -679,13 +690,13 @@ export function OutboundRequests({
                                       <dl className="grid gap-2">
                                         {fields.map(({ key, label, value }) => (
                                           <div
-                                            className="min-w-0 border-b border-[#e9eeea] pb-2"
+                                            className="min-w-0 border-b border-soc5-line pb-2"
                                             key={key}
                                           >
-                                            <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#718071]">
+                                            <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
                                               {label}
                                             </dt>
-                                            <dd className="wrap-break-word text-xs font-medium leading-4 text-[#33423a]">
+                                            <dd className="wrap-break-word text-xs font-medium leading-4 text-soc5-ink">
                                               {value}
                                             </dd>
                                           </div>
@@ -700,24 +711,22 @@ export function OutboundRequests({
                         </div>
                       );
                     })}
-                  {!requests.isFetching &&
-                    !requests.error &&
-                    rows.length === 0 && (
+                  {requests.data && rows.length === 0 && (
                       <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
-                        No live requests match the current filters.
+                        {emptyMessage}
                       </div>
                     )}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="grid min-h-0 content-start grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] gap-[10px] p-3 overflow-auto bg-[#f8f9f7]">
-              {requests.isFetching ? (
+            <div className="grid min-h-0 content-start grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] gap-[10px] p-3 overflow-auto bg-linehaul-surface-soft">
+              {requests.isPending ? (
                 <SkeletonCardList rows={4} />
               ) : (
                 rows.map((row) => (
                   <article
-                    className="lh-record-card flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-[#c7cead] hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap"
+                    className="lh-record-card flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap"
                     key={row.id}
                   >
                     <div>
@@ -741,14 +750,17 @@ export function OutboundRequests({
                         type="button"
                         className={textButtonClass}
                         aria-label="View details"
-                        onClick={() => setSelectedRequest(row)}
+                        onClick={(event) => {
+                          drawerTrigger.current = event.currentTarget;
+                          setSelectedRequest(row);
+                        }}
                       >
                         View details
                       </button>
                       <button
                         type="button"
                         className={textButtonClass}
-                        onClick={() => setPrintRequest(row)}
+                        onClick={(event) => { printTrigger.current = event.currentTarget; setPrintRequest(row); }}
                       >
                         <Printer size={14} />
                         Print label
@@ -756,6 +768,9 @@ export function OutboundRequests({
                     </div>
                   </article>
                 ))
+              )}
+              {requests.data && rows.length === 0 && (
+                <p className="col-span-full p-8 text-center text-sm text-soc5-muted">{emptyMessage}</p>
               )}
             </div>
           )}
@@ -774,11 +789,13 @@ export function OutboundRequests({
       {selectedRequest && (
         <OutboundRequestDrawer
           request={selectedRequest}
+          returnFocus={drawerTrigger.current}
           onClose={() => setSelectedRequest(null)}
         />
       )}
       {rejecting && (
         <OutboundRejectDialog
+          returnFocus={drawerTrigger.current}
           request={rejecting}
           busy={rejectRequest.isPending}
           error={rejectRequest.error?.message}
@@ -793,7 +810,7 @@ export function OutboundRequests({
       )}
       {toast && (
         <div
-          className="fixed right-5 bottom-5 z-30 max-w-[min(420px,calc(100vw-32px))] rounded-[7px] border border-[#c8d68f] bg-[#fbfdec] px-[14px] py-[11px] text-xs text-soc5-ink shadow-[0_8px_24px_rgb(32_32_34/14%)]"
+          className="fixed right-5 bottom-5 z-30 max-w-[min(420px,calc(100vw-32px))] rounded-[7px] border border-soc5-line bg-linehaul-surface-soft px-[14px] py-[11px] text-xs text-soc5-ink shadow-[0_8px_24px_rgb(32_32_34/14%)]"
           role="status"
         >
           {toast}

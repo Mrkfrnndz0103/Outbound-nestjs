@@ -1,3 +1,4 @@
+import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
@@ -13,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import type { FormEvent } from "react";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { iconButtonClass, textButtonClass } from "../lib/uiClasses";
 import {
   compactFormDialogClass,
@@ -173,6 +174,7 @@ export function MidmileRequests({ user }: { user: User }) {
     action: MmAction;
   } | null>(null);
   const [notice, setNotice] = useState("");
+  const modalTrigger = useRef<HTMLElement | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [view, setView] = useState<"table" | "card">("table");
   const [printRequest, setPrintRequest] = useState<TruckRequest | null>(null);
@@ -264,6 +266,10 @@ export function MidmileRequests({ user }: { user: User }) {
     openRequestsSheet();
     window.setTimeout(() => setExporting(false), 700);
   }
+  const emptyMessage = requests.isFetching || requests.error || requests.isPlaceholderData
+    ? "No requests in the last successful results."
+    : "No live requests match the current filters.";
+
   return (
     <div className={`${requestPageClass}${selected ? " lh-drawer-open" : ""}`}>
       <section
@@ -281,6 +287,7 @@ export function MidmileRequests({ user }: { user: User }) {
         {printRequest && (
           <PrintableTruckLabel
             request={printRequest}
+            returnFocus={modalTrigger.current}
             onClose={() => setPrintRequest(null)}
           />
         )}
@@ -289,7 +296,7 @@ export function MidmileRequests({ user }: { user: User }) {
           className={tableShellClass}
           aria-label="Midmile linehaul request records"
         >
-          <div className="relative z-20 flex min-w-0 flex-wrap items-center justify-start gap-2 border-b border-[rgb(15_42_43/8%)] bg-[linear-gradient(180deg,rgb(248_250_249/98%),rgb(245_249_247/96%))] px-2.5 py-1.5 max-[680px]:flex-col max-[680px]:items-stretch max-[680px]:gap-1.5 max-[680px]:p-[.45rem]">
+          <div className="relative z-20 flex min-w-0 flex-wrap items-center justify-start gap-2 border-b border-soc5-line bg-linehaul-surface-soft px-2.5 py-1.5 max-[680px]:flex-col max-[680px]:items-stretch max-[680px]:gap-1.5 max-[680px]:p-[.45rem]">
             <LhTableToolbar
               filters={filters}
               onChange={changeFilters}
@@ -333,24 +340,26 @@ export function MidmileRequests({ user }: { user: User }) {
                   <button
                     className={requestAssignClass}
                     type="button"
-                    onClick={() =>
+                    onClick={(event) => {
+                      modalTrigger.current = event.currentTarget;
                       setSelected({
                         request: selectedRequest,
                         action: "assign-truck",
-                      })
-                    }
+                      });
+                    }}
                   >
                     Assign
                   </button>
                   <button
                     className={requestRejectClass}
                     type="button"
-                    onClick={() =>
+                    onClick={(event) => {
+                      modalTrigger.current = event.currentTarget;
                       setSelected({
                         request: selectedRequest,
                         action: "reject-mm",
-                      })
-                    }
+                      });
+                    }}
                   >
                     Reject
                   </button>
@@ -382,6 +391,13 @@ export function MidmileRequests({ user }: { user: User }) {
                 </button>
               </fieldset>
             </div>
+            <RequestFetchNotice
+              hasData={requests.data !== undefined}
+              fetching={requests.isFetching}
+              previousFilters={requests.isPlaceholderData}
+              error={requests.error}
+              onRetry={() => void requests.refetch()}
+            />
           </div>
           {view === "table" ? (
             <div className={recordsScrollClass}>
@@ -476,14 +492,7 @@ export function MidmileRequests({ user }: { user: User }) {
                       columns={visibleColumns.length + 1}
                     />
                   )}
-                  {requests.error && (
-                    <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
-                      {requests.error.message}
-                    </div>
-                  )}
-                  {!requests.isPending &&
-                    !requests.error &&
-                    (requests.data?.data ?? []).map((row, index) => (
+                  {(requests.data?.data ?? []).map((row, index) => (
                       <Fragment key={row.id}>
                         <div
                           className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${expandedRow === row.id ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""}`}
@@ -584,9 +593,10 @@ export function MidmileRequests({ user }: { user: User }) {
                           <LhRowActionMenu
                             open={openRow === row.id}
                             ariaLabel={`Actions for request ${row.id}`}
-                            onToggle={() =>
-                              setOpenRow(openRow === row.id ? null : row.id)
-                            }
+                            onToggle={() => {
+                              modalTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                              setOpenRow(openRow === row.id ? null : row.id);
+                            }}
                           >
                             <button
                               type="button"
@@ -635,16 +645,16 @@ export function MidmileRequests({ user }: { user: User }) {
                         </div>
                         {expandedRow === row.id && (
                           <section
-                            className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-[#e5ebe6] border-l-2 border-l-[#a2c500] bg-[#fbfcf7] px-5 py-3 text-xs text-[#202b2e]"
+                            className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-soc5-line border-l-2 border-l-[#a2c500] bg-linehaul-surface-soft px-5 py-3 text-xs text-soc5-ink"
                             aria-label={`Expanded details for request ${row.id}`}
                           >
                             <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
                               <dl>
-                                <div className="border-b border-[#e9eeea] pb-3">
-                                  <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#718071]">
+                                <div className="border-b border-soc5-line pb-3">
+                                  <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
                                     Cluster
                                   </dt>
-                                  <dd className="wrap-break-word text-base font-bold leading-6 tracking-normal text-[#26352d]">
+                                  <dd className="wrap-break-word text-base font-bold leading-6 tracking-normal text-soc5-ink">
                                     {formatCluster(row.cluster)}
                                   </dd>
                                 </div>
@@ -659,13 +669,13 @@ export function MidmileRequests({ user }: { user: User }) {
                                       <dl className="grid gap-2">
                                         {fields.map(({ key, label, value }) => (
                                           <div
-                                            className="min-w-0 border-b border-[#e9eeea] pb-2"
+                                            className="min-w-0 border-b border-soc5-line pb-2"
                                             key={key}
                                           >
-                                            <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#718071]">
+                                            <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
                                               {label}
                                             </dt>
-                                            <dd className="wrap-break-word text-xs font-medium leading-4 text-[#33423a]">
+                                            <dd className="wrap-break-word text-xs font-medium leading-4 text-soc5-ink">
                                               {value}
                                             </dd>
                                           </div>
@@ -680,24 +690,22 @@ export function MidmileRequests({ user }: { user: User }) {
                         )}
                       </Fragment>
                     ))}
-                  {!requests.isPending &&
-                    !requests.error &&
-                    (requests.data?.data ?? []).length === 0 && (
+                  {requests.data && requests.data.data.length === 0 && (
                       <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
-                        No live requests match the current filters.
+                        {emptyMessage}
                       </div>
                     )}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="grid min-h-0 content-start grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] gap-[10px] p-3 overflow-auto bg-[#f8f9f7]">
+            <div className="grid min-h-0 content-start grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] gap-[10px] p-3 overflow-auto bg-linehaul-surface-soft">
               {requests.isPending ? (
                 <SkeletonCardList rows={4} />
               ) : (
                 (requests.data?.data ?? []).map((row) => (
                   <article
-                    className="flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-[#c7cead] hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap"
+                    className="flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap"
                     key={row.id}
                   >
                     <div>
@@ -720,7 +728,7 @@ export function MidmileRequests({ user }: { user: User }) {
                       <button
                         type="button"
                         className={textButtonClass}
-                        onClick={() => setPrintRequest(row)}
+                        onClick={(event) => { modalTrigger.current = event.currentTarget; setPrintRequest(row); }}
                       >
                         <Printer size={14} />
                         Print label
@@ -728,6 +736,9 @@ export function MidmileRequests({ user }: { user: User }) {
                     </div>
                   </article>
                 ))
+              )}
+              {requests.data && requests.data.data.length === 0 && (
+                <p className="col-span-full p-8 text-center text-sm text-soc5-muted">{emptyMessage}</p>
               )}
             </div>
           )}
@@ -745,6 +756,7 @@ export function MidmileRequests({ user }: { user: User }) {
 
         {selected && (
           <MidmileActionDialog
+            returnFocus={modalTrigger.current}
             selection={selected}
             busy={transition.isPending}
             error={transition.error?.message}
@@ -759,12 +771,14 @@ export function MidmileRequests({ user }: { user: User }) {
 
 function MidmileActionDialog({
   selection,
+  returnFocus,
   busy,
   error,
   onClose,
   onSubmit,
 }: {
   selection: { request: TruckRequest; action: MmAction };
+  returnFocus?: HTMLElement | null;
   busy: boolean;
   error?: string;
   onClose: () => void;
@@ -782,6 +796,7 @@ function MidmileActionDialog({
   }
   return (
     <Modal
+      returnFocus={returnFocus}
       open
       onClose={onClose}
       className={compactFormDialogClass}
@@ -790,7 +805,7 @@ function MidmileActionDialog({
     >
       <div className={dialogHeadClass}>
         <div>
-          <p className="mb-[0.35rem] text-soc5-lime-deep text-xs font-bold tracking-wider uppercase">
+          <p className="mb-[0.35rem] text-linehaul-lime-ink text-xs font-bold tracking-wider uppercase">
             {selection.request.cluster}
           </p>
           <h2 id="action-title">

@@ -73,7 +73,7 @@ export interface RequestMetrics {
   by_status: Partial<Record<Status, number>>;
 }
 export interface RequestAnalytics {
-  truck_sizes: Partial<Record<"4W" | "6W" | "10W" | "6WF", number>>;
+  truck_sizes: Partial<Record<"4W" | "4WAUV" | "4WCV" | "6W" | "10W" | "6WF", number>>;
   hourly: Array<{ label: string; count: number }>;
   shift_start: string;
   average_dwell_minutes?: number | null;

@@ -25,6 +25,7 @@ import {
   formatRequestDetailDateTime,
 } from "./requestPresentation";
 import { StatusBadge } from "../StatusBadge";
+import { RequestCancellationRemarks } from "./RequestCancellationRemarks";
 import type { TruckRequest } from "../../types";
 
 export function OutboundRequestDrawer({
@@ -103,6 +104,7 @@ export function OutboundRequestDrawer({
           <dd>{displayRequestValue(request.plate_number)}</dd>
         </div>
       </dl>
+      <RequestCancellationRemarks remarks={request.cancellation_remarks} />
     </AccessibleDialog>
   );
 }

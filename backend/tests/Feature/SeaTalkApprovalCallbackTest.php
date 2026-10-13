@@ -31,6 +31,7 @@ final class SeaTalkApprovalCallbackTest extends TestCase
         config()->set('database.default', 'sqlite');
         config()->set('database.connections.sqlite.database', ':memory:');
         config()->set('services.seatalk.approval.callback_signing_secret', 'callback-secret');
+        config()->set('services.seatalk.app_secret', 'app-secret');
         DB::purge('sqlite');
         DB::reconnect('sqlite');
         $this->createSchema();
@@ -51,15 +52,8 @@ final class SeaTalkApprovalCallbackTest extends TestCase
         $this->assertSame('APPROVED', DB::table('seatalk_approval_assignments')->where('id', $this->assignmentId)->value('status'));
         $this->assertSame(1, DB::table('request_events')->count());
         $this->assertSame(1, DB::table('seatalk_callback_events')->count());
-        $this->assertSame(
-            'processed',
-            json_decode($first->getContent(), true, 512, JSON_THROW_ON_ERROR)['status']
-        );
-
-        $this->assertSame(
-            'duplicate',
-            json_decode($second->getContent(), true, 512, JSON_THROW_ON_ERROR)['status']
-        );
+        $this->assertSame(['code' => 0], json_decode($first->getContent(), true, 512, JSON_THROW_ON_ERROR));
+        $this->assertSame(['code' => 0], json_decode($second->getContent(), true, 512, JSON_THROW_ON_ERROR));
 
         $this->assertSame(1, DB::table('notifications')->count());
 
@@ -80,10 +74,7 @@ final class SeaTalkApprovalCallbackTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('PENDING', DB::table('requests')->where('id', $this->requestId)->value('status'));
         $this->assertSame(0, DB::table('request_events')->count());
-        $this->assertSame(
-            'ignored',
-            json_decode($response->getContent(), true, 512, JSON_THROW_ON_ERROR)['status']
-        );
+        $this->assertSame(['code' => 0], json_decode($response->getContent(), true, 512, JSON_THROW_ON_ERROR));
 
         $this->assertDatabaseHas('seatalk_callback_events', [
             'status' => 'ignored',
@@ -92,14 +83,48 @@ final class SeaTalkApprovalCallbackTest extends TestCase
 
     }
 
-    public function test_signature_uses_raw_body_and_constant_time_comparison_contract(): void
+    public function test_authenticated_seatalk_rejection_matches_web_state_and_ignores_late_approval(): void
+    {
+        $payload = $this->payload() + ['event_id' => 'reject-1', 'reason' => 'Wrong dock'];
+        $body = json_encode($payload);
+        $url = '/api/v1/integrations/seatalk/approval/reject';
+
+        $headers = $this->approvalHeaders($url, $body);
+        $this->withHeaders($headers)->postJson($url, $payload)->assertOk()->assertExactJson(['code' => 0]);
+        $this->withHeaders($headers)->postJson($url, $payload)->assertOk()->assertExactJson(['code' => 0]);
+        $this->assertDatabaseHas('requests', [
+            'id' => $this->requestId, 'status' => 'REJECTED', 'approval_status' => 'REJECTED',
+            'rejection_return_role' => 'ops_pic', 'rejected_by' => $this->profileId, 'approval_source' => 'SEATALK',
+        ]);
+        $this->assertDatabaseHas('notifications', ['request_id' => $this->requestId, 'user_id' => $this->profileId]);
+        $this->assertDatabaseCount('request_events', 1);
+
+        $lateApproval = $this->payload() + ['event_id' => 'late-approval'];
+        $lateBody = json_encode($lateApproval, JSON_THROW_ON_ERROR);
+        $this->withHeaders($this->approvalHeaders('/api/v1/integrations/seatalk/approval/approve', $lateBody))
+            ->postJson('/api/v1/integrations/seatalk/approval/approve', $lateApproval)
+            ->assertOk()->assertExactJson(['code' => 0]);
+        $this->assertDatabaseHas('requests', ['id' => $this->requestId, 'status' => 'REJECTED', 'approval_version' => 1]);
+        $this->assertDatabaseCount('request_events', 1);
+    }
+
+    public function test_wrong_signature_cannot_reject_a_request(): void
+    {
+        $this->withHeaders(['Signature' => str_repeat('0', 64)])
+            ->postJson('/api/v1/integrations/seatalk/approval/reject', $this->payload() + ['reason' => 'Wrong dock'])
+            ->assertUnauthorized();
+        $this->assertDatabaseHas('requests', ['id' => $this->requestId, 'status' => 'PENDING']);
+        $this->assertDatabaseCount('request_events', 0);
+    }
+
+    public function test_event_signature_uses_raw_body_and_constant_time_comparison_contract(): void
     {
         $raw = '{"item_id":"item-1"}';
         $signature = hash('sha256', $raw.'callback-secret');
 
-        $this->assertTrue(SeaTalkCallbackSignature::verify($raw, $signature, 'callback-secret'));
-        $this->assertFalse(SeaTalkCallbackSignature::verify($raw, strtoupper($signature).'x', 'callback-secret'));
-        $this->assertFalse(SeaTalkCallbackSignature::verify($raw, null, 'callback-secret'));
+        $this->assertTrue(SeaTalkCallbackSignature::verifyEvent($raw, $signature, 'callback-secret'));
+        $this->assertFalse(SeaTalkCallbackSignature::verifyEvent($raw, strtoupper($signature).'x', 'callback-secret'));
+        $this->assertFalse(SeaTalkCallbackSignature::verifyEvent($raw, null, 'callback-secret'));
     }
 
     public function test_callback_endpoint_is_rate_limited_before_signature_processing(): void
@@ -139,6 +164,21 @@ final class SeaTalkApprovalCallbackTest extends TestCase
         ];
     }
 
+    private function approvalHeaders(string $path, string $body): array
+    {
+        $date = 'Tue, 13 Oct 2026 12:00:00 GMT';
+        $token = 'callback-token';
+
+        return [
+            'Content-Type' => 'application/json',
+            'Date' => $date,
+            'x-token' => $token,
+            'Authorization' => SeaTalkCallbackSignature::approvalSignature(
+                'POST', $path, 'application/json', $body, $date, $token, 'app-secret',
+            ),
+        ];
+    }
+
     private function createSchema(): void
     {
         Schema::create('profiles', function (Blueprint $table): void {
@@ -152,6 +192,8 @@ final class SeaTalkApprovalCallbackTest extends TestCase
             $table->string('status');
             $table->uuid('created_by')->nullable();
             $table->string('rejection_remarks')->nullable();
+            $table->string('rejection_return_role')->nullable();
+            $table->text('cancellation_remarks')->nullable();
 
             $table->string('approval_status')->default('PENDING');
             $table->uuid('approved_by')->nullable();

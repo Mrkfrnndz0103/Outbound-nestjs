@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Page, TruckRequest, User } from "../types";
+import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 
 const { queue } = vi.hoisted(() => ({
   queue: {
@@ -30,6 +31,7 @@ const user: User = {
   role: "doc_officer",
   is_admin: false,
 };
+const queueAlerts = { alerts: [], acknowledge: vi.fn() } as unknown as QueueSnapshot;
 
 beforeEach(() => {
   queue.data = undefined;
@@ -41,7 +43,7 @@ beforeEach(() => {
 describe("docking queue feedback", () => {
   it("shows a retryable error instead of an empty queue when the initial fetch fails", () => {
     queue.error = new Error("Network unavailable");
-    const markup = renderToStaticMarkup(<DockingConfirmation user={user} />);
+    const markup = renderToStaticMarkup(<DockingConfirmation user={user} queue={queueAlerts} />);
 
     expect(markup).toContain('role="alert"');
     expect(markup).toContain("Unable to load the docking queue");
@@ -67,7 +69,7 @@ describe("docking queue feedback", () => {
       total: 1,
     };
     queue.error = new Error("Network unavailable");
-    const markup = renderToStaticMarkup(<DockingConfirmation user={user} />);
+    const markup = renderToStaticMarkup(<DockingConfirmation user={user} queue={queueAlerts} />);
 
     expect(markup).toContain("North Hub");
     expect(markup).toContain("may be outdated");
@@ -82,7 +84,7 @@ describe("docking queue feedback", () => {
       per_page: 100,
       total: 0,
     };
-    const markup = renderToStaticMarkup(<DockingConfirmation user={user} />);
+    const markup = renderToStaticMarkup(<DockingConfirmation user={user} queue={queueAlerts} />);
 
     expect(markup).toContain("No trucks are waiting for docking.");
     expect(markup).not.toContain('role="alert"');
@@ -91,7 +93,7 @@ describe("docking queue feedback", () => {
   it("disables Retry and announces progress while retrying", () => {
     queue.error = new Error("Network unavailable");
     queue.isFetching = true;
-    const markup = renderToStaticMarkup(<DockingConfirmation user={user} />);
+    const markup = renderToStaticMarkup(<DockingConfirmation user={user} queue={queueAlerts} />);
 
     expect(markup).toContain("Retrying");
     expect(markup).toContain('disabled=""');

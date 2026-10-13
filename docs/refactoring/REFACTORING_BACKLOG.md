@@ -70,3 +70,36 @@
 - **Recommendation:** In `OutboundRequests.tsx` and `MidmileRequests.tsx`, distinguish initial loading from background fetching. Keep the last successful rows visible during refresh, show a small refresh indicator, and retain cached data with a retry message on refresh failure. Preserve action permissions and stale-action protections.
 - **Status:** Implemented (2026-10-12). Tables and cards retain cached query results during background refresh/failure. Shared accessible feedback distinguishes initial failures, cached refresh failures, and previous-filter results; Retry uses the existing refetch callback. Successful empty responses receive an empty state in both views. Query settings, APIs, permission checks, and mutation logic are preserved.
 - **Verification:** Ten browser recovery cases cover both request pages, table/card retention, delayed refresh, failed refresh/retry, filter placeholders, cached empty results, and initial failure followed by a successful empty response. All 32 targeted browser checks pass, including recovery, request workflows/permissions, operational themes, and keyboard overlays. All 70 unit tests, production build, targeted source lint, diff whitespace checks, and independent source review pass.
+
+## Request Actor Attribution
+
+- **Category:** Data presentation / API metadata
+- **Priority:** Medium
+- **Sprint discovered:** Request-table audit and accessibility improvements (2026-10-12)
+- **Resolution:** List and detail responses derive `mm_fte_id` / `mm_fte_name` from the latest `TRUCK_ASSIGNED` event and `doc_officer_id` / `doc_officer_name` from the latest `DRIVER_ASSIGNED` event. Timestamp ties use descending event ID. Final docking remains attributed to Ops PIC through `TRUCK_DOCKED`. Outbound, midmile, and shared docking table fields use the recorded name or ID and show “Not recorded” when attribution is missing. Creator metadata, row permissions, and lifecycle rules are preserved; no migration is required.
+- **Status:** Implemented (2026-10-13). Live historical event completeness is unverified.
+- **Verification:** Backend regression checks cover list/detail attribution, creator separation, final docking actor separation, missing events/profiles/actor IDs, and timestamp ties. Isolated backend suite: 128 passed, 13 PostgreSQL-only checks skipped. All 77 frontend tests pass, including recorded names/IDs and missing metadata. Four browser cases verify actor names and preserved controls for Ops PIC, FTE Ops, FTE MM, and DOC Officer. Production build, frontend lint, and targeted PHP style checks pass.
+
+## Request Table Detail Consolidation
+
+- **Category:** Frontend maintainability
+- **Priority:** Low
+- **Sprint discovered:** Request-table audit and accessibility improvements (2026-10-12)
+- **Recommendation:** Consolidate the duplicated outbound and midmile detail field definitions in a future refactoring sprint. Preserve role-specific actions and the common table presentation added in this sprint.
+- **Status:** Open
+
+## Linehaul SeaTalk Approval Cycle Delivery
+
+- **Category:** Integration / workflow consistency
+- **Priority:** High
+- **Sprint discovered:** Linehaul backend workflow phase (2026-10-13)
+- **Recommendation:** In the approved provider integration phase, reuse ApprovalRouter to create fresh assignments for initial submissions and corrected/resubmitted requests. Synchronizing an item with closed assignments does not recreate an actionable provider assignment. Confirm provider callback identity/version semantics before allowing delayed callbacks to act on a newer correction cycle. Validate with a staging SeaTalk test app.
+- **Status:** Open
+
+## Historical MM Rejection Recovery
+
+- **Category:** Data integrity / historical workflow
+- **Priority:** High
+- **Sprint discovered:** Linehaul backend workflow phase (2026-10-13)
+- **Recommendation:** Assess historical CANCELLED requests against decision events and approval metadata before proposing recovery of MM rejections. Do not infer rejection from status alone or rewrite production records as part of the additive REJECTED schema migration.
+- **Status:** Open

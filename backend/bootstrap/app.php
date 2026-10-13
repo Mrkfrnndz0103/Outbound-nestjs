@@ -12,6 +12,7 @@ use App\Http\Middleware\IdempotencyMiddleware;
 use App\Http\Middleware\RequestTelemetry;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\VerifySeaTalkCallback;
+use App\Http\Middleware\VerifySeaTalkEventCallback;
 use App\Http\Middleware\VerifySessionCsrf;
 use App\Jobs\ExpireSeaTalkAssignments;
 use App\Jobs\SyncRequestsToGoogleSheetJob;
@@ -73,6 +74,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'supabase.auth' => AuthenticateSupabase::class,
             'idempotency' => IdempotencyMiddleware::class,
             'seatalk.callback' => VerifySeaTalkCallback::class,
+            'seatalk.event.callback' => VerifySeaTalkEventCallback::class,
             'session.csrf' => VerifySessionCsrf::class,
         ]);
     })

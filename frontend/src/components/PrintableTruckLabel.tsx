@@ -193,6 +193,7 @@ export function PrintableTruckLabel({
             <button
               className={`${secondaryButtonClass} text-xs font-bold`}
               type="button"
+              disabled={!request.driver_id?.trim()}
               onClick={() => window.print()}
             >
               <Printer size={16} />

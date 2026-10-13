@@ -1,3 +1,8 @@
+import {
+  RequestDetailRow,
+  RequestRecordHead,
+  RequestRecordRow,
+} from "../components/request/RequestRecordTable";
 import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
 import {
   BadgeCheck,
@@ -8,11 +13,10 @@ import {
   ListChecks,
   Printer,
   RefreshCw,
-  SlidersHorizontal,
   Table2,
   Truck,
 } from "lucide-react";
-import { lazy, Suspense, useRef, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { textButtonClass } from "../lib/uiClasses";
 import {
   compactRequestRowClass,
@@ -27,7 +31,6 @@ import {
   requestRowClass,
   requestSelectedRowClass,
   requestTableBodyClass,
-  requestTableHeadClass,
   requestToolbarIconClass,
   requestViewToggleClass,
   requestWorkspaceClass,
@@ -53,8 +56,11 @@ import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
 import { StatusBadge, StatusText } from "../components/StatusBadge";
 import { RequestElapsedTime } from "../components/RequestTable";
 import { RequestExpandButton } from "../components/request/RequestExpandButton";
+import { RequestCancellationRemarks } from "../components/request/RequestCancellationRemarks";
 import {
+  canEditDockedRequest,
   displayRequestValue as displayValue,
+  displayRequestActor,
   formatRequestDateTime as formatDateTime,
   formatRequestDetailDateTime as formatDetailDateTime,
 } from "../components/request/requestPresentation";
@@ -82,6 +88,11 @@ function formatCluster(value: string) {
     .filter(Boolean)
     .join(" · ");
 }
+function canApproveRequest(role: User["role"], row: TruckRequest) {
+  return role === "fte_ops"
+    && (row.status === "PENDING" || row.status === "REROUTED")
+    && approvalStateFor(row.status, row.approval_status) === "pending";
+}
 function shouldRenderExpandedField(
   fieldKey: string,
   visibleColumns: readonly string[],
@@ -107,7 +118,11 @@ function expandedRequestGroups(
           label: "Provide Time",
           value: formatDetailDateTime(row.provide_time),
         },
-        { key: "assignedTime", label: "Assigned Time", value: "-" },
+        {
+          key: "assignedTime",
+          label: "Assigned Time",
+          value: formatDetailDateTime(row.driver_assigned_at),
+        },
       ],
     },
     {
@@ -121,7 +136,7 @@ function expandedRequestGroups(
         {
           key: "mmFte",
           label: "MM FTE",
-          value: displayValue(row.created_by_name ?? row.created_by),
+          value: displayRequestActor(row.mm_fte_name, row.mm_fte_id),
         },
         {
           key: "opsPic",
@@ -146,7 +161,7 @@ function expandedRequestGroups(
         {
           key: "docOfficer",
           label: "Doc Officer",
-          value: displayValue(row.created_by_name ?? row.created_by),
+          value: displayRequestActor(row.doc_officer_name, row.doc_officer_id),
         },
       ],
     },
@@ -218,12 +233,22 @@ export function OutboundRequests({
   }
   const canApprove = _user.role === "fte_ops";
   const canEdit = _user.role === "fte_ops";
-  const selectedCount = selectedIds.size;
-  const approvalLabel = selectedCount > 2 ? "Bulk Approved" : "Approved";
-  const canActOnApproval = (row: TruckRequest) =>
-    canApprove &&
-    (row.status === "PENDING" || row.status === "REROUTED") &&
-    approvalStateFor(row.status, row.approval_status) === "pending";
+  const eligibleApprovalRows = rows.filter((row) => canApproveRequest(_user.role, row));
+  const eligibleApprovalIds = new Set(eligibleApprovalRows.map((row) => row.id));
+  const selectedApprovalIds = eligibleApprovalRows
+    .filter((row) => selectedIds.has(row.id))
+    .map((row) => row.id);
+  const selectedCount = selectedApprovalIds.length;
+  const allEligibleSelected = eligibleApprovalRows.length > 0 && selectedCount === eligibleApprovalRows.length;
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const eligibleIds = new Set(rows.filter((row) => canApproveRequest(_user.role, row)).map((row) => row.id));
+      const next = new Set([...current].filter((id) => eligibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [rows, _user.role]);
+  const approvalLabel = `Approve selected (${selectedCount})`;
+  const canActOnApproval = (row: TruckRequest) => canApproveRequest(_user.role, row);
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -240,11 +265,22 @@ export function OutboundRequests({
   }
 
   function approveSelected() {
-    const ids = [...selectedIds];
+    const ids = selectedApprovalIds;
     if (!ids.length) return;
-    approveRequests.mutate(ids, {
+    approveRequests.mutate({ ids, operationId: crypto.randomUUID() }, {
       onSuccess: () => setSelectedIds(new Set()),
     });
+  }
+
+  function selectAllEligible(checked: boolean) {
+    setSelectedIds(checked ? new Set(eligibleApprovalIds) : new Set());
+  }
+
+  function canEditRow(row: TruckRequest) {
+    if (canEdit && canActOnApproval(row)) return true;
+    if (canEditDockedRequest(_user.role, _user.id, row)) return true;
+    return row.status === "REJECTED" && row.next_action_role === _user.role
+      && (_user.role === "fte_ops" || _user.role === "ops_pic");
   }
 
   const emptyMessage = requests.isFetching || requests.error || requests.isPlaceholderData
@@ -336,6 +372,30 @@ export function OutboundRequests({
               </button>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
+              {canApprove && eligibleApprovalRows.length > 0 && (
+                <label className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-soc5-muted">
+                  <input
+                    type="checkbox"
+                    className={requestCheckboxClass}
+                    aria-label="Select all eligible requests"
+                    aria-checked={selectedCount > 0 && !allEligibleSelected ? "mixed" : allEligibleSelected}
+                    checked={allEligibleSelected}
+                    disabled={approveRequests.isPending}
+                    onChange={(event) => selectAllEligible(event.target.checked)}
+                  />
+                  Select all
+                </label>
+              )}
+              {canApprove && selectedCount > 0 && (
+                <button
+                  type="button"
+                  className={`${requestApproveClass} h-8! whitespace-nowrap px-3!`}
+                  disabled={approveRequests.isPending}
+                  onClick={approveSelected}
+                >
+                  {approvalLabel}
+                </button>
+              )}
               <fieldset
                 className={requestViewToggleClass}
                 style={{ border: 0, margin: 0, padding: 0 }}
@@ -373,15 +433,21 @@ export function OutboundRequests({
           </div>
           {view === "table" ? (
             <div className={recordsScrollClass}>
-              <div
+              <table
+                aria-label="Request records"
                 className={recordsTableClass}
                 style={{
-                  gridTemplateColumns: hasColumn("status")
-                    ? `minmax(10rem, max-content) repeat(${visibleColumns.length}, minmax(112px, max-content))`
-                    : `repeat(${visibleColumns.length + 1}, minmax(112px, max-content))`,
+                  gridTemplateColumns: `5rem repeat(${visibleColumns.length}, minmax(7rem, 1fr)) 4rem`,
+                  minWidth: `${visibleColumns.length * 7 + 9}rem`,
                 }}
               >
-                <div className={requestTableHeadClass}>
+                <RequestRecordHead
+                  sort={filters.sort}
+                  direction={filters.direction}
+                >
+                  <span>
+                    <span className="sr-only">Row controls</span>
+                  </span>
                   {hasColumn("status") && (
                     <span>
                       <CircleCheck size={14} />
@@ -397,18 +463,21 @@ export function OutboundRequests({
                   {hasColumn("requestTime") && (
                     <button
                       type="button"
+                      data-sort="request_timestamp"
                       onClick={() => sortBy("request_timestamp")}
                     >
                       <Clock3 size={14} />
                       <span>Request Time</span>
-                      <SlidersHorizontal size={13} />
                     </button>
                   )}
                   {hasColumn("cluster") && (
-                    <button type="button" onClick={() => sortBy("cluster")}>
+                    <button
+                      type="button"
+                      data-sort="cluster"
+                      onClick={() => sortBy("cluster")}
+                    >
                       <Hash size={14} />
                       <span>Cluster</span>
-                      <SlidersHorizontal size={13} />
                     </button>
                   )}
                   {hasColumn("region") && (
@@ -418,17 +487,23 @@ export function OutboundRequests({
                     </span>
                   )}
                   {hasColumn("dock") && (
-                    <button type="button" onClick={() => sortBy("dock_no")}>
+                    <button
+                      type="button"
+                      data-sort="dock_no"
+                      onClick={() => sortBy("dock_no")}
+                    >
                       <Truck size={14} />
                       <span>Dock #</span>
-                      <SlidersHorizontal size={13} />
                     </button>
                   )}
                   {hasColumn("backlogs") && (
-                    <button type="button" onClick={() => sortBy("backlogs")}>
+                    <button
+                      type="button"
+                      data-sort="backlogs"
+                      onClick={() => sortBy("backlogs")}
+                    >
                       <ListChecks size={14} />
                       <span>Backlogs</span>
-                      <SlidersHorizontal size={13} />
                     </button>
                   )}
                   {hasColumn("backlogsTime") && (
@@ -439,11 +514,11 @@ export function OutboundRequests({
                   {hasColumn("plateNumber") && (
                     <button
                       type="button"
+                      data-sort="plate_number"
                       onClick={() => sortBy("plate_number")}
                     >
                       <Hash size={14} />
                       <span>Plate number</span>
-                      <SlidersHorizontal size={13} />
                     </button>
                   )}
                   {hasColumn("mmFte") && <span>MM FTE</span>}
@@ -463,71 +538,63 @@ export function OutboundRequests({
                   {hasColumn("docOfficer") && <span>DOC Officer</span>}
                   {hasColumn("opsPic") && <span>OPS/PIC</span>}
                   <span className="justify-center">
-                    {canApprove && selectedCount > 0 && (
-                      <button
-                        type="button"
-                        className={`${requestApproveClass} h-8! whitespace-nowrap px-3!`}
-                        disabled={approveRequests.isPending}
-                        onClick={approveSelected}
-                      >
-                        {approvalLabel}
-                      </button>
-                    )}
+<span className="sr-only">Actions</span>
                   </span>
-                </div>
-                <div className={requestTableBodyClass}>
+                </RequestRecordHead>
+                <tbody className={requestTableBodyClass}>
                   {requests.isPending && (
-                    <SkeletonRequestTable
-                      rows={6}
-                      columns={visibleColumns.length + 1}
-                    />
+                    <RequestDetailRow columns={visibleColumns.length + 2}>
+                      <SkeletonRequestTable
+                        rows={6}
+                        columns={visibleColumns.length + 2}
+                      />
+                    </RequestDetailRow>
                   )}
                   {rows.map((row, index) => {
                       const isExpanded = expandedRow === row.id;
-                      const isAlerting =
-                        (row.status === "PENDING" ||
-                          row.status === "REROUTED") &&
-                        _queue.alerts.some((alert) => alert.id === row.id);
+                      const isAlerting = _queue.alerts.some((alert) => alert.id === row.id);
                       return (
-                        <div className="contents" key={row.id}>
-                          <div
-                            className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${isExpanded ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${isAlerting ? "bg-linehaul-surface-soft! ring-1 ring-inset ring-[#a2c500] motion-safe:animate-pulse" : ""}`}
+                        <Fragment key={row.id}>
+                          <RequestRecordRow
+                            className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${isExpanded ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${isAlerting ? "request-alert-blink" : ""}`}
                             style={
                               { "--row-index": index } as React.CSSProperties
                             }
                           >
+                            <span className="flex min-w-max items-center gap-2 overflow-visible whitespace-nowrap">
+                              <RequestExpandButton
+                                requestId={row.id}
+                                expanded={isExpanded}
+                                onToggle={() => toggleExpanded(row)}
+                              />
+                              {canApprove &&
+                                (row.status === "PENDING" ||
+                                  row.status === "REROUTED") && (
+                                  <input
+                                    type="checkbox"
+                                    className={requestCheckboxClass}
+                                    aria-label={`Select request ${row.id}`}
+                                    checked={
+                                      row.approval_status === "APPROVED" ||
+                                      selectedIds.has(row.id)
+                                    }
+                                    disabled={
+                                      approvalStateFor(
+                                        row.status,
+                                        row.approval_status,
+                                      ) !== "pending" ||
+                                      approveRequests.isPending
+                                    }
+                                    onChange={() => toggleSelected(row.id)}
+                                    onClick={(event) =>
+                                      event.stopPropagation()
+                                    }
+                                  />
+                              )}
+                            </span>
                             {hasColumn("status") && (
-                              <span className="flex min-w-max items-center gap-2 overflow-visible whitespace-nowrap">
-                                <RequestExpandButton
-                                  requestId={row.id}
-                                  expanded={isExpanded}
-                                  onToggle={() => toggleExpanded(row)}
-                                />
-                                {canApprove &&
-                                  (row.status === "PENDING" ||
-                                    row.status === "REROUTED") && (
-                                    <input
-                                      type="checkbox"
-                                      className={requestCheckboxClass}
-                                      aria-label={`Select request ${row.id}`}
-                                      checked={
-                                        row.approval_status === "APPROVED" ||
-                                        selectedIds.has(row.id)
-                                      }
-                                      disabled={
-                                        approvalStateFor(
-                                          row.status,
-                                          row.approval_status,
-                                        ) !== "pending" ||
-                                        approveRequests.isPending
-                                      }
-                                      onChange={() => toggleSelected(row.id)}
-                                      onClick={(event) =>
-                                        event.stopPropagation()
-                                      }
-                                    />
-                                )}
-                                <StatusText status={row.status} />
+                              <span className="flex items-center gap-2">
+                                <StatusText status={row.display_status ?? row.status} />
                                 <ApprovalStateBadge
                                   status={row.status}
                                   approvalStatus={row.approval_status}
@@ -568,9 +635,7 @@ export function OutboundRequests({
                             )}
                             {hasColumn("mmFte") && (
                               <span>
-                                {displayValue(
-                                  row.created_by_name ?? row.created_by,
-                                )}
+                                {displayRequestActor(row.mm_fte_name, row.mm_fte_id)}
                               </span>
                             )}
                             {hasColumn("truckSize") && (
@@ -585,15 +650,13 @@ export function OutboundRequests({
                             {hasColumn("linehaulTrip") && (
                               <span>{displayValue(row.linehaul_trip_no)}</span>
                             )}
-                            {hasColumn("assignedTime") && <span>-</span>}
+                            {hasColumn("assignedTime") && <span>{formatDateTime(row.driver_assigned_at)}</span>}
                             {hasColumn("dockedTime") && (
                               <span>{formatDateTime(row.docked_time)}</span>
                             )}
                             {hasColumn("docOfficer") && (
                               <span>
-                                {displayValue(
-                                  row.created_by_name ?? row.created_by,
-                                )}
+                                {displayRequestActor(row.doc_officer_name, row.doc_officer_id)}
                               </span>
                             )}
                             {hasColumn("opsPic") && (
@@ -647,7 +710,7 @@ export function OutboundRequests({
                                   Reject
                                 </button>
                               )}
-                              {canEdit && canActOnApproval(row) && (
+                              {canEditRow(row) && (
                                 <button
                                   role="menuitem"
                                   type="button"
@@ -661,9 +724,11 @@ export function OutboundRequests({
                                 </button>
                               )}
                             </LhRowActionMenu>
-                          </div>
+                          </RequestRecordRow>
                           {isExpanded && (
+                            <RequestDetailRow columns={visibleColumns.length + 2}>
                             <section
+                              id={`request-detail-${row.id}`}
                               className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-soc5-line border-l-2 border-l-[#a2c500] bg-linehaul-surface-soft px-5 py-3 text-xs text-soc5-ink"
                               aria-label={`Expanded details for request ${row.id}`}
                             >
@@ -705,19 +770,23 @@ export function OutboundRequests({
                                     </section>
                                   ))}
                                 </div>
+                                <RequestCancellationRemarks remarks={row.cancellation_remarks} />
                               </div>
                             </section>
+                            </RequestDetailRow>
                           )}
-                        </div>
+                        </Fragment>
                       );
                     })}
                   {requests.data && rows.length === 0 && (
+                      <RequestDetailRow columns={visibleColumns.length + 2}>
                       <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
                         {emptyMessage}
                       </div>
+                      </RequestDetailRow>
                     )}
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="grid min-h-0 content-start grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] gap-[10px] p-3 overflow-auto bg-linehaul-surface-soft">
@@ -726,7 +795,7 @@ export function OutboundRequests({
               ) : (
                 rows.map((row) => (
                   <article
-                    className="lh-record-card flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap"
+                    className={`lh-record-card flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap ${_queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
                     key={row.id}
                   >
                     <div>
@@ -745,7 +814,7 @@ export function OutboundRequests({
                         {row.truck_size}
                       </strong>
                       <span>{row.backlogs.toLocaleString()} backlogs</span>
-                      <StatusBadge status={row.status} uppercase />
+                      <StatusBadge status={row.display_status ?? row.status} uppercase />
                       <button
                         type="button"
                         className={textButtonClass}
@@ -753,10 +822,23 @@ export function OutboundRequests({
                         onClick={(event) => {
                           drawerTrigger.current = event.currentTarget;
                           setSelectedRequest(row);
+                          _queue.acknowledge(row.id);
                         }}
                       >
                         View details
                       </button>
+                      {canEditRow(row) && (
+                        <button
+                          type="button"
+                          className={textButtonClass}
+                          onClick={() => {
+                            updateRequest.reset();
+                            setEditing(row);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
                       <button
                         type="button"
                         className={textButtonClass}

@@ -31,7 +31,7 @@ intentional placeholders; no real credential belongs in that file.
 | `SEATALK_APPROVAL_ENABLED` | Explicit rollout gate | `false` |
 | `SEATALK_APP_ID` | SeaTalk Workspace App ID | empty |
 | `SEATALK_APP_SECRET` | Workspace App secret | empty |
-| `SEATALK_CALLBACK_SIGNING_SECRET` | Secret used to verify Approval Center callbacks | empty |
+| `SEATALK_CALLBACK_SIGNING_SECRET` | Secret used for event callback SHA-256 verification | empty |
 | `SEATALK_APPROVAL_BASE_URL` | SeaTalk Approval Center API host | `https://openapi.seatalk.io` |
 | `SEATALK_APPROVE_CALLBACK_URL` | Backend approve callback URL | empty |
 | `SEATALK_REJECT_CALLBACK_URL` | Backend reject callback URL | empty |
@@ -48,21 +48,21 @@ continue to return only its established OAuth fields.
 ## External provider-contract prerequisite
 
 The exact current provider contract is an external prerequisite before
-`SEATALK_APPROVAL_ENABLED=true` may be used. It is **not confirmed in this
-repository**. The deployment owner must obtain and retain current SeaTalk
-provider or administrator confirmation for all of the following:
+`SEATALK_APPROVAL_ENABLED=true` may be used. Create/get request shapes follow
+SeaTalk's documented APIs. The deployment owner must obtain and retain current
+SeaTalk provider or administrator confirmation for all remaining items:
 
 | Operation | Must be externally confirmed before activation | Repository status |
 | --- | --- | --- |
-| Create approval item | Exact HTTP method, endpoint path, request/response schema, permissions, Data Scope, and retry behavior | Not confirmed; no endpoint path is inferred here. |
-| Update approval item | Exact HTTP method, endpoint path, request/response schema, permissions, and retry behavior | Not confirmed; do not guess or enable an update call. |
-| Approve/reject callbacks | Registered callback URLs, payload fields, signature requirements, HTTP status, acknowledgement body, response deadline, and retry behavior | Not confirmed; do not claim provider-compatible acknowledgements yet. |
+| Create approval item | Permissions, Data Scope, and retry behavior | Path and documented request shape implemented; validate against the tenant. |
+| Get approval item | Permissions and returned response variants | Path and typed response wrapper implemented; validate against the tenant. |
+| Update approval item | Exact HTTP method, endpoint path, request/response schema, permissions, and retry behavior | Contract-dependent; empty path is never called. |
+| App path | Whether action button mode 2 and app path are needed | Contract-dependent; empty path is omitted and mode 2 is rejected without it. |
+| Approve/reject callbacks | Registered callback URLs, exact signature canonicalization/header format, acknowledgement and retry behavior | Signature assumptions are documented in `approval-center-implementation.md`; confirm with SeaTalk before enabling. |
 
 The existing SeaTalk login token endpoint is configured separately under
-`SEATALK_TOKEN_URL`; its presence does not confirm the Approval Center create
-or update contract. Provider traffic must remain disabled until the exact
-create/update endpoints and callback acknowledgement contract are recorded in
-this document from an external confirmation.
+`SEATALK_TOKEN_URL`. Keep provider traffic disabled until permissions, Data
+Scope, callback signature details, and tenant-specific behavior are confirmed.
 
 ## Create-item payload limits
 
@@ -95,24 +95,19 @@ for approver routing and must not be replaced by a display name or email.
 
 ## Callback signature verification
 
-Approval Center callback requests must be verified against the raw request
-body before JSON parsing or state mutation:
+Approval decision callbacks and generic SeaTalk event callbacks have separate
+signature contracts. Approve/reject uses app-secret HMAC-SHA1 and the
+`Authorization` header. Its delimiter and encoding assumptions are listed in
+[`approval-center-implementation.md`](approval-center-implementation.md) and
+must be confirmed with SeaTalk. Generic event callbacks use the documented
+`lowercase_hex_sha256(raw_request_body + callback_signing_secret)` in the
+`Signature` header. Both verifiers compare in constant time and reject missing
+or malformed signatures. Approval callback state processing is idempotent.
 
-```text
-signature = lowercase_hex_sha256(raw_request_body + callback_signing_secret)
-```
-
-SeaTalk sends the result in the `Signature` HTTP header. Comparison must be
-constant-time. Missing, malformed, or mismatched signatures are rejected. The
-callback handler must be replay-safe and idempotent; a late or duplicate
-callback is acknowledged according to the confirmed provider contract without
-changing the canonical request state.
-
-The general SeaTalk event-callback documentation requires an HTTP 200 response
-within 5 seconds and says it retries up to 3 times when no response is received.
-The checked-in Approval Center create-item documentation does not specify the
-exact acknowledgement body or retry contract for approve/reject callbacks.
-That callback-specific response contract remains an operator-confirmation item.
+The generic event URL verification handler returns the `seatalk_challenge`
+within the five-second provider deadline. The approve/reject response is
+`{"code":0}` as requested by this integration contract; confirm SeaTalk's
+callback-specific acknowledgement and retry behavior before enabling it.
 
 ## Permissions, Data Scope, and identity mapping
 

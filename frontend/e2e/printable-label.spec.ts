@@ -24,7 +24,12 @@ async function openLabel(page: Page, driverId: string | null, cluster = "North H
     } });
   });
   await page.goto("/docking");
-  await page.getByRole("button", { name: "Print", exact: true }).click();
+  if (driverId?.trim()) {
+    await page.getByRole("button", { name: "Print", exact: true }).click();
+  } else {
+    await expect(page.getByRole("button", { name: "Print", exact: true })).toBeDisabled();
+    return;
+  }
   await expect(page.getByRole("dialog", { name: "Printable truck label" })).toBeVisible();
   await page.getByRole("dialog").locator("img").evaluate(async (image: HTMLImageElement) => {
     await image.decode();
@@ -105,9 +110,10 @@ for (const driverId of ["DRV-12345", "driver/α-009 & crew"]) {
 }
 
 for (const driverId of [null, "", " \t "]) {
-  test(`an unassigned driver has no placeholder QR code: ${JSON.stringify(driverId)}`, async ({ page }) => {
+  test(`printing stays disabled until a Driver ID is saved: ${JSON.stringify(driverId)}`, async ({ page }) => {
     await openLabel(page, driverId);
-    await expect(page.getByRole("img", { name: /^Driver ID QR/ })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Printable truck label" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Print", exact: true })).toBeDisabled();
   });
 }
 

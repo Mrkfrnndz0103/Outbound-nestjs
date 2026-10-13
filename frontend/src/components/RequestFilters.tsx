@@ -10,6 +10,7 @@ export const statuses: Array<Status | "ALL"> = [
   "ASSIGNED",
   "DOCKING",
   "DOCKED",
+  "REJECTED",
   "CANCELLED",
 ];
 

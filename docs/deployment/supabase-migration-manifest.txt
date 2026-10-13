@@ -37,3 +37,4 @@
 20261009000000_normalize_legacy_request_statuses.sql
 20261009000002_harden_active_profile_read_policies.sql
 20261009000003_add_notification_updated_at.sql
+20261013040000_harden_backend_support_tables.sql

@@ -1,3 +1,8 @@
+import {
+  RequestDetailRow,
+  RequestRecordHead,
+  RequestRecordRow,
+} from "../components/request/RequestRecordTable";
 import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -36,7 +41,6 @@ import {
   requestRowClass,
   requestSelectedRowClass,
   requestTableBodyClass,
-  requestTableHeadClass,
   requestToolbarIconClass,
   requestViewToggleClass,
   requestWorkspaceClass,
@@ -58,12 +62,15 @@ import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
 import { StatusBadge, StatusText } from "../components/StatusBadge";
 import { RequestElapsedTime } from "../components/RequestTable";
 import { RequestExpandButton } from "../components/request/RequestExpandButton";
+import { RequestCancellationRemarks } from "../components/request/RequestCancellationRemarks";
 import {
   displayRequestValue as displayValue,
+  displayRequestActor,
   formatRequestDateTime as formatDateTime,
   formatRequestDetailDateTime as formatDetailDateTime,
 } from "../components/request/requestPresentation";
 import { useRequestFilters } from "../hooks/useRequestFilters";
+import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
 import { api } from "../lib/api";
 import { buildIdempotencyHeaders } from "../lib/idempotency";
@@ -110,7 +117,11 @@ function expandedRequestGroups(
           label: "Provide Time",
           value: formatDetailDateTime(row.provide_time),
         },
-        { key: "assignedTime", label: "Assigned Time", value: "-" },
+        {
+          key: "assignedTime",
+          label: "Assigned Time",
+          value: formatDetailDateTime(row.driver_assigned_at),
+        },
       ],
     },
     {
@@ -124,7 +135,7 @@ function expandedRequestGroups(
         {
           key: "mmFte",
           label: "MM FTE",
-          value: displayValue(row.created_by_name ?? row.created_by),
+          value: displayRequestActor(row.mm_fte_name, row.mm_fte_id),
         },
         {
           key: "opsPic",
@@ -149,7 +160,7 @@ function expandedRequestGroups(
         {
           key: "docOfficer",
           label: "Doc Officer",
-          value: displayValue(row.created_by_name ?? row.created_by),
+          value: displayRequestActor(row.doc_officer_name, row.doc_officer_id),
         },
       ],
     },
@@ -165,7 +176,7 @@ function expandedRequestGroups(
     .filter((group) => group.fields.length > 0);
 }
 
-export function MidmileRequests({ user }: { user: User }) {
+export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnapshot }) {
   const queryClient = useQueryClient();
   const { filters, appliedFilters, setFilters, changeFilters } =
     useRequestFilters();
@@ -204,6 +215,7 @@ export function MidmileRequests({ user }: { user: User }) {
   });
 
   function toggleSelected(id: string) {
+    queue.acknowledge(id);
     setSelectedIds((current) => {
       if (current.has(id)) return new Set();
       return new Set([id]);
@@ -401,13 +413,21 @@ export function MidmileRequests({ user }: { user: User }) {
           </div>
           {view === "table" ? (
             <div className={recordsScrollClass}>
-              <div
+              <table
+                aria-label="Request records"
                 className={recordsTableClass}
                 style={{
-                  gridTemplateColumns: `repeat(${visibleColumns.length + 1}, minmax(112px, max-content))`,
+                  gridTemplateColumns: `5rem repeat(${visibleColumns.length}, minmax(7rem, 1fr)) 4rem`,
+                  minWidth: `${visibleColumns.length * 7 + 9}rem`,
                 }}
               >
-                <div className={requestTableHeadClass}>
+                <RequestRecordHead
+                  sort={filters.sort}
+                  direction={filters.direction}
+                >
+                  <span>
+                    <span className="sr-only">Row controls</span>
+                  </span>
                   {hasColumn("status") && (
                     <span className="flex items-center gap-2">
                       <CircleCheck size={14} />
@@ -423,6 +443,7 @@ export function MidmileRequests({ user }: { user: User }) {
                   {hasColumn("requestTime") && (
                     <button
                       type="button"
+                      data-sort="request_timestamp"
                       onClick={() => sortBy("request_timestamp")}
                     >
                       <Clock3 size={14} />
@@ -430,7 +451,11 @@ export function MidmileRequests({ user }: { user: User }) {
                     </button>
                   )}
                   {hasColumn("cluster") && (
-                    <button type="button" onClick={() => sortBy("cluster")}>
+                    <button
+                      type="button"
+                      data-sort="cluster"
+                      onClick={() => sortBy("cluster")}
+                    >
                       <Hash size={14} />
                       <span>Cluster</span>
                     </button>
@@ -442,13 +467,21 @@ export function MidmileRequests({ user }: { user: User }) {
                     </span>
                   )}
                   {hasColumn("dock") && (
-                    <button type="button" onClick={() => sortBy("dock_no")}>
+                    <button
+                      type="button"
+                      data-sort="dock_no"
+                      onClick={() => sortBy("dock_no")}
+                    >
                       <Truck size={14} />
                       <span>Dock #</span>
                     </button>
                   )}
                   {hasColumn("backlogs") && (
-                    <button type="button" onClick={() => sortBy("backlogs")}>
+                    <button
+                      type="button"
+                      data-sort="backlogs"
+                      onClick={() => sortBy("backlogs")}
+                    >
                       <ListChecks size={14} />
                       <span>Backlogs</span>
                     </button>
@@ -461,6 +494,7 @@ export function MidmileRequests({ user }: { user: User }) {
                   {hasColumn("plateNumber") && (
                     <button
                       type="button"
+                      data-sort="plate_number"
                       onClick={() => sortBy("plate_number")}
                     >
                       <Hash size={14} />
@@ -483,46 +517,53 @@ export function MidmileRequests({ user }: { user: User }) {
                   {hasColumn("dockedTime") && <span>Docked Time</span>}
                   {hasColumn("docOfficer") && <span>DOC Officer</span>}
                   {hasColumn("opsPic") && <span>OPS/PIC</span>}
-                  <span />
-                </div>
-                <div className={requestTableBodyClass}>
+                  <span>
+                    <span className="sr-only">Actions</span>
+                  </span>
+                </RequestRecordHead>
+                <tbody className={requestTableBodyClass}>
                   {requests.isPending && (
-                    <SkeletonRequestTable
-                      rows={6}
-                      columns={visibleColumns.length + 1}
-                    />
+                    <RequestDetailRow columns={visibleColumns.length + 2}>
+                      <SkeletonRequestTable
+                        rows={6}
+                        columns={visibleColumns.length + 2}
+                      />
+                    </RequestDetailRow>
                   )}
                   {(requests.data?.data ?? []).map((row, index) => (
                       <Fragment key={row.id}>
-                        <div
-                          className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${expandedRow === row.id ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""}`}
+                        <RequestRecordRow
+                          className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${expandedRow === row.id ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
                           key={row.id}
                           style={
                             { "--row-index": index } as React.CSSProperties
                           }
                         >
-                          {hasColumn("status") && (
-                            <span className="flex items-center gap-2">
-                              <RequestExpandButton
-                                requestId={row.id}
-                                expanded={expandedRow === row.id}
-                                onToggle={() =>
-                                  setExpandedRow((current) =>
-                                    current === row.id ? null : row.id,
-                                  )
-                                }
+                          <span className="flex items-center gap-2">
+                            <RequestExpandButton
+                              requestId={row.id}
+                              expanded={expandedRow === row.id}
+                              onToggle={() => {
+                                setExpandedRow((current) =>
+                                  current === row.id ? null : row.id,
+                                );
+                                queue.acknowledge(row.id);
+                              }}
+                            />
+                            {row.status === "REQUESTED" && (
+                              <input
+                                type="checkbox"
+                                className={requestCheckboxClass}
+                                aria-label={`Select request ${row.id}`}
+                                checked={selectedIds.has(row.id)}
+                                onChange={() => toggleSelected(row.id)}
+                                onClick={(event) => event.stopPropagation()}
                               />
-                              {row.status === "REQUESTED" && (
-                                <input
-                                  type="checkbox"
-                                  className={requestCheckboxClass}
-                                  aria-label={`Select request ${row.id}`}
-                                  checked={selectedIds.has(row.id)}
-                                  onChange={() => toggleSelected(row.id)}
-                                  onClick={(event) => event.stopPropagation()}
-                                />
-                              )}
-                              <StatusText status={row.status} />
+                            )}
+                          </span>
+                          {hasColumn("status") && (
+                              <span className="flex items-center gap-2">
+                              <StatusText status={row.display_status ?? row.status} />
                             </span>
                           )}
                           {hasColumn("runningTime") && (
@@ -557,9 +598,7 @@ export function MidmileRequests({ user }: { user: User }) {
                           )}
                           {hasColumn("mmFte") && (
                             <span>
-                              {displayValue(
-                                row.created_by_name ?? row.created_by,
-                              )}
+                              {displayRequestActor(row.mm_fte_name, row.mm_fte_id)}
                             </span>
                           )}
                           {hasColumn("truckSize") && (
@@ -574,15 +613,13 @@ export function MidmileRequests({ user }: { user: User }) {
                           {hasColumn("linehaulTrip") && (
                             <span>{displayValue(row.linehaul_trip_no)}</span>
                           )}
-                          {hasColumn("assignedTime") && <span>-</span>}
+                          {hasColumn("assignedTime") && <span>{formatDateTime(row.driver_assigned_at)}</span>}
                           {hasColumn("dockedTime") && (
                             <span>{formatDateTime(row.docked_time)}</span>
                           )}
                           {hasColumn("docOfficer") && (
                             <span>
-                              {displayValue(
-                                row.created_by_name ?? row.created_by,
-                              )}
+                              {displayRequestActor(row.doc_officer_name, row.doc_officer_id)}
                             </span>
                           )}
                           {hasColumn("opsPic") && (
@@ -642,9 +679,11 @@ export function MidmileRequests({ user }: { user: User }) {
                               </>
                             )}
                           </LhRowActionMenu>
-                        </div>
+                        </RequestRecordRow>
                         {expandedRow === row.id && (
+                          <RequestDetailRow columns={visibleColumns.length + 2}>
                           <section
+                            id={`request-detail-${row.id}`}
                             className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-soc5-line border-l-2 border-l-[#a2c500] bg-linehaul-surface-soft px-5 py-3 text-xs text-soc5-ink"
                             aria-label={`Expanded details for request ${row.id}`}
                           >
@@ -685,18 +724,22 @@ export function MidmileRequests({ user }: { user: User }) {
                                   ),
                                 )}
                               </div>
+                              <RequestCancellationRemarks remarks={row.cancellation_remarks} />
                             </div>
                           </section>
+                          </RequestDetailRow>
                         )}
                       </Fragment>
                     ))}
                   {requests.data && requests.data.data.length === 0 && (
+                      <RequestDetailRow columns={visibleColumns.length + 2}>
                       <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
                         {emptyMessage}
                       </div>
+                      </RequestDetailRow>
                     )}
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="grid min-h-0 content-start grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] gap-[10px] p-3 overflow-auto bg-linehaul-surface-soft">
@@ -705,7 +748,7 @@ export function MidmileRequests({ user }: { user: User }) {
               ) : (
                 (requests.data?.data ?? []).map((row) => (
                   <article
-                    className="flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap"
+                    className={`flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap ${queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
                     key={row.id}
                   >
                     <div>
@@ -724,11 +767,11 @@ export function MidmileRequests({ user }: { user: User }) {
                         {row.truck_size}
                       </strong>
                       <span>{row.backlogs.toLocaleString()} backlogs</span>
-                      <StatusBadge status={row.status} uppercase />
+                      <StatusBadge status={row.display_status ?? row.status} uppercase />
                       <button
                         type="button"
                         className={textButtonClass}
-                        onClick={(event) => { modalTrigger.current = event.currentTarget; setPrintRequest(row); }}
+                        onClick={(event) => { modalTrigger.current = event.currentTarget; queue.acknowledge(row.id); setPrintRequest(row); }}
                       >
                         <Printer size={14} />
                         Print label

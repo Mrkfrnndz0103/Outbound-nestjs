@@ -1,12 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { requestQueryKey } from "../lib/requestRefresh";
 import type { Page, Status, TruckRequest, User } from "../types";
-
-let notificationAudioContext: AudioContext | null = null;
-let notificationAudio: HTMLAudioElement | null = null;
-const notificationSoundUrl = "/sounds/alert.wav";
 
 export type QueueSnapshot = {
   status: Status | null;
@@ -19,126 +15,82 @@ export type QueueSnapshot = {
   acknowledge: (id: string) => void;
 };
 
-function playNotificationChime(count: number) {
-  if (count < 1 || typeof window.AudioContext === "undefined") return;
-  const context = notificationAudioContext ?? new window.AudioContext();
-  notificationAudioContext = context;
-  void context
-    .resume()
-    .then(() => {
-      const start = context.currentTime + 0.03;
-      for (let item = 0; item < count; item += 1) {
-        const offset = item * 0.48;
-        for (const [note, frequency] of [
-          [0, 659.25],
-          [0.12, 880],
-        ] as const) {
-          const oscillator = context.createOscillator();
-          const gain = context.createGain();
-          oscillator.type = "sine";
-          oscillator.frequency.value = frequency;
-          gain.gain.setValueAtTime(0.0001, start + offset + note);
-          gain.gain.exponentialRampToValueAtTime(
-            0.12,
-            start + offset + note + 0.025,
-          );
-          gain.gain.exponentialRampToValueAtTime(
-            0.0001,
-            start + offset + note + 0.28,
-          );
-          oscillator.connect(gain).connect(context.destination);
-          oscillator.start(start + offset + note);
-          oscillator.stop(start + offset + note + 0.3);
-        }
-      }
-    })
-    .catch(() => undefined);
+export function queueStatusesForRole(role: User["role"]): Status[] {
+  switch (role) {
+    case "fte_ops":
+      return ["PENDING", "REROUTED", "REJECTED"];
+    case "fte_mm":
+      return ["REQUESTED"];
+    case "doc_officer":
+      return ["DOCKING"];
+    case "ops_pic":
+      return ["DOCKING", "DOCKED", "REJECTED"];
+  }
 }
 
-function playNotificationSound(count: number) {
-  if (count < 1) return;
-  if (typeof window.Audio === "undefined") {
-    playNotificationChime(count);
-    return;
-  }
-  let failed = false;
-  for (let item = 0; item < count; item += 1) {
-    window.setTimeout(() => {
-      const audio =
-        (notificationAudio?.cloneNode(true) as HTMLAudioElement | null) ??
-        new Audio(notificationSoundUrl);
-      audio.volume = 0.85;
-      void audio.play().catch(() => {
-        if (!failed) {
-          failed = true;
-          playNotificationChime(count);
-        }
-      });
-    }, item * 520);
-  }
+export function actionableQueueRows(role: User["role"], rows: TruckRequest[]) {
+  return rows.filter((request) => {
+    if (role === "fte_ops") {
+      return request.status === "PENDING" || request.status === "REROUTED"
+        ? request.next_action_role === undefined || request.next_action_role === "fte_ops"
+        : request.status === "REJECTED" && request.next_action_role === "fte_ops";
+    }
+    if (role === "fte_mm") return request.status === "REQUESTED";
+    if (role === "doc_officer") return request.status === "DOCKING" && !request.driver_id?.trim();
+    if (request.status === "DOCKING") return Boolean(request.driver_id?.trim());
+    return request.status === "DOCKED"
+      || (request.status === "REJECTED" && request.next_action_role === "ops_pic");
+  });
+}
+
+function queueAlertVersion(request: TruckRequest) {
+  return `${request.updated_at ?? ""}|${request.status}|${request.driver_id ?? ""}`;
+}
+
+export function unacknowledgedQueueRows(
+  rows: TruckRequest[],
+  acknowledged: ReadonlyMap<string, string>,
+) {
+  return rows.filter((request) => acknowledged.get(request.id) !== queueAlertVersion(request));
+}
+
+async function fetchAllStatusPages(status: Status) {
+  const query = `status=${status}&per_page=100&sort=created_at&direction=desc`;
+  const firstPage = await api<Page<TruckRequest>>(`/requests?${query}&page=1`);
+  if (firstPage.last_page <= 1) return firstPage.data;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.last_page - 1 }, (_, index) =>
+      api<Page<TruckRequest>>(`/requests?${query}&page=${index + 2}`),
+    ),
+  );
+  return [firstPage, ...remainingPages].flatMap((page) => page.data);
 }
 
 export function useQueueNotifications(user: User): QueueSnapshot {
-  const status: Status | null =
-    user.role === "fte_ops"
-      ? "PENDING"
-      : user.role === "fte_mm"
-        ? "PENDING"
-        : user.role === "doc_officer"
-          ? "DOCKING"
-          : null;
-  const knownIds = useRef<Set<string> | null>(null);
-  const [acknowledged, setAcknowledged] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const statuses = queueStatusesForRole(user.role);
+  const status = statuses[0] ?? null;
+  const [acknowledged, setAcknowledged] = useState<Map<string, string>>(() => new Map());
   const query = useQuery({
-    queryKey: [...requestQueryKey("notification-queue"), status],
-    queryFn: () =>
-      api<Page<TruckRequest>>(
-        `/requests?status=${status}&per_page=100&sort=created_at&direction=desc`,
-      ),
-    enabled: status !== null,
+    queryKey: [...requestQueryKey("notification-queue"), user.role, statuses],
+    queryFn: async () => {
+      const requestsByStatus = await Promise.all(statuses.map(fetchAllStatusPages));
+      const requests = new Map(requestsByStatus.flat().map((request) => [request.id, request]));
+      const rows = actionableQueueRows(user.role, [...requests.values()]);
+      return { rows, count: rows.length };
+    },
+    enabled: statuses.length > 0,
     refetchInterval: false,
     refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
-    if (!status) return;
-    const unlock = () => {
-      notificationAudio ??= new Audio(notificationSoundUrl);
-      notificationAudio.preload = "auto";
-      notificationAudio.load();
-      if (typeof window.AudioContext !== "undefined") {
-        notificationAudioContext ??= new window.AudioContext();
-        void notificationAudioContext.resume();
-      }
-    };
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
-    return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
-    };
-  }, [status]);
+    setAcknowledged(new Map());
+  }, [user.id, user.role]);
 
-  useEffect(() => {
-    if (!query.data) return;
-    const current = new Set(query.data.data.map((request) => request.id));
-    if (knownIds.current === null) {
-      knownIds.current = current;
-      if (current.size) playNotificationSound(current.size);
-      return;
-    }
-    const newCount = query.data.data.filter(
-      (request) => !knownIds.current?.has(request.id),
-    ).length;
-    knownIds.current = new Set([...knownIds.current, ...current]);
-    if (newCount) playNotificationSound(newCount);
-  }, [query.data]);
-
-  const rows = query.data?.data ?? [];
+  const rows = query.data?.rows ?? [];
   const alerts = useMemo(
-    () => rows.filter((request) => !acknowledged.has(request.id)),
+    () => unacknowledgedQueueRows(rows, acknowledged),
     [acknowledged, rows],
   );
 
@@ -146,11 +98,15 @@ export function useQueueNotifications(user: User): QueueSnapshot {
     status,
     rows,
     alerts,
-    count: query.data?.total ?? 0,
+    count: query.data?.count ?? 0,
     isPending: status !== null && query.isPending,
     error: query.error,
     refetch: () => void query.refetch(),
-    acknowledge: (id) =>
-      setAcknowledged((current) => new Set([...current, id])),
+    acknowledge: (id) => {
+      const request = rows.find((row) => row.id === id);
+      if (!request) return;
+      const version = queueAlertVersion(request);
+      setAcknowledged((current) => new Map(current).set(id, version));
+    },
   };
 }

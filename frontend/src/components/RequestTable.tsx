@@ -1,3 +1,4 @@
+import { displayRequestActor } from "./request/requestPresentation";
 import {
   ArrowDown,
   ArrowUp,
@@ -43,6 +44,7 @@ type Props = {
   visibleColumns?: string[];
   tableWrapperClassName?: string;
   emptyStateClassName?: string;
+  alertedIds?: ReadonlySet<string>;
 };
 
 type Column = {
@@ -60,7 +62,7 @@ const columns: Column[] = [
     label: "Status",
     icon: Clock3,
     render: (request) => (
-      <StatusText status={request.status} />
+      <StatusText status={request.display_status ?? request.status} />
     ),
   },
   {
@@ -120,7 +122,7 @@ const columns: Column[] = [
     key: "mm_fte",
     label: "FTE MM",
     icon: UserRound,
-    render: (request) => empty(request.created_by_name ?? request.created_by),
+    render: (request) => displayRequestActor(request.mm_fte_name, request.mm_fte_id),
   },
   {
     key: "truck_size",
@@ -150,7 +152,7 @@ const columns: Column[] = [
     key: "doc_officer",
     label: "DOC Officer",
     icon: UserRound,
-    render: (request) => empty(request.created_by_name ?? request.created_by),
+    render: (request) => displayRequestActor(request.doc_officer_name, request.doc_officer_id),
   },
 ];
 
@@ -165,6 +167,7 @@ export function RequestTable({
   visibleColumns,
   tableWrapperClassName = "",
   emptyStateClassName = "",
+  alertedIds,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   if (!rows.length)
@@ -185,7 +188,7 @@ export function RequestTable({
   function heading(column: Column) {
     const content = (
       <span className={genericRequestHeaderLabelClass}>
-        <column.icon size={14} />
+        <column.icon size={14} aria-hidden="true" />
         {column.label}
       </span>
     );
@@ -203,7 +206,7 @@ export function RequestTable({
         onClick={() => onSort(column.sortKey!)}
       >
         {content}
-        <Icon size={13} />
+        <Icon size={13} aria-hidden="true" />
       </button>
     );
   }
@@ -211,22 +214,24 @@ export function RequestTable({
   return (
     <div className={`${genericTableWrapClass} ${tableWrapperClassName}`.trim()}>
       <Skiper87 className={genericTableScrollClass}>
-        <table className={genericRequestTableClass}>
+        <table className={genericRequestTableClass} aria-label="Request records">
           <thead>
             <tr>
-              <th className={genericRequestTableHeadCellClass}>
+              <th scope="col" className={genericRequestTableHeadCellClass}>
                 <span className="sr-only">Expand</span>
               </th>
               {renderedColumns.map((column) => (
                 <th
                   key={column.key}
+                  scope="col"
+                  aria-sort={onSort && column.sortKey ? sort === column.sortKey ? direction === "asc" ? "ascending" : "descending" : "none" : undefined}
                   className={`${genericRequestTableHeadCellClass} request-column request-column--${column.key}`}
                 >
                   {heading(column)}
                 </th>
               ))}
               {actions && (
-                <th className={genericRequestTableHeadCellClass}>
+                <th scope="col" className={genericRequestTableHeadCellClass}>
                   <span className="sr-only">Actions</span>
                 </th>
               )}
@@ -238,7 +243,7 @@ export function RequestTable({
               const detailId = `request-detail-${request.id}`;
               return (
                 <Fragment key={request.id}>
-                  <tr className={`request-row ${genericRequestTableRowClass}`} aria-expanded={expanded}>
+                  <tr className={`request-row ${genericRequestTableRowClass}${alertedIds?.has(request.id) ? " request-alert-blink" : ""}`}>
                     <td
                       className={`${genericRequestTableCellClass} request-column request-column--expand`}
                       data-label="Expand"
@@ -247,7 +252,7 @@ export function RequestTable({
                         type="button"
                         className="inline-flex min-h-7 cursor-pointer items-center justify-center border-0 bg-transparent p-1 text-soc5-muted hover:text-soc5-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-soc5-lime-deep"
                         aria-expanded={expanded}
-                        aria-controls={detailId}
+                        aria-controls={expanded ? detailId : undefined}
                         aria-label={`${expanded ? "Collapse" : "Expand"} request ${request.id}`}
                         onClick={() =>
                           setExpandedId((value) =>
@@ -255,13 +260,14 @@ export function RequestTable({
                           )
                         }
                       >
-                        <ChevronDown size={15} />
+                        <ChevronDown size={15} aria-hidden="true" className={expanded ? "rotate-180" : undefined} />
                       </button>
                     </td>
                     {renderedColumns.map((column) => (
                       <td
                         key={column.key}
                          className={`${genericRequestTableCellClass} request-column request-column--${column.key} max-w-[9rem] text-ellipsis whitespace-nowrap`}
+                        title={cellValue(request, column)}
                         data-label={column.label}
                       >
                         {column.render(request)}
@@ -335,6 +341,13 @@ function formatDateTime(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function cellValue(request: TruckRequest, column: Column) {
+  if (column.key === "cluster") return request.cluster;
+  if (column.key === "linehaul_trip_no") return request.linehaul_trip_no ?? undefined;
+  const value = column.render(request);
+  return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+}
+
 function ClusterCell({ request }: { request: TruckRequest }) {
   const value = empty(request.cluster);
   const label = value === "-" ? "-" : `SOC 5 > ${value}`;
@@ -382,8 +395,9 @@ function TripCopyCell({ request }: { request: TruckRequest }) {
 
 function RequestDetails({ request }: { request: TruckRequest }) {
   const fields: Array<[string, ReactNode]> = [
-    ["Cluster", request.cluster],
-    ["Created By", request.created_by_name ?? request.created_by],
+    ...columns.filter(({ key }) => key !== "running_time").map((column): [string, ReactNode] => [column.label, column.render(request)]),
+    ["Assigned time", formatDateTime(request.driver_assigned_at)],
+        ["Created By", request.created_by_name ?? request.created_by],
     ["Created At", formatDateTime(request.created_at)],
     ["Updated At", formatDateTime(request.updated_at)],
     ["Driver", empty(request.driver_id)],

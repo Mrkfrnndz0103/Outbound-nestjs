@@ -221,6 +221,17 @@ body {
   from { opacity: 0; transform: translateY(.6rem) scale(.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes request-alert-pulse {
+  0%, 100% { background-color: rgb(194 54 70 / 6%); box-shadow: inset .2rem 0 0 rgb(194 54 70 / 48%); }
+  50% { background-color: rgb(194 54 70 / 20%); box-shadow: inset .2rem 0 0 rgb(194 54 70 / 90%); }
+}
+.request-alert-blink {
+  animation: request-alert-pulse 1.2s ease-in-out infinite;
+}
+.request-alert-blink > :first-child,
+.request-alert-blink > :last-child {
+  background-color: transparent !important;
+}
 
 /* Temporary compatibility aliases for CSS surfaces scheduled in later stages. */
 :root {

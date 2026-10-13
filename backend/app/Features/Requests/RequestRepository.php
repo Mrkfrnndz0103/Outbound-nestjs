@@ -14,7 +14,7 @@ final class RequestRepository
 {
     private const COLUMNS = ['id', 'request_timestamp', 'cluster', 'region', 'dock_no', 'backlogs', 'backlogs_timestamp', 'ob_fte', 'truck_size', 'truck_type', 'plate_number', 'provide_time', 'linehaul_trip_no', 'linehaul_trip_at', 'docked_time', 'status', 'rejection_remarks', 'driver_id', 'driver_assigned_at', 'created_by', 'created_at', 'updated_at'];
 
-    private const APPROVAL_COLUMNS = ['approval_status', 'approved_by', 'approved_at', 'approval_source', 'rejected_by', 'rejected_at', 'approval_version', 'approval_correlation_id'];
+    private const APPROVAL_COLUMNS = ['approval_status', 'approved_by', 'approved_at', 'approval_source', 'rejected_by', 'rejected_at', 'approval_version', 'approval_correlation_id', 'rejection_return_role', 'cancellation_remarks'];
 
     public function __construct(private RequestAuthorizer $authorizer) {}
 
@@ -49,7 +49,7 @@ final class RequestRepository
         $direction = $filters['direction'] ?? 'desc';
         $query->orderBy('requests.'.$sort, $direction)->orderByDesc('requests.id');
 
-        return $query
+        return $this->withWorkflowActors($query)
             ->paginate(min((int) ($filters['per_page'] ?? 20), 100))
             ->through(fn (object $request): object => $this->forActor($actor, $request));
     }
@@ -64,9 +64,8 @@ final class RequestRepository
 
         return $query
             ->pluck('total', 'status')
-            ->reduce(function (Collection $counts, int $total, string $status) use ($actor): Collection {
-                $displayStatus = $this->displayStatus($actor, $status);
-                $counts[$displayStatus] = (int) ($counts[$displayStatus] ?? 0) + $total;
+            ->reduce(function (Collection $counts, int $total, string $status): Collection {
+                $counts[$status] = (int) ($counts[$status] ?? 0) + $total;
 
                 return $counts;
             }, collect());
@@ -180,7 +179,7 @@ final class RequestRepository
                 'creator.name as created_by_name',
             ]))
             ->where('requests.id', $id);
-        $request = $query->firstOrFail();
+        $request = $this->withWorkflowActors($query)->firstOrFail();
         abort_unless($this->authorizer->canView($actor, $request), 403);
 
         return $this->forActor($actor, $request);
@@ -225,11 +224,26 @@ final class RequestRepository
             : [$status];
     }
 
-    private function displayStatus(object $actor, string $status): string
+    /**
+     * Scalar subqueries preserve pagination and existing authorization scopes.
+     * Never substitute the creator for an unrecorded workflow actor.
+     */
+    private function withWorkflowActors(Builder $query): Builder
     {
-        return in_array($actor->role, ['fte_mm', 'doc_officer'], true) && $status === RequestStatus::Rerouted->value
-            ? RequestStatus::Pending->value
-            : $status;
+        foreach (['mm_fte' => 'TRUCK_ASSIGNED', 'doc_officer' => 'DRIVER_ASSIGNED'] as $prefix => $eventType) {
+            $event = DB::table('request_events as attribution_event')
+                ->leftJoin('profiles as attribution_profile', 'attribution_profile.id', '=', 'attribution_event.actor_id')
+                ->whereColumn('attribution_event.request_id', 'requests.id')
+                ->where('attribution_event.event_type', $eventType)
+                ->orderByDesc('attribution_event.created_at')
+                ->orderByDesc('attribution_event.id')
+                ->limit(1);
+
+            $query->selectSub((clone $event)->select('attribution_event.actor_id'), $prefix.'_id');
+            $query->selectSub((clone $event)->select('attribution_profile.name'), $prefix.'_name');
+        }
+
+        return $query;
     }
 
     /**
@@ -240,7 +254,7 @@ final class RequestRepository
     private function columns(): array
     {
         $approvalColumns = Cache::remember(
-            'requests:approval-columns:v1',
+            'requests:approval-columns:v2',
             now()->addMinutes(5),
             static function (): array {
                 $columns = array_flip(Schema::getColumnListing('requests'));
@@ -258,10 +272,11 @@ final class RequestRepository
         );
     }
 
-    private function forActor(object $actor, object $request): object
+    public function forActor(object $actor, object $request): object
     {
         if (isset($request->status)) {
-            $request->status = $this->displayStatus($actor, $request->status);
+            $request->display_status = RequestStatus::displayFor($actor->role, $request->status);
+            $request->next_action_role = RequestStatus::nextActionRole($request);
         }
 
         return $request;

@@ -156,83 +156,46 @@ final class ApprovalService
                 $assignmentId,
             );
 
-            if ($isOpsRejection) {
-                // An exact completed SeaTalk rejection can be retried.
-                if (
-                    $request->status === 'REROUTED'
-                    && $assignment !== null
-                    && $assignment->status === 'REJECTED'
-                ) {
-                    $this->assertReplayAssignment(
-                        $requestId,
-                        $assignment,
-                        'REJECTED',
-                        'REQUEST_REJECTED_BY_OPS',
-                    );
-
-                    return new ApprovalResult($request, true, true);
-                }
-
-                abort_unless(
-                    in_array($request->status, ['PENDING', 'REROUTED'], true),
-                    409,
-                    "Cannot reject a {$request->status} request."
-                );
-            } else {
-                if ($this->alreadyRejected($request)) {
-                    $this->assertReplayAssignment(
-                        $requestId,
-                        $assignment,
-                        'REJECTED',
-                        'REQUEST_REJECTED_BY_MM',
-                    );
-
-                    return new ApprovalResult($request, true, true);
-                }
-
-                abort_unless(
-                    $request->status === 'REQUESTED',
-                    409,
-                    "Cannot reject a {$request->status} request."
-                );
-            }
-
-            $this->assertActiveAssignment($assignment);
-
-            $correlationId = (string) Str::uuid();
-            $toStatus = $isOpsRejection ? 'REROUTED' : 'CANCELLED';
+            $returnRole = $isOpsRejection ? 'ops_pic' : 'fte_ops';
             $eventType = $isOpsRejection
                 ? 'REQUEST_REJECTED_BY_OPS'
                 : 'REQUEST_REJECTED_BY_MM';
 
+            if ($this->alreadyRejected($request)) {
+                abort_unless(
+                    ($request->rejection_return_role ?? null) === $returnRole
+                        && ($request->rejected_by ?? null) === $actor->id
+                        && ($request->rejection_remarks ?? null) === $reason,
+                    409,
+                    'This request already has a different rejection decision.'
+                );
+                $this->assertReplayAssignment($requestId, $assignment, 'REJECTED', $eventType);
+
+                return new ApprovalResult($request, true, true);
+            }
+
+            $allowedStatuses = $isOpsRejection ? ['PENDING', 'REROUTED'] : ['REQUESTED'];
+            abort_unless(
+                in_array($request->status, $allowedStatuses, true),
+                409,
+                "Cannot reject a {$request->status} request."
+            );
+
+            $this->assertActiveAssignment($assignment);
+
+            $correlationId = (string) Str::uuid();
+            $toStatus = 'REJECTED';
             $fields = [
                 'status' => $toStatus,
                 'rejection_remarks' => $reason,
-                'approval_status' => $isOpsRejection
-                    ? 'PENDING'
-                    : 'REJECTED',
+                'rejection_return_role' => $returnRole,
+                'rejected_by' => $actor->id,
+                'rejected_at' => now(),
+                'approval_status' => 'REJECTED',
                 'approval_source' => $source->value,
-                'approval_version' => DB::raw(
-                    'COALESCE(approval_version, 0) + 1'
-                ),
+                'approval_version' => DB::raw('COALESCE(approval_version, 0) + 1'),
                 'approval_correlation_id' => $correlationId,
             ];
-
-            if ($isOpsRejection) {
-                // Rerouting creates a new pending approval state.
-                $fields += [
-                    'approved_by' => null,
-                    'approved_at' => null,
-                    'rejected_by' => null,
-                    'rejected_at' => null,
-                ];
-            } else {
-                // Preserve previous Ops approval metadata for audit history.
-                $fields += [
-                    'rejected_by' => $actor->id,
-                    'rejected_at' => now(),
-                ];
-            }
 
             $updated = $this->requests->update($requestId, $fields);
 
@@ -244,6 +207,7 @@ final class ApprovalService
                 $toStatus,
                 [
                     'rejection_remarks' => $reason,
+                    'return_role' => $returnRole,
                     'source' => $source->value,
                     'correlation_id' => $correlationId,
                     'assignment_id' => $assignment?->id,
@@ -257,6 +221,14 @@ final class ApprovalService
                     $eventType,
                     'Request rejected',
                     "Request {$requestId} was rejected by FTE Ops.",
+                );
+            } else {
+                $this->notify(
+                    $requestId,
+                    'fte_ops',
+                    $eventType,
+                    'Request returned for editing',
+                    "Request {$requestId} was rejected by FTE MM: {$reason}",
                 );
             }
 
@@ -475,7 +447,7 @@ final class ApprovalService
 
     private function alreadyRejected(object $request): bool
     {
-        return $request->status === 'CANCELLED'
+        return $request->status === 'REJECTED'
             && ($request->approval_status ?? null) === 'REJECTED';
     }
 

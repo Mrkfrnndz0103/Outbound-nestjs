@@ -92,11 +92,12 @@ export function useOutboundRequests() {
     },
   });
   const approveRequests = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async ({ ids, operationId }: { ids: string[]; operationId: string }) => {
       if (ids.length > 2) {
         return api<{ data: TruckRequest[] }>("/requests/bulk-approve", {
           method: "POST",
           body: JSON.stringify({ ids }),
+          headers: buildIdempotencyHeaders("outbound-bulk-approve", { ids, operationId }),
         });
       }
 
@@ -110,7 +111,7 @@ export function useOutboundRequests() {
         ),
       );
     },
-    onSuccess: async (_, ids) => {
+    onSuccess: async (_, { ids }) => {
       await refreshData(
         ids.length > 2
           ? `${ids.length} LH requests bulk approved.`

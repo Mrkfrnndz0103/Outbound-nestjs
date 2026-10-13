@@ -9,9 +9,10 @@ import { api } from "../lib/api";
 import { requestQueryKey } from "../lib/requestRefresh";
 import { compactFormDialogClass, dialogActionsClass, dialogFormClass, dialogHeadClass, dialogInputClass, dialogLabelClass, iconButtonClass, loadingChipClass, loadingShellClass, loadingToolbarClass, operationalPanelClass, operationalPanelCopyClass, operationalPanelHeadClass, operationalPanelTitleClass, primaryTableActionClass, secondaryButtonClass, tableActionClass, workspaceViewClass } from "../lib/uiClasses";
 import { buildIdempotencyHeaders } from "../lib/idempotency";
+import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 import type { Page, TruckRequest, User } from "../types";
 
-type DockAction = "mark-docked";
+type DockAction = "mark-docked" | "reassign-driver";
 
 export function canShowDriverAssignment(
   request: Pick<TruckRequest, "status" | "driver_id">,
@@ -27,12 +28,19 @@ export function canShowTripAssignment(
   return role === "ops_pic" && request.status === "DOCKING" && Boolean(request.driver_id);
 }
 
-export function DockingConfirmation({ user }: { user: User }) {
+export function DockingConfirmation({ user, queue }: { user: User; queue: QueueSnapshot }) {
   const client = useQueryClient();
   const [selected, setSelected] = useState<TruckRequest | null>(null);
+  const [selectedAction, setSelectedAction] = useState<DockAction>("mark-docked");
   const [dockingChecked, setDockingChecked] = useState<Set<string>>(() => new Set());
   const [printable, setPrintable] = useState<TruckRequest | null>(null);
-  const queue = useQuery({
+  const [operationId, setOperationId] = useState("");
+  function openDockDialog(request: TruckRequest, action: DockAction) {
+    setOperationId(crypto.randomUUID());
+    setSelectedAction(action);
+    setSelected(request);
+  }
+  const requestQueue = useQuery({
     queryKey: ["requests", "docking"],
     queryFn: () =>
       api<Page<TruckRequest>>(
@@ -49,10 +57,12 @@ export function DockingConfirmation({ user }: { user: User }) {
       request,
       action,
       payload,
+      operationId,
     }: {
       request: TruckRequest;
       action: DockAction;
       payload?: Record<string, unknown>;
+      operationId: string;
     }) =>
       api<TruckRequest>(`/requests/${request.id}/${action}`, {
         method: "POST",
@@ -60,18 +70,21 @@ export function DockingConfirmation({ user }: { user: User }) {
         headers: buildIdempotencyHeaders(`docking-${action}`, {
           requestId: request.id,
           action,
+          operationId,
           payload: payload ?? {},
         }),
       }),
     onSuccess: async (updated, variables) => {
       setSelected(null);
+      setSelectedAction("mark-docked");
+      if (user.role === "doc_officer") setPrintable(updated);
       if (variables.action === "mark-docked" && user.role === "ops_pic") setPrintable(updated);
       await client.invalidateQueries({ queryKey: requestQueryKey("docking") });
       await client.invalidateQueries({ queryKey: requestQueryKey("dashboard") });
       await client.invalidateQueries({ queryKey: requestQueryKey("notification-queue") });
     },
   });
-  const rows = (queue.data?.data ?? []).filter(
+  const rows = (requestQueue.data?.data ?? []).filter(
     (request) =>
       request.status === "DOCKING" || request.status === "DOCKED",
   );
@@ -80,6 +93,7 @@ export function DockingConfirmation({ user }: { user: User }) {
       <button
         type="button"
         className={tableActionClass}
+        disabled={!request.driver_id?.trim()}
         onClick={() => setPrintable(request)}
       >
         <Printer size={15} />
@@ -90,12 +104,15 @@ export function DockingConfirmation({ user }: { user: User }) {
           <input
             type="checkbox"
             checked={dockingChecked.has(request.id)}
-            onChange={(event) => setDockingChecked((current) => {
+            onChange={(event) => {
+              if (event.target.checked) queue.acknowledge(request.id);
+              setDockingChecked((current) => {
               const next = new Set(current);
               if (event.target.checked) next.add(request.id);
               else next.delete(request.id);
               return next;
-            })}
+              });
+            }}
             aria-label={`Confirm docking for ${request.id}`}
           />
           Docking
@@ -106,10 +123,20 @@ export function DockingConfirmation({ user }: { user: User }) {
           type="button"
           className={primaryTableActionClass}
           disabled={action.isPending}
-          onClick={() => setSelected(request)}
+          onClick={() => { queue.acknowledge(request.id); openDockDialog(request, "mark-docked"); }}
         >
           <ShipWheel size={15} />
-          Assigned
+          Assign Driver ID
+        </button>
+      )}
+      {user.role === "doc_officer" && request.status === "DOCKING" && Boolean(request.driver_id) && (
+        <button
+          type="button"
+          className={tableActionClass}
+          disabled={action.isPending}
+          onClick={() => openDockDialog(request, "reassign-driver")}
+        >
+          Reassign Driver ID
         </button>
       )}
       {canShowTripAssignment(request, user.role) && (
@@ -117,7 +144,7 @@ export function DockingConfirmation({ user }: { user: User }) {
           type="button"
           className={primaryTableActionClass}
           disabled={action.isPending}
-          onClick={() => setSelected(request)}
+          onClick={() => openDockDialog(request, "mark-docked")}
         >
           <ShipWheel size={15} />
           Enter LHTrip #
@@ -140,19 +167,19 @@ export function DockingConfirmation({ user }: { user: User }) {
             <p className={operationalPanelCopyClass}>Assigned trucks requiring dock action or final confirmation</p>
           </div>
         </div>
-        {queue.error && (
+        {requestQueue.error && (
           <div
             role="alert"
             className="m-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-danger-ink/20 bg-status-danger-surface p-4 text-sm text-soc5-ink"
           >
             <div>
               <p className="font-semibold">
-                {queue.data
+                {requestQueue.data
                   ? "Unable to refresh the docking queue"
                   : "Unable to load the docking queue"}
               </p>
               <p className="mt-1">
-                {queue.data
+                {requestQueue.data
                   ? "Showing the last successful update. These records may be outdated."
                   : "The queue is unavailable. Retry to check for trucks awaiting docking."}
               </p>
@@ -160,15 +187,15 @@ export function DockingConfirmation({ user }: { user: User }) {
             <button
               type="button"
               className={secondaryButtonClass}
-              disabled={queue.isFetching}
-              aria-busy={queue.isFetching}
-              onClick={() => void queue.refetch()}
+              disabled={requestQueue.isFetching}
+              aria-busy={requestQueue.isFetching}
+              onClick={() => void requestQueue.refetch()}
             >
-              {queue.isFetching ? "Retrying…" : "Retry"}
+              {requestQueue.isFetching ? "Retrying…" : "Retry"}
             </button>
           </div>
         )}
-        {queue.isPending ? (
+        {requestQueue.isPending ? (
           <div className={loadingShellClass}>
             <div className={loadingToolbarClass}>
               <span className={loadingChipClass} />
@@ -176,11 +203,12 @@ export function DockingConfirmation({ user }: { user: User }) {
             </div>
             <SkeletonTable columns={4} rows={4} compact />
           </div>
-        ) : queue.data ? (
+        ) : requestQueue.data ? (
           <RequestTable
             rows={rows}
             actions={actions}
-            emptyMessage={queue.error
+            alertedIds={new Set(queue.alerts.map((alert) => alert.id))}
+            emptyMessage={requestQueue.error
               ? "No docking records in the last successful update."
               : "No trucks are waiting for docking."}
           />
@@ -190,10 +218,11 @@ export function DockingConfirmation({ user }: { user: User }) {
         <DockDialog
           request={selected}
           role={user.role}
+          action={selectedAction}
           busy={action.isPending}
-          onClose={() => setSelected(null)}
+          onClose={() => { setSelected(null); setSelectedAction("mark-docked"); }}
           onSubmit={(payload) =>
-            action.mutate({ request: selected, action: "mark-docked", payload })
+            action.mutate({ request: selected, action: selectedAction, operationId, payload })
           }
         />
       )}
@@ -210,22 +239,26 @@ export function DockingConfirmation({ user }: { user: User }) {
 function DockDialog({
   request,
   role,
+  action,
   busy,
   onClose,
   onSubmit,
 }: {
   request: TruckRequest;
   role: User["role"];
+  action: DockAction;
   busy: boolean;
   onClose: () => void;
   onSubmit: (payload: Record<string, unknown>) => void;
 }) {
+  const [driverId, setDriverId] = useState("");
+  const validDriverId = /^[0-9]{1,10}$/.test(driverId.trim());
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     onSubmit(
       role === "doc_officer"
-        ? { driver_id: data.get("driver_id") }
+        ? { driver_id: String(data.get("driver_id") ?? "").trim() }
         : { linehaul_trip_no: data.get("linehaul_trip_no") },
     );
   }
@@ -235,14 +268,14 @@ function DockDialog({
       onClose={onClose}
       className={compactFormDialogClass}
       role="dialog"
-      ariaLabel={`Dock truck for ${request.cluster}`}
+      ariaLabel={role === "doc_officer" ? `${action === "reassign-driver" ? "Reassign" : "Assign"} Driver ID for ${request.cluster}` : `Dock truck for ${request.cluster}`}
     >
       <div className={dialogHeadClass}>
         <div>
           <p className="mb-[0.35rem] text-linehaul-lime-ink text-xs font-semibold tracking-wide uppercase">
             {request.cluster}
           </p>
-          <h2>Dock truck</h2>
+          <h2>{role === "doc_officer" ? `${action === "reassign-driver" ? "Reassign" : "Assign"} Driver ID` : "Dock truck"}</h2>
         </div>
         <button
           className={iconButtonClass}
@@ -255,15 +288,24 @@ function DockDialog({
       </div>
       <form className={dialogFormClass} onSubmit={submit}>
         {role === "doc_officer" ? (
-          <label className={dialogLabelClass}>
-            Driver ID
-            <input
-              name="driver_id"
-              required
-              className={dialogInputClass}
-              defaultValue={request.driver_id ?? ""}
-            />
-          </label>
+          <>
+            {action === "reassign-driver" && (
+              <p className="text-sm text-soc5-muted">Current Driver ID: {request.driver_id}. Enter the replacement Driver ID.</p>
+            )}
+            <label className={dialogLabelClass}>
+              Driver ID
+              <input
+                name="driver_id"
+                required
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                className={dialogInputClass}
+                value={driverId}
+                onChange={(event) => setDriverId(event.target.value)}
+              />
+            </label>
+          </>
         ) : (
           <label className={dialogLabelClass}>
             LH Trip Number
@@ -279,8 +321,12 @@ function DockDialog({
           <button type="button" className={secondaryButtonClass} onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" disabled={busy}>
-            {busy ? "Saving..." : role === "doc_officer" ? "Assigned" : "Docked"}
+          <button type="submit" disabled={busy || (role === "doc_officer" && !validDriverId)}>
+            {busy
+              ? "Saving..."
+              : role === "doc_officer"
+                ? action === "reassign-driver" ? "Reassigned" : "Assigned"
+                : "Docked"}
           </button>
         </div>
       </form>

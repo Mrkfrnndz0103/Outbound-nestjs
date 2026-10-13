@@ -124,15 +124,31 @@ final class ApprovalItemProvisioner
 
         $pending = $pendingList ?? [];
         if ($pendingList === null && Schema::hasTable('profiles') && Schema::hasColumn('profiles', 'seatalk_employee_code')) {
-            $pending = DB::table('profiles')
-                ->where('role', 'fte_ops')
-                ->where('is_active', true)
-                ->whereNotNull('seatalk_employee_code')
-                ->orderBy('id')
-                ->limit(100)
-                ->get(['seatalk_employee_code'])
-                ->map(fn (object $profile): array => ['employee_code' => $profile->seatalk_employee_code, 'ts' => $createdAt])
-                ->all();
+            if (Schema::hasTable('seatalk_approval_assignments')) {
+                $pending = DB::table('seatalk_approval_assignments as assignments')
+                    ->join('profiles', 'profiles.id', '=', 'assignments.fte_user_id')
+                    ->where('assignments.request_id', $request->id)
+                    ->whereIn('assignments.status', ['PENDING', 'ACTIVE'])
+                    ->where('profiles.role', 'fte_ops')
+                    ->where('profiles.is_active', true)
+                    ->whereNotNull('profiles.seatalk_employee_code')
+                    ->orderBy('assignments.sequence')
+                    ->get(['profiles.seatalk_employee_code'])
+                    ->map(fn (object $profile): array => ['employee_code' => $profile->seatalk_employee_code, 'ts' => $createdAt])
+                    ->all();
+            }
+
+            if ($pending === []) {
+                $pending = DB::table('profiles')
+                    ->where('role', 'fte_ops')
+                    ->where('is_active', true)
+                    ->whereNotNull('seatalk_employee_code')
+                    ->orderBy('id')
+                    ->limit(100)
+                    ->get(['seatalk_employee_code'])
+                    ->map(fn (object $profile): array => ['employee_code' => $profile->seatalk_employee_code, 'ts' => $createdAt])
+                    ->all();
+            }
         }
 
         $appPathTemplate = config('services.seatalk.approval.app_path');

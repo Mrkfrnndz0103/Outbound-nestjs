@@ -3,6 +3,7 @@ export type Status =
   | "PENDING"
   | "REQUESTED"
   | "CANCELLED"
+  | "REJECTED"
   | "REROUTED"
   | "ASSIGNED"
   | "DOCKING"
@@ -38,13 +39,21 @@ export interface TruckRequest {
   linehaul_trip_at?: string | null;
   docked_time?: string | null;
   status: Status;
+  display_status?: Status;
+  next_action_role?: Role | null;
+  rejection_return_role?: Role | null;
   approval_status?: ApprovalStatus | null;
   approval_source?: "WEB" | "SEATALK" | null;
   rejection_remarks?: string | null;
+  cancellation_remarks?: string | null;
   driver_id?: string | null;
   driver_assigned_at?: string | null;
   created_by: string;
   created_by_name?: string | null;
+  mm_fte_id?: string | null;
+  mm_fte_name?: string | null;
+  doc_officer_id?: string | null;
+  doc_officer_name?: string | null;
   created_at: string;
   updated_at?: string;
 }

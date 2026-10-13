@@ -2,6 +2,7 @@
 
 use App\Features\Approvals\PresenceController;
 use App\Features\Approvals\SeaTalkApprovalCallbackController;
+use App\Features\Approvals\SeaTalkEventCallbackController;
 use App\Features\Auth\BackroomController;
 use App\Features\Auth\SeatalkController;
 use App\Features\Dispatch\DispatchController;
@@ -48,6 +49,8 @@ $registerApiRoutes = static function (string $prefix): void {
             Route::post('/integrations/seatalk/approval/approve', [SeaTalkApprovalCallbackController::class, 'approve']);
             Route::post('/integrations/seatalk/approval/reject', [SeaTalkApprovalCallbackController::class, 'reject']);
         });
+        Route::post('/integrations/seatalk/events', [SeaTalkEventCallbackController::class, 'verify'])
+            ->middleware(['throttle:seatalk-callback', 'seatalk.event.callback']);
 
         Route::middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, 'session.csrf', 'throttle:api-ip', 'supabase.auth', 'throttle:api'])->group(function (): void {
             Route::get('/auth/me', fn (Request $r) => response()->json($r->attributes->get('actor')));
@@ -85,12 +88,12 @@ $registerApiRoutes = static function (string $prefix): void {
             Route::get('/requests/analytics', [RequestController::class, 'analytics']);
             Route::get('/requests', [RequestController::class, 'index']);
             Route::post('/requests', [RequestController::class, 'store'])->middleware('idempotency');
-            Route::post('/requests/bulk-approve', [RequestController::class, 'bulkApprove']);
+            Route::post('/requests/bulk-approve', [RequestController::class, 'bulkApprove'])->middleware('idempotency');
             Route::get('/requests/{id}', [RequestController::class, 'show']);
             Route::get('/requests/{id}/events', [RequestController::class, 'events']);
             Route::put('/requests/{id}', [RequestController::class, 'update'])->middleware('idempotency');
             Route::post('/requests/{id}/{action}', [RequestController::class, 'action'])->middleware('idempotency')
-                ->whereIn('action', ['approve', 'reject-ops', 'cancel', 'reject-mm', 'assign-truck', 'mark-docked']);
+                ->whereIn('action', ['approve', 'reject-ops', 'cancel', 'reject-mm', 'assign-truck', 'mark-docked', 'reassign-driver']);
         });
     });
 };

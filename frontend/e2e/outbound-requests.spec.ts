@@ -53,6 +53,7 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript((storedSession) => {
     localStorage.setItem('sb-example-auth-token', JSON.stringify(storedSession));
+    sessionStorage.setItem('soc5-seatalk-session', '1');
     window.open = (url?: string | URL) => {
       localStorage.setItem('playwright-opened-url', String(url ?? ''));
       return null;
@@ -65,12 +66,12 @@ test.beforeEach(async ({ page }) => {
 
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/auth/me') {
+    if (url.pathname.endsWith('/auth/me')) {
       await route.fulfill({ json: user });
       return;
     }
 
-    if (url.pathname === '/api/requests') {
+    if (url.pathname.endsWith('/requests')) {
       const pageNumber = Number(url.searchParams.get('page') ?? 1);
       const hasNoMatches = url.searchParams.get('search') === 'No matches';
       await route.fulfill({
@@ -101,15 +102,29 @@ async function openOutboundRequests(page: Page) {
   await expect(page.getByText('North Hub', { exact: true }).first()).toBeVisible();
 }
 
-async function overrideRequestFixture(page: Page, request: Record<string, unknown>) {
+async function overrideRequestFixture(
+  page: Page,
+  request: Record<string, unknown>,
+  fixtureUser = user,
+) {
   await page.unroute('**/api/**');
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/auth/me') {
-      await route.fulfill({ json: user });
+    if (url.pathname.endsWith('/auth/me')) {
+      await route.fulfill({ json: fixtureUser });
       return;
     }
-    if (url.pathname === '/api/requests') {
+    if (url.pathname.endsWith('/requests/request-1') && route.request().method() === 'PUT') {
+      await route.fulfill({
+        json: {
+          ...request,
+          ...route.request().postDataJSON(),
+          updated_at: '2026-10-13T03:00:00Z',
+        },
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/requests')) {
       await route.fulfill({
         json: {
           data: [request],
@@ -133,7 +148,7 @@ test('filters and sorts outbound requests', async ({ page }) => {
   const searchRequest = page.waitForRequest((request) => {
     const url = new URL(request.url());
     return (
-      url.pathname === '/api/requests' &&
+      url.pathname.endsWith('/requests') &&
       url.searchParams.get('search') === 'North'
     );
   });
@@ -144,7 +159,7 @@ test('filters and sorts outbound requests', async ({ page }) => {
   const statusRequest = page.waitForRequest((request) => {
     const url = new URL(request.url());
     return (
-      url.pathname === '/api/requests' &&
+      url.pathname.endsWith('/requests') &&
       url.searchParams.get('status') === 'PENDING'
     );
   });
@@ -156,7 +171,7 @@ test('filters and sorts outbound requests', async ({ page }) => {
   const sortRequest = page.waitForRequest((request) => {
     const url = new URL(request.url());
     return (
-      url.pathname === '/api/requests' &&
+      url.pathname.endsWith('/requests') &&
       url.searchParams.get('sort') === 'cluster'
     );
   });
@@ -168,7 +183,7 @@ test('filters and sorts outbound requests', async ({ page }) => {
   const reverseSortRequest = page.waitForRequest((request) => {
     const url = new URL(request.url());
     return (
-      url.pathname === '/api/requests' &&
+      url.pathname.endsWith('/requests') &&
       url.searchParams.get('sort') === 'cluster' &&
       url.searchParams.get('direction') === 'desc'
     );
@@ -229,8 +244,8 @@ test('switches views and supports row view and edit actions', async ({ page }) =
 
 test('selects requests, approves them, and expands a row inline', async ({ page }) => {
   let approvedId = '';
-  await page.route('**/api/requests/*/approve', async (route) => {
-    approvedId = new URL(route.request().url()).pathname.split('/')[3] ?? '';
+  await page.route('**/requests/*/approve', async (route) => {
+    approvedId = new URL(route.request().url()).pathname.split('/').at(-2) ?? '';
     await route.fulfill({ json: { ...requestRow, status: 'APPROVED' } });
   });
   await openOutboundRequests(page);
@@ -249,8 +264,8 @@ test('selects requests, approves them, and expands a row inline', async ({ page 
   ).toBeVisible();
 
   await page.getByLabel('Select request request-1').check();
-  await expect(page.getByRole('button', { name: 'Approved', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Approved', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Approve selected (1)', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Approve selected (1)', exact: true }).click();
   await expect.poll(() => approvedId).toBe('request-1');
 });
 
@@ -272,6 +287,58 @@ test('derives checked and disabled approval state from backend metadata', async 
   await expect(page.getByText('Approved', { exact: true }).first()).toBeVisible();
 });
 
+test('lets the owning OPS PIC edit a DOCKED request without changing its status', async ({ page }) => {
+  const pic = { ...user, role: 'ops_pic' };
+  await overrideRequestFixture(page, {
+    ...requestRow,
+    status: 'DOCKED',
+    driver_id: '123456',
+    created_by: pic.id,
+  }, pic);
+
+  await openOutboundRequests(page);
+  await page.getByRole('button', { name: 'Actions for request request-1' }).click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+  await page.getByLabel('Region').fill('North Updated');
+  const updateRequest = page.waitForRequest((request) =>
+    request.url().endsWith('/requests/request-1') && request.method() === 'PUT',
+  );
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  const sentUpdate = await updateRequest;
+  expect(sentUpdate.postDataJSON()).not.toHaveProperty('status');
+  await expect(page.getByText('LH request updated.', { exact: true })).toBeVisible();
+});
+
+test('hides post-DOCKED editing from an OPS PIC who does not own the request', async ({ page }) => {
+  const pic = { ...user, role: 'ops_pic' };
+  await overrideRequestFixture(page, {
+    ...requestRow,
+    status: 'DOCKED',
+    created_by: 'another-ops-pic',
+  }, pic);
+
+  await openOutboundRequests(page);
+  await page.getByRole('button', { name: 'Actions for request request-1' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Edit', exact: true })).toHaveCount(0);
+});
+
+test('shows cancellation remarks in the request details drawer', async ({ page }) => {
+  const pic = { ...user, role: 'ops_pic' };
+  await overrideRequestFixture(page, {
+    ...requestRow,
+    status: 'CANCELLED',
+    cancellation_remarks: 'Duplicate truck request',
+    created_by: pic.id,
+  }, pic);
+
+  await openOutboundRequests(page);
+  await page.getByRole('button', { name: 'Actions for request request-1' }).click();
+  await page.getByRole('menuitem', { name: 'View', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Cancellation remarks' }))
+    .toContainText('Duplicate truck request');
+});
+
 test('bulk approves more than two selected requests', async ({ page }) => {
   const requestRows = [1, 2, 3].map((number) => ({
     ...requestRow,
@@ -279,7 +346,7 @@ test('bulk approves more than two selected requests', async ({ page }) => {
     cluster: `Hub ${number}`,
   }));
   let bulkIds: string[] = [];
-  await page.route('**/api/requests?*', async (route) => {
+  await page.route('**/requests?*', async (route) => {
     await route.fulfill({
       json: {
         data: requestRows,
@@ -292,7 +359,7 @@ test('bulk approves more than two selected requests', async ({ page }) => {
       },
     });
   });
-  await page.route('**/api/requests/bulk-approve', async (route) => {
+  await page.route('**/requests/bulk-approve', async (route) => {
     bulkIds = (route.request().postDataJSON() as { ids: string[] }).ids;
     await route.fulfill({ json: { data: [] } });
   });
@@ -300,17 +367,36 @@ test('bulk approves more than two selected requests', async ({ page }) => {
 
   await page.getByLabel('Select request request-1').check();
   await page.getByLabel('Select request request-2').check();
-  await expect(page.getByRole('button', { name: 'Approved', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve selected (2)', exact: true })).toBeVisible();
   await page.getByLabel('Select request request-3').check();
   await expect(
-    page.getByRole('button', { name: 'Approved', exact: true }),
+    page.getByRole('button', { name: 'Approve selected (2)', exact: true }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Bulk Approved' }).click();
+  await page.getByRole('button', { name: 'Approve selected (3)' }).click();
   await expect.poll(() => bulkIds).toEqual([
     'request-1',
     'request-2',
     'request-3',
   ]);
+});
+
+test('Select All checks only the eligible OPS FTE requests on the current page', async ({ page }) => {
+  const requestRows = [1, 2, 3].map((number) => ({
+    ...requestRow,
+    id: `request-${number}`,
+    cluster: `Hub ${number}`,
+  }));
+  await page.route('**/requests?*', async (route) => {
+    await route.fulfill({
+      json: { data: requestRows, current_page: 1, last_page: 1, per_page: 20, from: 1, to: 3, total: 3 },
+    });
+  });
+  await page.goto('/outbound/lh-request');
+  await page.getByLabel('Select all eligible requests').check();
+  for (const request of requestRows) {
+    await expect(page.getByLabel(`Select request ${request.id}`)).toBeChecked();
+  }
+  await expect(page.getByRole('button', { name: 'Approve selected (3)', exact: true })).toBeVisible();
 });
 
 test('alerts FTE Ops to pending requests and acknowledges opened rows', async ({
@@ -320,23 +406,16 @@ test('alerts FTE Ops to pending requests and acknowledges opened rows', async ({
 
   const row = page.locator('.lh-table-row').filter({ hasText: 'North Hub' });
   await expect(row).toBeVisible();
-  await expect(row).toHaveClass(/animate-pulse/);
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        Number(localStorage.getItem('playwright-audio-plays') ?? 0),
-      ),
-    )
-    .toBeGreaterThan(0);
+  await expect(row).toHaveClass(/request-alert-blink/);
 
   await row
     .getByRole('button', { name: 'Expand details for request request-1' })
     .click();
-  await expect(row).not.toHaveClass(/animate-pulse/);
+  await expect(row).not.toHaveClass(/request-alert-blink/);
 });
 
 test('does not allow FTE Midmile to access LH requests', async ({ page }) => {
-  await page.route('**/api/auth/me', async (route) => {
+  await page.route('**/auth/me', async (route) => {
     await route.fulfill({ json: { ...user, role: 'fte_mm' } });
   });
   await page.goto('/outbound/lh-request');

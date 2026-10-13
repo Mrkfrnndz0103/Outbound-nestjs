@@ -138,8 +138,8 @@ export function Dashboard({
               <Overview user={activeUser} onNavigate={navigate} preview={isPreview} />
             )}
             {view === "lh-request" && <OutboundRequests user={activeUser} queue={queue} />}
-            {view === "truck-request" && <MidmileRequests user={activeUser} />}
-            {view === "docking" && <DockingConfirmation user={activeUser} />}
+            {view === "truck-request" && <MidmileRequests user={activeUser} queue={queue} />}
+            {view === "docking" && <DockingConfirmation user={activeUser} queue={queue} />}
             {view === "kpi" && <Kpi />}
             {view === "users" && <UserManagement />}
           </Suspense>

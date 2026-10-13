@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await mockShellSession(page);
 });
 
-const zoomLevels = [80, 90, 100, 110, 125, 150];
+const zoomLevels = [80, 90, 100, 110, 125, 150, 200];
 const referenceWidth = 1366;
 
 test('reflows the application shell at common browser zoom levels', async ({
@@ -27,7 +27,6 @@ test('reflows the application shell at common browser zoom levels', async ({
       const header = document.querySelector('header');
 
       if (
-        !(sidebar instanceof HTMLElement) ||
         !(content instanceof HTMLElement) ||
         !(header instanceof HTMLElement)
       ) {
@@ -36,11 +35,11 @@ test('reflows the application shell at common browser zoom levels', async ({
 
       const contentBounds = content.getBoundingClientRect();
       const headerBounds = header.getBoundingClientRect();
-      const sidebarBounds = sidebar.getBoundingClientRect();
+      const sidebarBounds = sidebar instanceof HTMLElement ? sidebar.getBoundingClientRect() : null;
 
       return {
-        sidebarTransform: getComputedStyle(sidebar).transform,
-        sidebarRight: sidebarBounds.right,
+        sidebarRight: sidebarBounds?.right ?? 0,
+        hasDesktopSidebar: sidebar instanceof HTMLElement,
         contentLeft: contentBounds.left,
         contentRight: contentBounds.right,
         contentWidth: contentBounds.width,
@@ -51,6 +50,7 @@ test('reflows the application shell at common browser zoom levels', async ({
       };
     });
 
+    expect(layout.hasDesktopSidebar).toBe(viewportWidth >= 768);
     const shellOffsets = [0, layout.sidebarRight];
     expect(Math.min(...shellOffsets.map((offset) => Math.abs(layout.contentLeft - offset)))).toBeLessThan(1);
     expect(Math.min(...shellOffsets.map((offset) => Math.abs(layout.headerLeft - offset)))).toBeLessThan(1);

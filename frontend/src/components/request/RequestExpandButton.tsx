@@ -12,14 +12,15 @@ export function RequestExpandButton({
   return (
     <button
       type="button"
-      className="grid size-7 shrink-0 place-items-center rounded-full text-[#718071] transition-colors hover:bg-[#eef6d9] hover:text-[#536500] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#718071]"
+      className="grid size-7 shrink-0 place-items-center rounded-full text-soc5-muted transition-colors hover:bg-linehaul-lime-surface hover:text-linehaul-lime-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#718071]"
       aria-expanded={expanded}
+      aria-controls={expanded ? `request-detail-${requestId}` : undefined}
       aria-label={`${expanded ? "Collapse" : "Expand"} details for request ${requestId}`}
       onClick={onToggle}
     >
       <ChevronDown
         aria-hidden="true"
-        className={`size-3.5 transition-transform ${expanded ? "rotate-180 text-[#536500]" : ""}`}
+        className={`size-3.5 transition-transform ${expanded ? "rotate-180 text-linehaul-lime-ink" : ""}`}
       />
     </button>
   );

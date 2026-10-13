@@ -4,6 +4,7 @@ namespace App\Features\Requests;
 
 use App\Features\Approvals\ApprovalActor;
 use App\Features\Approvals\ApprovalItemProvisioner;
+use App\Features\Approvals\ApprovalRouter;
 use App\Features\Approvals\ApprovalService;
 use App\Features\Approvals\ApprovalSource;
 use Illuminate\Support\Facades\DB;
@@ -20,11 +21,14 @@ final class RequestService
     ) {
         $this->approvals = $approvals ?? new ApprovalService($requests, $authorizer);
         $this->provisioner = $provisioner;
+        $this->approvalRouter = $provisioner !== null ? new ApprovalRouter($provisioner) : null;
     }
 
     private ApprovalService $approvals;
 
     private ?ApprovalItemProvisioner $provisioner;
+
+    private ?ApprovalRouter $approvalRouter;
 
     public function create(object $actor, array $data): object
     {
@@ -38,6 +42,12 @@ final class RequestService
             $this->notify($request->id, 'fte_ops', 'REQUEST_CREATED', 'New request', 'A truck request needs review.');
             if ($this->provisioner !== null) {
                 DB::afterCommit(function () use ($request): void {
+                    if ($this->approvalRouter !== null && (bool) config('services.seatalk.approval.enabled', false)) {
+                        $this->approvalRouter->assignNext((string) $request->id);
+
+                        return;
+                    }
+
                     $this->provisioner?->provisionForRequest($request);
                 });
             }
@@ -48,14 +58,54 @@ final class RequestService
 
     public function updateDetails(string $id, object $actor, array $data): object
     {
-        abort_unless($this->authorizer->canEdit($actor), 403, 'Only FTE Ops can edit requests.');
-
         return DB::transaction(function () use ($id, $actor, $data) {
             $request = $this->requests->lock($id);
-            abort_unless(in_array($request->status, ['PENDING', 'REROUTED'], true), 409, "Cannot edit a {$request->status} request.");
-            $updated = $this->requests->update($id, $data + ['status' => 'REQUESTED']);
-            $this->event($id, $actor->id, 'REQUEST_EDITED', $request->status, 'REQUESTED', $data);
-            $this->notifyUser($id, $request->created_by, 'REQUEST_EDITED', 'Request updated', "Request {$id} was updated by FTE Ops.");
+            abort_unless($this->authorizer->canEdit($actor, $request), 403, 'You cannot edit this request at its current workflow stage.');
+            $fields = array_intersect_key($data, array_flip([
+                'cluster', 'region', 'dock_no', 'backlogs', 'backlogs_timestamp', 'truck_size', 'truck_type',
+            ]));
+            $to = $request->status;
+            $event = $to === 'DOCKED' ? 'REQUEST_EDITED_AFTER_DOCKED' : 'REQUEST_EDITED';
+            $metadata = [
+                'changes' => $fields,
+                'previous_values' => array_intersect_key((array) $request, $fields),
+                'source' => 'WEB',
+            ];
+
+            if ($request->status === 'REJECTED') {
+                $to = 'PENDING';
+                $event = 'REQUEST_RESUBMITTED';
+                $metadata['previous_rejection_remarks'] = $request->rejection_remarks;
+                $metadata['previous_rejected_by'] = $request->rejected_by;
+                $metadata['previous_return_role'] = $request->rejection_return_role;
+                $fields += [
+                    'approval_status' => 'PENDING',
+                    'rejection_return_role' => null,
+                    'approval_source' => 'WEB',
+                    'approval_version' => DB::raw('COALESCE(approval_version, 0) + 1'),
+                    'approval_correlation_id' => (string) Str::uuid(),
+                ];
+            }
+
+            $updated = $this->requests->update($id, $fields + ['status' => $to]);
+            $this->event($id, $actor->id, $event, $request->status, $to, $metadata);
+            if ($to === 'DOCKED') {
+                foreach (['fte_ops', 'fte_mm', 'doc_officer'] as $role) {
+                    $this->notify($id, $role, $event, 'Docked request updated', "Request {$id} was updated by OPS PIC.");
+                }
+            } else {
+                $this->notify($id, 'fte_ops', $event, 'Request needs review', "Request {$id} was updated and needs OPS FTE review.");
+                $this->notifyUser($id, $request->created_by, $event, 'Request updated', "Request {$id} was updated.");
+                if ($event === 'REQUEST_RESUBMITTED'
+                    && $this->approvalRouter !== null
+                    && (bool) config('services.seatalk.approval.enabled', false)) {
+                    DB::afterCommit(function () use ($id): void {
+                        $this->approvalRouter?->assignNext($id);
+                    });
+                } else {
+                    $this->approvals->synchronizeAfterCommit($id);
+                }
+            }
 
             return $updated;
         });
@@ -67,7 +117,9 @@ final class RequestService
             return $this->approvals->approve($id, ApprovalActor::fromObject($actor), ApprovalSource::Web)->request;
         }
 
-        if ($action === 'reject-mm') {
+        if (in_array($action, ['reject-ops', 'reject-mm'], true)) {
+            abort_unless($actor->role === ($action === 'reject-ops' ? 'fte_ops' : 'fte_mm'), 403);
+
             return $this->approvals->reject(
                 $id,
                 ApprovalActor::fromObject($actor),
@@ -77,35 +129,33 @@ final class RequestService
             )->request;
         }
 
+        if ($action === 'cancel') {
+            return $this->cancel($id, $actor, $input);
+        }
+
+        if ($action === 'reassign-driver' || ($action === 'mark-docked' && $actor->role === 'doc_officer')) {
+            return $this->assignDriver($id, $actor, $action, $input);
+        }
+
         return DB::transaction(function () use ($id, $actor, $action, $input) {
             $request = $this->requests->lock($id);
             [$from, $to, $event] = match ($action) {
-                'approve' => [['PENDING', 'REROUTED'], 'REQUESTED', 'REQUEST_APPROVED'],
-                'reject-ops' => [['PENDING', 'REROUTED'], 'REROUTED', 'REQUEST_REJECTED_BY_OPS'],
-                'cancel' => [['PENDING', 'REROUTED'], 'CANCELLED', 'REQUEST_CANCELLED'],
-                'reject-mm' => [['REQUESTED'], 'CANCELLED', 'REQUEST_REJECTED_BY_MM'],
                 'assign-truck' => [['REQUESTED'], 'DOCKING', 'TRUCK_ASSIGNED'],
-                'mark-docked' => $actor->role === 'doc_officer'
-                    ? [['DOCKING'], 'DOCKING', 'DRIVER_ASSIGNED']
-                    : [['DOCKING'], 'DOCKED', 'TRUCK_DOCKED'],
+                'mark-docked' => [['DOCKING'], 'DOCKED', 'TRUCK_DOCKED'],
                 default => throw ValidationException::withMessages(['action' => 'Unknown action.']),
             };
             abort_unless(in_array($request->status, $from, true), 409, "Cannot {$action} a {$request->status} request.");
             abort_unless($this->authorizer->canTransition($actor, $action, $request), 403);
-            if ($action === 'reject-mm' && blank($input['rejection_remarks'] ?? null)) {
-                throw ValidationException::withMessages(['rejection_remarks' => 'A rejection reason is required.']);
-            }
             if ($action === 'assign-truck' && blank($input['plate_number'] ?? null)) {
                 throw ValidationException::withMessages(['plate_number' => 'Plate number is required.']);
             }
-            if ($action === 'mark-docked' && $actor->role !== 'doc_officer' && blank($request->driver_id)) {
+            if ($action === 'mark-docked' && blank($request->driver_id)) {
                 throw ValidationException::withMessages(['driver_id' => 'Driver ID is required before entering the linehaul trip number.']);
             }
 
             $allowedFields = match ($action) {
-                'reject-ops', 'reject-mm' => ['rejection_remarks'],
                 'assign-truck' => ['plate_number', 'provide_time', 'truck_size', 'truck_type'],
-                'mark-docked' => $actor->role === 'doc_officer' ? ['driver_id'] : ['linehaul_trip_no'],
+                'mark-docked' => ['linehaul_trip_no'],
                 default => [],
             };
             $fields = array_intersect_key($input, array_flip($allowedFields));
@@ -113,37 +163,95 @@ final class RequestService
                 $fields['provide_time'] = now();
             }
             if ($action === 'mark-docked') {
-                if ($actor->role === 'doc_officer') {
-                    $fields['driver_assigned_at'] = now();
-                } else {
-                    $fields['linehaul_trip_at'] = now();
-                }
+                $fields['linehaul_trip_at'] = now();
             }
             $fields['status'] = $to;
-            if ($to === 'REQUESTED') {
-                $fields['approved_at'] = now();
-            }
-            if ($to === 'CANCELLED' && $action === 'reject-mm') {
-                $fields['rejected_at'] = now();
-            }
             if ($to === 'DOCKED' && blank($fields['docked_time'] ?? null)) {
                 $fields['docked_time'] = now();
             }
             $updated = $this->requests->update($id, $fields);
             $this->event($id, $actor->id, $event, $request->status, $to, $fields);
-            if (in_array($to, ['CANCELLED', 'DOCKED'], true)) {
+            if ($to === 'DOCKED') {
                 $this->approvals->closeAssignments($id, strtolower($event));
                 $this->approvals->synchronizeAfterCommit($id);
             }
             $target = match ($to) {
-                'REQUESTED' => 'fte_mm', 'DOCKING' => 'doc_officer', 'REROUTED' => 'fte_mm', default => null
+                'DOCKING' => 'doc_officer', default => null
             };
             if ($target) {
                 $this->notify($id, $target, $event, str_replace('_', ' ', $event), "Request {$id} is now {$to}.");
             }
-            if ($action === 'reject-ops') {
-                $this->notifyUser($id, $request->created_by, $event, 'Request rejected', "Request {$id} was rejected by FTE Ops.");
+
+            return $updated;
+        });
+    }
+
+    private function assignDriver(string $id, object $actor, string $action, array $input): object
+    {
+        return DB::transaction(function () use ($id, $actor, $action, $input) {
+            $request = $this->requests->lock($id);
+            abort_unless($this->authorizer->canTransition($actor, $action, $request), 403);
+            abort_unless($request->status === 'DOCKING', 409, 'Driver assignment is only allowed while the request is DOCKING.');
+
+            if ($action === 'mark-docked' && filled($request->driver_id)) {
+                abort(409, 'A Driver ID is already assigned. Use the explicit reassignment action.');
             }
+            if ($action === 'reassign-driver' && blank($request->driver_id)) {
+                abort(409, 'A Driver ID must already be assigned before it can be reassigned.');
+            }
+
+            $driverId = trim((string) ($input['driver_id'] ?? ''));
+            if (! preg_match('/\\A[0-9]{1,10}\\z/', $driverId)) {
+                throw ValidationException::withMessages(['driver_id' => 'Driver ID must contain 1 to 10 digits.']);
+            }
+
+            $event = $action === 'reassign-driver' ? 'DRIVER_REASSIGNED' : 'DRIVER_ASSIGNED';
+            $updated = $this->requests->update($id, [
+                'driver_id' => $driverId,
+                'driver_assigned_at' => now(),
+                'status' => 'DOCKING',
+            ]);
+            $this->event($id, $actor->id, $event, 'DOCKING', 'DOCKING', [
+                'driver_id' => $driverId,
+                'previous_driver_id' => $request->driver_id,
+                'source' => 'WEB',
+            ]);
+            $this->notifyUser($id, $request->created_by, $event, 'Driver assignment complete', "Driver ID {$driverId} is assigned to request {$id}.");
+
+            return $updated;
+        });
+    }
+
+    private function cancel(string $id, object $actor, array $input): object
+    {
+        return DB::transaction(function () use ($id, $actor, $input) {
+            $request = $this->requests->lock($id);
+            abort_unless($this->authorizer->canTransition($actor, 'cancel', $request), 403);
+            $remarks = trim((string) ($input['cancellation_remarks'] ?? ''));
+            if (($actor->role === 'fte_mm' && $remarks === '') || mb_strlen($remarks) > 2000) {
+                throw ValidationException::withMessages(['cancellation_remarks' => 'Cancellation remarks are required for FTE MM and must not exceed 2000 characters.']);
+            }
+
+            $updated = $this->requests->update($id, [
+                'status' => 'CANCELLED',
+                'approval_status' => 'CANCELLED',
+                'cancellation_remarks' => $remarks !== '' ? $remarks : null,
+                'rejection_return_role' => null,
+                'approval_source' => 'WEB',
+                'approval_version' => DB::raw('COALESCE(approval_version, 0) + 1'),
+                'approval_correlation_id' => (string) Str::uuid(),
+            ]);
+            $this->event($id, $actor->id, 'REQUEST_CANCELLED', $request->status, 'CANCELLED', [
+                'cancellation_remarks' => $remarks,
+                'source' => 'WEB',
+                'correlation_id' => $updated->approval_correlation_id,
+            ]);
+            $this->notifyUser($id, $request->created_by, 'REQUEST_CANCELLED', 'Request cancelled', "Request {$id} was cancelled. {$remarks}");
+            foreach (['fte_ops', 'fte_mm', 'doc_officer'] as $role) {
+                $this->notify($id, $role, 'REQUEST_CANCELLED', 'Request cancelled', "Request {$id} was cancelled. {$remarks}");
+            }
+            $this->approvals->closeAssignments($id, 'cancelled');
+            $this->approvals->synchronizeAfterCommit($id);
 
             return $updated;
         });

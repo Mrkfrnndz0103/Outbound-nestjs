@@ -31,4 +31,18 @@ describe("idempotency keys", () => {
       }),
     );
   });
+
+  it("keeps retry keys stable while giving a later approval cycle a fresh key", () => {
+    const ids = ["a", "b", "c"];
+    const firstCycle = { ids, operationId: "approval-cycle-1" };
+    const retry = { ids, operationId: "approval-cycle-1" };
+    const laterCycle = { ids, operationId: "approval-cycle-2" };
+
+    expect(generateIdempotencyKey("outbound-bulk-approve", firstCycle)).toBe(
+      generateIdempotencyKey("outbound-bulk-approve", retry),
+    );
+    expect(generateIdempotencyKey("outbound-bulk-approve", firstCycle)).not.toBe(
+      generateIdempotencyKey("outbound-bulk-approve", laterCycle),
+    );
+  });
 });

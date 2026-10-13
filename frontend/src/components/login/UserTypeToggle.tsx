@@ -18,12 +18,12 @@ export function UserTypeToggle({ value, onChange }: UserTypeToggleProps) {
     <div
       role="tablist"
       aria-label="Login as"
-      className="relative grid grid-cols-2 gap-1 rounded-xl border border-line bg-white/[0.06] p-1 backdrop-blur-sm"
+      className="relative grid grid-cols-2 gap-1 rounded-xl border border-auth-line bg-white/[0.06] p-1 backdrop-blur-sm"
     >
       {/* sliding indicator */}
       <span
         aria-hidden
-        className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-gradient-to-r from-accent to-accent-2 shadow-md shadow-accent/30 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-gradient-to-r from-auth-accent to-auth-accent-2 shadow-md shadow-auth-accent/30 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{ transform: `translateX(${index * 100}%)` }}
       />
       {OPTIONS.map((o) => {
@@ -37,7 +37,7 @@ export function UserTypeToggle({ value, onChange }: UserTypeToggleProps) {
             aria-selected={active}
             onClick={() => onChange(o.key)}
             className={`relative z-10 flex h-9 items-center justify-center gap-1.5 rounded-lg font-display text-xs font-semibold transition-colors duration-200 ${
-              active ? "text-white" : "text-faint hover:text-ink"
+              active ? "text-white" : "text-auth-faint hover:text-auth-ink"
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" strokeWidth={2.1} />

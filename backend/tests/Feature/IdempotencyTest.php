@@ -166,6 +166,26 @@ final class IdempotencyTest extends TestCase
         $this->assertDatabaseHas('requests', ['id' => $request->id, 'status' => 'REQUESTED']);
     }
 
+    public function test_bulk_approval_is_replayed_without_duplicate_decisions(): void
+    {
+        $requests = [
+            $this->insertRequest(['status' => 'PENDING']),
+            $this->insertRequest(['status' => 'PENDING']),
+            $this->insertRequest(['status' => 'PENDING']),
+        ];
+        $ids = array_map(static fn (object $request): string => $request->id, $requests);
+        $headers = $this->headers('bulk-approval-key');
+        $first = $this->postJson('/api/requests/bulk-approve', ['ids' => $ids], $headers)->assertOk();
+        $second = $this->postJson('/api/requests/bulk-approve', ['ids' => $ids], $headers)->assertOk();
+
+        $this->assertSame($first->json(), $second->json());
+        $this->assertDatabaseCount('request_events', 3);
+        $this->assertDatabaseCount('notifications', 3);
+        foreach ($ids as $id) {
+            $this->assertDatabaseHas('requests', ['id' => $id, 'status' => 'REQUESTED']);
+        }
+    }
+
     public function test_update_is_replayed_without_duplicate_events(): void
     {
         $request = $this->insertRequest(['status' => 'PENDING']);
@@ -190,6 +210,117 @@ final class IdempotencyTest extends TestCase
 
         $this->assertDatabaseHas('requests', ['id' => $request->id, 'status' => 'PENDING', 'truck_type' => 'WETLEASE']);
         $this->assertDatabaseCount('request_events', 0);
+    }
+
+    public function test_web_rejection_requires_reason_and_records_an_idempotent_shared_decision(): void
+    {
+        $request = $this->insertRequest(['status' => 'PENDING']);
+        $url = '/api/requests/'.$request->id.'/reject-ops';
+        $this->postJson($url, [], $this->headers())->assertUnprocessable()->assertJsonValidationErrors('rejection_remarks');
+        $this->assertDatabaseCount('request_events', 0);
+
+        $headers = $this->headers('reject-key');
+        $first = $this->postJson($url, ['rejection_remarks' => '  Wrong dock  '], $headers)->assertOk();
+        $second = $this->postJson($url, ['rejection_remarks' => '  Wrong dock  '], $headers)->assertOk();
+        $this->assertSame($first->json(), $second->json());
+        $this->assertSame('REJECTED', $first->json('status'));
+        $this->assertSame('ops_pic', $first->json('rejection_return_role'));
+        $this->assertSame('ops_pic', $first->json('next_action_role'));
+        $this->assertSame('REJECTED', $first->json('display_status'));
+        $this->assertSame('Wrong dock', $first->json('rejection_remarks'));
+        $this->assertDatabaseCount('request_events', 1);
+        $this->assertDatabaseCount('notifications', 1);
+
+        $this->postJson('/api/requests/'.$request->id.'/approve', [], $this->headers())->assertConflict();
+        $this->assertDatabaseCount('request_events', 1);
+    }
+
+    public function test_mm_cancel_requires_remarks_and_replay_does_not_duplicate_audit(): void
+    {
+        DB::table('profiles')->where('id', $this->actorOne)->update(['role' => 'fte_mm']);
+        Cache::flush();
+        $request = $this->insertRequest(['status' => 'REQUESTED']);
+        $url = '/api/requests/'.$request->id.'/cancel';
+        $this->postJson($url, [], $this->headers())->assertUnprocessable()->assertJsonValidationErrors('cancellation_remarks');
+        $this->assertDatabaseCount('request_events', 0);
+
+        $payload = ['cancellation_remarks' => 'Truck unavailable'];
+        $headers = $this->headers('cancel-key');
+        $first = $this->postJson($url, $payload, $headers)->assertOk();
+        $second = $this->postJson($url, $payload, $headers)->assertOk();
+        $this->assertSame($first->json(), $second->json());
+        $this->assertDatabaseHas('requests', ['id' => $request->id, 'status' => 'CANCELLED', 'cancellation_remarks' => 'Truck unavailable']);
+        $this->assertDatabaseCount('request_events', 1);
+        $this->assertDatabaseCount('notifications', 4);
+    }
+
+    public function test_doc_officer_cannot_reject_or_cancel_through_http(): void
+    {
+        DB::table('profiles')->where('id', $this->actorOne)->update(['role' => 'doc_officer']);
+        Cache::flush();
+        $request = $this->insertRequest(['status' => 'PENDING']);
+        foreach (['reject-ops', 'reject-mm'] as $action) {
+            $this->postJson('/api/requests/'.$request->id.'/'.$action, ['rejection_remarks' => 'No'], $this->headers())->assertForbidden();
+        }
+        $this->postJson('/api/requests/'.$request->id.'/cancel', [], $this->headers())->assertForbidden();
+        $this->assertDatabaseHas('requests', ['id' => $request->id, 'status' => 'PENDING']);
+        $this->assertDatabaseCount('request_events', 0);
+    }
+
+    public function test_doc_officer_can_assign_and_explicitly_reassign_driver_through_http(): void
+    {
+        DB::table('profiles')->where('id', $this->actorOne)->update(['role' => 'doc_officer']);
+        Cache::flush();
+        $request = $this->insertRequest(['status' => 'DOCKING', 'created_by' => $this->actorTwo]);
+
+        $assigned = $this->postJson('/api/requests/'.$request->id.'/mark-docked', ['driver_id' => ' 00123 '], $this->headers('driver-first'))
+            ->assertOk()
+            ->assertJsonPath('driver_id', '00123')
+            ->assertJsonPath('status', 'DOCKING');
+        $this->postJson('/api/requests/'.$request->id.'/mark-docked', ['driver_id' => '00123'], $this->headers('driver-first'))
+            ->assertOk()
+            ->assertExactJson($assigned->json());
+        $this->postJson('/api/requests/'.$request->id.'/reassign-driver', ['driver_id' => '00456'], $this->headers('driver-reassign'))
+            ->assertOk()
+            ->assertJsonPath('driver_id', '00456')
+            ->assertJsonPath('status', 'DOCKING');
+
+        $this->assertDatabaseCount('request_events', 2);
+        $this->assertDatabaseHas('request_events', ['request_id' => $request->id, 'event_type' => 'DRIVER_REASSIGNED', 'actor_id' => $this->actorOne]);
+        $this->assertDatabaseHas('notifications', ['request_id' => $request->id, 'user_id' => $this->actorTwo, 'event_type' => 'DRIVER_ASSIGNED']);
+        $this->assertDatabaseHas('notifications', ['request_id' => $request->id, 'user_id' => $this->actorTwo, 'event_type' => 'DRIVER_REASSIGNED']);
+    }
+
+    public function test_doc_officer_http_driver_validation_and_role_checks_are_enforced(): void
+    {
+        DB::table('profiles')->where('id', $this->actorOne)->update(['role' => 'doc_officer']);
+        Cache::flush();
+        $request = $this->insertRequest(['status' => 'DOCKING']);
+
+        foreach (['', '1A', '12345678901'] as $driverId) {
+            $this->postJson('/api/requests/'.$request->id.'/mark-docked', ['driver_id' => $driverId], $this->headers())
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('driver_id');
+        }
+        $this->assertDatabaseHas('requests', ['id' => $request->id, 'driver_id' => null]);
+
+        DB::table('profiles')->where('id', $this->actorOne)->update(['role' => 'fte_ops']);
+        Cache::flush();
+        $this->postJson('/api/requests/'.$request->id.'/reassign-driver', ['driver_id' => '123'], $this->headers())
+            ->assertForbidden();
+    }
+
+    public function test_create_and_update_return_the_same_status_contract_as_reads(): void
+    {
+        $created = $this->postJson('/api/requests', $this->requestData(), $this->headers())->assertCreated();
+        $url = '/api/requests/'.$created->json('id');
+        $updated = $this->putJson($url, $this->requestData(['dock_no' => 'D-02']), $this->headers())->assertOk();
+        $read = $this->getJson($url, $this->headers())->assertOk();
+        foreach ([$created, $updated, $read] as $response) {
+            $this->assertSame('PENDING', $response->json('status'));
+            $this->assertSame('PENDING', $response->json('display_status'));
+            $this->assertSame('fte_ops', $response->json('next_action_role'));
+        }
     }
 
     private function headers(string $key = '', string $token = 'actor-one'): array
@@ -278,9 +409,12 @@ final class IdempotencyTest extends TestCase
             $table->string('plate_number')->nullable();
             $table->dateTime('provide_time')->nullable();
             $table->string('linehaul_trip_no')->nullable();
+            $table->dateTime('linehaul_trip_at')->nullable();
             $table->dateTime('docked_time')->nullable();
             $table->string('status');
             $table->text('rejection_remarks')->nullable();
+            $table->string('rejection_return_role')->nullable();
+            $table->text('cancellation_remarks')->nullable();
             $table->string('approval_status')->default('PENDING');
             $table->uuid('approved_by')->nullable();
             $table->dateTime('approved_at')->nullable();
@@ -290,6 +424,7 @@ final class IdempotencyTest extends TestCase
             $table->unsignedBigInteger('approval_version')->default(0);
             $table->uuid('approval_correlation_id')->nullable();
             $table->string('driver_id')->nullable();
+            $table->dateTime('driver_assigned_at')->nullable();
             $table->dateTime('confirmed_at')->nullable();
             $table->uuid('created_by');
             $table->timestamps();

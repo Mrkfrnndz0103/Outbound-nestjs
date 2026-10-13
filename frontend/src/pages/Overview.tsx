@@ -195,7 +195,7 @@ export function Overview({
       total,
     };
   }, [intraday.data?.data]);
-  const sizes = ["4W", "6W", "10W", "6WF"] as const;
+  const sizes = ["4W", "4WAUV", "4WCV", "6W", "10W", "6WF"] as const;
   const truckSizes = analytics.data?.truck_sizes ?? {};
   const sizeTotal = sizes.reduce(
     (sum, size) => sum + (truckSizes[size] ?? 0),
@@ -460,13 +460,13 @@ export function Overview({
             className={`${dashboardPanelHeadClass} border-b border-[#087f7c]/[.24] pb-[.65rem]`}
           >
             <div>
-              <p className={`${dashboardPanelKickerClass} !text-[#087f7c]`}>
+              <p className={`${dashboardPanelKickerClass} !text-linehaul-teal-ink`}>
                 Live dispatch board
               </p>
-              <h2 className="m-0 text-sm font-semibold text-[#183f42]">
+              <h2 className="m-0 text-sm font-semibold text-soc5-ink">
                 Recent linehaul trips
               </h2>
-              <p className="mt-1 mb-0 text-xs leading-normal text-[#526467]">
+              <p className="mt-1 mb-0 text-xs leading-normal text-soc5-ink">
                 Latest trips with driver assignments
               </p>
             </div>
@@ -516,13 +516,13 @@ export function Overview({
         <article className={`${dashboardPanelClass} min-h-[15.5rem]`}>
           <div className={dashboardPanelHeadClass}>
             <div>
-              <p className={`${dashboardPanelKickerClass} !text-[#087f7c]`}>
+              <p className={`${dashboardPanelKickerClass} !text-linehaul-teal-ink`}>
                 Docking queue
               </p>
-              <h2 className="m-0 text-sm font-semibold text-[#183f42]">
+              <h2 className="m-0 text-sm font-semibold text-soc5-ink">
                 Trucks awaiting docking
               </h2>
-              <p className="mt-1 mb-0 text-xs leading-normal text-[#526467]">
+              <p className="mt-1 mb-0 text-xs leading-normal text-soc5-ink">
                 Assigned trucks ready for dock confirmation
               </p>
             </div>
@@ -535,7 +535,7 @@ export function Overview({
             </button>
           </div>
           <div
-            className={`${dashboardPanelBodyClass} bg-[linear-gradient(135deg,#fbfdec,#f5f9e5)]`}
+            className={`${dashboardPanelBodyClass} bg-linehaul-lime-surface`}
           >
             <QueuePreview
               items={assignedTrucks}
@@ -543,7 +543,7 @@ export function Overview({
               emptyMessage="No assigned trucks are ready for docking."
               renderItem={(request) => (
                 <div
-                  className={`${linehaulRowClass} border-[#dce7b5] bg-white shadow-[0_.25rem_.7rem_rgb(83_104_13_/_8%)]`}
+                  className={`${linehaulRowClass} border-soc5-line bg-soc5-panel shadow-[0_.25rem_.7rem_rgb(83_104_13_/_8%)]`}
                   key={request.id}
                 >
                   <span className={truckDotClass}>

@@ -3,7 +3,7 @@ export function AmbientGlows() {
     <>
       <div
         aria-hidden
-        className="absolute -top-32 left-[12%] h-[360px] w-[360px] animate-login-drift rounded-full bg-accent/25 blur-[100px] motion-reduce:animate-none"
+        className="absolute -top-32 left-[12%] h-[360px] w-[360px] animate-login-drift rounded-full bg-auth-accent/25 blur-[100px] motion-reduce:animate-none"
       />
       <div
         aria-hidden

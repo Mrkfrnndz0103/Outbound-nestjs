@@ -12,10 +12,15 @@ final class VerifySeaTalkCallback
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $valid = SeaTalkCallbackSignature::verify(
+        $valid = SeaTalkCallbackSignature::verifyApproval(
+            $request->getMethod(),
+            $request->getRequestUri(),
+            $request->header('Content-Type'),
             $request->getContent(),
-            $request->header('Signature'),
-            (string) config('services.seatalk.approval.callback_signing_secret'),
+            $request->header('Date'),
+            $request->header('x-token'),
+            $request->header('Authorization'),
+            (string) config('services.seatalk.app_secret'),
         );
         if (! $valid) {
             Log::warning('Invalid SeaTalk approval callback signature.', [

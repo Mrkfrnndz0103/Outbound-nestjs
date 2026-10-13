@@ -12,7 +12,7 @@ import {
   UserX,
   X,
 } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { Modal } from "../components/Modal";
 import { Skeleton } from "../components/Skeleton";
 import { Skiper87 } from "../components/ui/skiper-ui/skiper87";
@@ -53,6 +53,7 @@ function formatJoinedDate(value: string) {
 
 export function UserManagement() {
   const client = useQueryClient();
+  const modalTrigger = useRef<HTMLElement | null>(null);
   const [creating, setCreating] = useState(false);
   const [resetUser, setResetUser] = useState<ManagedUser | null>(null);
   const [search, setSearch] = useState("");
@@ -138,26 +139,26 @@ export function UserManagement() {
             <Users size={17} />
           </span>
           <span className="grid gap-[.05rem]">
-            <small className="text-xs font-medium text-[#7d8a8c]">Total users</small>
-            <strong className="text-base leading-tight font-semibold tabular-nums text-[#233335]">{allUsers.length}</strong>
+            <small className="text-xs font-medium text-soc5-muted">Total users</small>
+            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">{allUsers.length}</strong>
           </span>
         </div>
         <div className={usersSummaryCardClass}>
-          <span className={`${usersSummaryIconClass} bg-[#f0f9c9] text-[#718b00]`}>
+          <span className={`${usersSummaryIconClass} bg-linehaul-lime-surface text-linehaul-lime-ink`}>
             <ShieldCheck size={17} />
           </span>
           <span className="grid gap-[.05rem]">
-            <small className="text-xs font-medium text-[#7d8a8c]">Active accounts</small>
-            <strong className="text-base leading-tight font-semibold tabular-nums text-[#233335]">{activeUsers}</strong>
+            <small className="text-xs font-medium text-soc5-muted">Active accounts</small>
+            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">{activeUsers}</strong>
           </span>
         </div>
         <div className={usersSummaryCardClass}>
-          <span className={`${usersSummaryIconClass} bg-[#eaf2ff] text-[#386eb3]`}>
+          <span className={`${usersSummaryIconClass} bg-linehaul-surface-soft text-status-info-ink`}>
             <UserRound size={17} />
           </span>
           <span className="grid gap-[.05rem]">
-            <small className="text-xs font-medium text-[#7d8a8c]">Role groups</small>
-            <strong className="text-base leading-tight font-semibold tabular-nums text-[#233335]">{roleCount}</strong>
+            <small className="text-xs font-medium text-soc5-muted">Role groups</small>
+            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">{roleCount}</strong>
           </span>
         </div>
       </section>
@@ -170,8 +171,8 @@ export function UserManagement() {
       <section className={usersTablePanelClass}>
         <div className={usersToolbarClass}>
           <div>
-            <h2 className="m-0 text-sm font-semibold tracking-tight text-[#203638]">Directory</h2>
-            <p className="mt-[.2rem] text-xs text-[#7b8b8c]">
+            <h2 className="m-0 text-sm font-semibold tracking-tight text-soc5-ink">Directory</h2>
+            <p className="mt-[.2rem] text-xs text-soc5-muted">
               {query
                 ? `${filteredUsers.length} matching accounts`
                 : "All provisioned accounts"}
@@ -190,7 +191,7 @@ export function UserManagement() {
             <button
               className={usersPrimaryActionClass}
               type="button"
-              onClick={() => setCreating(true)}
+              onClick={(event) => { modalTrigger.current = event.currentTarget; setCreating(true); }}
             >
               <Plus size={17} />
               Add Ops PIC
@@ -238,8 +239,8 @@ export function UserManagement() {
                             {initials(user.name)}
                           </span>
                           <span className="grid min-w-0 gap-[.15rem]">
-                            <strong className="overflow-hidden text-xs text-[#263638] text-ellipsis whitespace-nowrap">{user.name}</strong>
-                            <small className="text-xs text-[#8a9798]">
+                            <strong className="overflow-hidden text-xs text-soc5-ink text-ellipsis whitespace-nowrap">{user.name}</strong>
+                            <small className="text-xs text-soc5-muted">
                               {user.is_active
                                 ? "Account enabled"
                                 : "Account disabled"}
@@ -248,7 +249,7 @@ export function UserManagement() {
                         </div>
                       </td>
                       <td className={usersTableCellClass}>
-                        <span className="text-xs text-[#657476]">
+                        <span className="text-xs text-soc5-muted">
                           {user.email || user.ops_id || "-"}
                         </span>
                       </td>
@@ -283,7 +284,7 @@ export function UserManagement() {
                         </span>
                       </td>
                       <td className={usersTableCellClass}>
-                        <span className="whitespace-nowrap text-[#7b898a]">
+                        <span className="whitespace-nowrap text-soc5-muted">
                           {formatJoinedDate(user.created_at)}
                         </span>
                       </td>
@@ -295,14 +296,14 @@ export function UserManagement() {
                                 className={tableActionClass}
                                 type="button"
                                 aria-label={`Reset password for ${user.name}`}
-                                onClick={() => setResetUser(user)}
+                                onClick={(event) => { modalTrigger.current = event.currentTarget; setResetUser(user); }}
                               >
                                 <RotateCcw size={15} />
                                 Reset Password
                               </button>
                             )}
                             <button
-                              className={`${tableActionClass} border-[#a83240] text-[#a83240] hover:bg-[#fff5f6]`}
+                              className={`${tableActionClass} border-[#a83240] text-status-danger-ink hover:bg-status-danger-surface`}
                               type="button"
                               aria-label={`Disable ${user.name}`}
                               onClick={() => disable.mutate(user.id)}
@@ -323,6 +324,7 @@ export function UserManagement() {
       </section>
       {creating && (
         <CreateUser
+          returnFocus={modalTrigger.current}
           busy={create.isPending}
           error={create.error?.message}
           onClose={() => setCreating(false)}
@@ -331,6 +333,7 @@ export function UserManagement() {
       )}
       <Modal
         open={resetUser !== null}
+        returnFocus={modalTrigger.current}
         onClose={() => !reset.isPending && setResetUser(null)}
         ariaLabel="Reset user password"
         className={`${compactFormDialogClass} ${usersDialogClass}`}
@@ -391,6 +394,7 @@ export function UserManagement() {
       </Modal>
       <Modal
         open={issuedCredential !== null}
+        returnFocus={modalTrigger.current}
         onClose={closeIssuedCredential}
         ariaLabel="One-time password issued"
         className={`${compactFormDialogClass} ${usersDialogClass}`}
@@ -414,7 +418,7 @@ export function UserManagement() {
           {issuedCredential?.name} through a secure channel — it will not be
           shown again.
         </p>
-        <div className="mx-[1.1rem] mt-4 flex items-center justify-between gap-2 rounded-[.55rem] border border-dashed border-[#cfe5e0] bg-[#f3faf8] p-[.7rem] max-[640px]:mx-3">
+        <div className="mx-[1.1rem] mt-4 flex items-center justify-between gap-2 rounded-[.55rem] border border-dashed border-soc5-line bg-linehaul-surface-soft p-[.7rem] max-[640px]:mx-3">
           <code>{issuedCredential?.password}</code>
           <button
             type="button"
@@ -453,11 +457,13 @@ function UserTableLoading() {
 
 function CreateUser({
   busy,
+  returnFocus,
   error,
   onClose,
   onSubmit,
 }: {
   busy: boolean;
+  returnFocus?: HTMLElement | null;
   error?: string;
   onClose: () => void;
   onSubmit: (body: { name: string; ops_id: string; role: "ops_pic" | "doc_officer" }) => void;
@@ -473,6 +479,7 @@ function CreateUser({
   }
   return (
     <Modal
+      returnFocus={returnFocus}
       open
       onClose={onClose}
       className={`${compactFormDialogClass} ${usersDialogClass}`}

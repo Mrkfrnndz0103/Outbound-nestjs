@@ -77,6 +77,33 @@ const profileButtonClass =
   "flex min-h-[1.9rem] max-w-[min(11rem,22vw)] min-w-0 items-center gap-[.35rem] rounded-lg bg-transparent px-2 py-0 text-left text-[#77787c] hover:bg-[#f1f2f2] max-[960px]:max-w-[1.9rem] max-[600px]:max-w-[1.9rem] [&>div]:grid [&>div]:min-w-0 [&>div]:gap-[.05rem] max-[600px]:[&>div]:hidden max-[600px]:[&>svg:last-child]:hidden [&_strong]:max-w-[5.5rem] [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&_strong]:text-xs [&_strong]:text-[#343538] [&_small]:text-xs [&_small]:capitalize [&_small]:text-[#999] [&>svg:last-child]:ml-[.15rem]";
 const profileMenuClass =
   "absolute top-[2.3rem] right-0 z-50 w-48 overflow-hidden rounded-[.6rem] border border-[#e4e5e5] bg-white p-1 text-[#393a3c] shadow-[0_.6rem_1.25rem_rgb(28_29_30_/_14%)] max-[600px]:right-1";
+let notificationAudioContext: AudioContext | null = null;
+
+function notificationAudio() {
+  if (typeof window.AudioContext === "undefined") return null;
+  notificationAudioContext ??= new window.AudioContext();
+  return notificationAudioContext;
+}
+
+function playNotificationSound() {
+  const context = notificationAudio();
+  if (!context) return;
+  void context.resume().then(() => {
+    const start = context.currentTime + 0.02;
+    for (const [offset, frequency] of [[0, 659.25], [0.13, 880]] as const) {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start + offset);
+      gain.gain.exponentialRampToValueAtTime(0.1, start + offset + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.3);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start + offset);
+      oscillator.stop(start + offset + 0.31);
+    }
+  }).catch(() => undefined);
+}
 
 function formatDate(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
@@ -203,30 +230,32 @@ export function AppHeader({
   }, [client, preview, user.id]);
 
   useEffect(() => {
-    const latest = alerts.find((item) => !item.read_at);
-    if (!latest) return;
+    if (preview) return;
+    const unlock = () => void notificationAudio()?.resume().catch(() => undefined);
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [preview]);
+
+  useEffect(() => {
+    if (notifications.isPending || notifications.isError) return;
+    const latestId = alerts.length ? Math.max(...alerts.map((item) => item.id)) : 0;
     if (knownNotification.current === null) {
-      knownNotification.current = latest.id;
+      knownNotification.current = latestId;
       return;
     }
-    if (latest.id !== knownNotification.current) {
-      knownNotification.current = latest.id;
-      setToast(latest);
+    if (latestId > knownNotification.current) {
+      const newlyAdded = alerts.filter((item) => item.id > knownNotification.current!);
+      knownNotification.current = latestId;
+      const latest = newlyAdded.find((item) => !item.read_at) ?? newlyAdded[0];
+      if (latest) setToast(latest);
       window.setTimeout(() => setToast(null), 5000);
-      const AudioContextClass = window.AudioContext;
-      if (AudioContextClass) {
-        const context = new AudioContextClass();
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        oscillator.frequency.value = 880;
-        gain.gain.value = 0.08;
-        oscillator.connect(gain).connect(context.destination);
-        oscillator.start();
-        oscillator.stop(context.currentTime + 0.18);
-        oscillator.onended = () => void context.close();
-      }
+      playNotificationSound();
     }
-  }, [alerts]);
+  }, [alerts, notifications.isError, notifications.isPending]);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {

@@ -103,7 +103,7 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
       />
       <div
         aria-hidden
-        className="absolute -left-20 top-1/3 h-52 w-52 rounded-full bg-accent/15 blur-3xl"
+        className="absolute -left-20 top-1/3 h-52 w-52 rounded-full bg-auth-accent/15 blur-3xl"
       />
 
       {/* brand */}
@@ -112,13 +112,13 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
           <img
             src="/dashboard-icon/icon_logo.png"
             alt="SOC 5"
-            className={`${compact ? "h-10 w-10 rounded-lg" : "h-[52px] w-[52px] rounded-xl"} shrink-0 object-cover shadow-lg shadow-accent/30`}
+            className={`${compact ? "h-10 w-10 rounded-lg" : "h-[52px] w-[52px] rounded-xl"} shrink-0 object-cover shadow-lg shadow-auth-accent/30`}
           />
           <div>
-            <p className={`font-display ${compact ? "text-sm" : "text-base"} font-semibold tracking-tight leading-snug text-ink`}>
+            <p className={`font-display ${compact ? "text-sm" : "text-base"} font-semibold tracking-tight leading-snug text-auth-ink`}>
               SOC 5 OUTBOUND
             </p>
-            <p className="text-xs font-medium text-faint leading-snug">
+            <p className="text-xs font-medium text-auth-faint leading-snug">
               Operations Management System
             </p>
           </div>
@@ -127,16 +127,16 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
 
       {/* heading */}
       <Reveal delay={90} className={compact ? "mt-3" : "mt-5"}>
-        <h1 className={`font-display ${compact ? "text-lg" : "text-xl"} font-semibold leading-tight tracking-tight text-ink`}>
+        <h1 className={`font-display ${compact ? "text-lg" : "text-xl"} font-semibold leading-tight tracking-tight text-auth-ink`}>
           Login to continue
         </h1>
-        <p className={`${compact ? "mt-1" : "mt-2"} text-xs text-muted leading-relaxed`}>
+        <p className={`${compact ? "mt-1" : "mt-2"} text-xs text-auth-muted leading-relaxed`}>
           Use your work email or Ops ID to sign in below.
         </p>
       </Reveal>
 
       <Reveal delay={180} className={compact ? "mt-3" : "mt-6"}>
-        <div className={`rounded-2xl border border-line bg-white/[0.03] ${compact ? "p-3" : "p-4"} text-center`}>
+        <div className={`rounded-2xl border border-auth-line bg-white/[0.03] ${compact ? "p-3" : "p-4"} text-center`}>
           <fieldset
             ref={widgetRef}
             aria-label="SeaTalk login"
@@ -147,23 +147,23 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
               className="min-w-0 max-w-full overflow-hidden"
             />
             {status === "loading" && (
-              <Loader2 className="h-6 w-6 animate-spin text-accent" />
+              <Loader2 className="h-6 w-6 animate-spin text-auth-accent" />
             )}
           </fieldset>
           {status === "error" && (
-            <div className="mt-3 text-xs leading-relaxed text-danger">
+            <div className="mt-3 text-xs leading-relaxed text-auth-danger">
               <p>{error}</p>
               <button
                 type="button"
                 onClick={() => void renderSeaTalkLogin().catch(() => undefined)}
-                className="mt-2 inline-flex items-center gap-1.5 font-semibold text-link hover:underline"
+                className="mt-2 inline-flex items-center gap-1.5 font-semibold text-auth-link hover:underline"
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Retry SeaTalk login
               </button>
             </div>
           )}
           {status !== "error" && (
-              <p className={`${compact ? "mt-2" : "mt-3"} text-xs leading-relaxed text-muted`}>
+              <p className={`${compact ? "mt-2" : "mt-3"} text-xs leading-relaxed text-auth-muted`}>
               Continue with SeaTalk to sign in.
             </p>
           )}
@@ -180,10 +180,10 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
           alt=""
           className="h-full w-full object-cover object-bottom [mask-image:linear-gradient(to_top,black_45%,transparent)]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-deep-2/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-auth-deep-2/60 via-transparent to-transparent" />
         <div className="absolute bottom-[42%] left-[27%]">
-          <span className="absolute inset-0 animate-login-ping rounded-full bg-accent/50 motion-reduce:animate-none" />
-          <span className="relative grid h-7 w-7 animate-login-float place-items-center rounded-full bg-accent shadow-lg shadow-accent/50 ring-4 ring-accent/25 motion-reduce:animate-none">
+          <span className="absolute inset-0 animate-login-ping rounded-full bg-auth-accent/50 motion-reduce:animate-none" />
+          <span className="relative grid h-7 w-7 animate-login-float place-items-center rounded-full bg-auth-accent shadow-lg shadow-auth-accent/50 ring-4 ring-auth-accent/25 motion-reduce:animate-none">
             <MapPin className="h-3.5 w-3.5 text-white" fill="currentColor" />
           </span>
         </div>

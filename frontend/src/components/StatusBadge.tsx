@@ -2,6 +2,7 @@ import type { Status } from "../types";
 
 const statusLabelMap: Partial<Record<Status, string>> = {
   REQUESTED: "Requested",
+  REJECTED: "Rejected",
   ASSIGNED: "Assigned",
   CANCELLED: "Cancelled",
   DOCKING: "Docking",
@@ -13,6 +14,8 @@ const statusLabelMap: Partial<Record<Status, string>> = {
 const statusClassMap: Record<Status, string> = {
   REQUESTED:
     "border-current/20 bg-status-pending-surface text-status-pending-ink",
+  REJECTED:
+    "border-current/20 bg-status-danger-surface text-status-danger-ink",
   ASSIGNED:
     "border-current/20 bg-status-info-surface text-status-info-ink",
   CANCELLED:
@@ -28,13 +31,14 @@ const statusClassMap: Record<Status, string> = {
 };
 
 const statusTextClassMap: Record<string, string> = {
-  PENDING: "text-[#8a6a10]",
-  REQUESTED: "text-[#28658f]",
-  REROUTED: "text-[#8a6a10]",
-  ASSIGNED: "text-[#237a72]",
-  DOCKING: "text-[#6d5a9d]",
-  DOCKED: "text-[#2f7c58]",
-  CANCELLED: "text-[#a44d59]",
+  PENDING: "text-status-warning-ink",
+  REQUESTED: "text-status-info-ink",
+  REROUTED: "text-status-warning-ink",
+  ASSIGNED: "text-linehaul-teal-ink",
+  DOCKING: "text-status-docking-ink",
+  DOCKED: "text-status-success-ink",
+  CANCELLED: "text-status-danger-ink",
+  REJECTED: "text-status-danger-ink",
 };
 
 const statusDotClassMap: Record<string, string> = {
@@ -45,6 +49,7 @@ const statusDotClassMap: Record<string, string> = {
   DOCKING: "bg-[#8a70c4]",
   DOCKED: "bg-[#4aaf79]",
   CANCELLED: "bg-[#c76470]",
+  REJECTED: "bg-[#c76470]",
 };
 
 export function StatusText({ status }: { status: string }) {
@@ -52,7 +57,7 @@ export function StatusText({ status }: { status: string }) {
   const label = normalized.replaceAll("_", " ");
 
   return (
-    <span className={`inline-flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[.045em] ${statusTextClassMap[normalized] ?? "text-[#596667]"}`}>
+    <span className={`inline-flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[.045em] ${statusTextClassMap[normalized] ?? "text-soc5-ink"}`}>
       <i className={`size-1.5 shrink-0 rounded-full ${statusDotClassMap[normalized] ?? "bg-[#899596]"}`} aria-hidden="true" />
       <span className="truncate">{label}</span>
     </span>

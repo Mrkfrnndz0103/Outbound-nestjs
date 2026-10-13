@@ -297,7 +297,7 @@ final class SeaTalkApprovalCallbackController
             'status' => $status,
         ]);
 
-        return $this->acknowledge($status);
+        return $this->acknowledge();
     }
 
     private function resolveItem(string $providerItemId): object
@@ -392,11 +392,8 @@ final class SeaTalkApprovalCallbackController
         return 'ignored';
     }
 
-    private function acknowledge(string $status): JsonResponse
+    private function acknowledge(): JsonResponse
     {
-        return response()->json([
-            'code' => 0,
-            'status' => $status,
-        ]);
+        return response()->json(['code' => 0]);
     }
 }

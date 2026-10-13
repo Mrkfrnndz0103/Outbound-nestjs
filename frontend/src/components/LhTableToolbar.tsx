@@ -20,23 +20,23 @@ import type { RequestFilters, RequestSort } from "../types";
 import { statuses } from "./RequestFilters";
 
 const menuButtonClass =
-  "flex min-h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-soc5-line bg-soc5-panel px-2.5 py-1.5 text-sm text-[#536264] transition-[color,border-color,background-color,box-shadow,transform] duration-200 hover:border-linehaul-teal/20 hover:bg-[#f5faf9] hover:text-linehaul-teal-strong hover:shadow-[var(--lh-2026-shadow-sm)] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-linehaul-teal max-[480px]:w-full max-[480px]:justify-center";
+  "flex min-h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-soc5-line bg-soc5-panel px-2.5 py-1.5 text-sm text-soc5-ink transition-[color,border-color,background-color,box-shadow,transform] duration-200 hover:border-linehaul-teal/20 hover:bg-linehaul-surface-soft hover:text-linehaul-teal-ink hover:shadow-[var(--lh-2026-shadow-sm)] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-linehaul-teal max-[480px]:w-full max-[480px]:justify-center";
 const popoverClass =
-  "absolute top-[calc(100%+8px)] left-0 z-20 grid min-w-[190px] gap-2.5 rounded-[10px] border border-[#dce9e8] bg-linehaul-surface p-3 shadow-[0_12px_28px_#1f4b4d1f] animate-[lh-popover-in_.18s_ease_both] max-[480px]:right-0 max-[480px]:left-auto";
+  "absolute top-[calc(100%+8px)] left-0 z-20 grid min-w-[190px] gap-2.5 rounded-[10px] border border-soc5-line bg-linehaul-surface p-3 shadow-[0_12px_28px_#1f4b4d1f] animate-[lh-popover-in_.18s_ease_both] max-[480px]:right-0 max-[480px]:left-auto";
 const actionButtonClass =
   "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border px-4 py-1.5 text-sm font-medium transition-[color,border-color,background-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linehaul-teal/40 focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60";
 const filterChipClass =
-  "inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[#cde3e0] bg-[#eef8f7] px-1.5 text-xs font-semibold text-[#365457] hover:border-[#8bbdb8] hover:bg-[#e4f3f0] hover:text-soc5-ink";
+  "inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-soc5-line bg-linehaul-teal-soft px-1.5 text-xs font-semibold text-soc5-ink hover:border-soc5-line hover:bg-linehaul-teal-soft hover:text-soc5-ink";
 const clearFiltersClass =
-  "inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-soc5-line bg-soc5-panel px-1.5 text-xs font-semibold text-soc5-muted hover:border-[#8bbdb8] hover:bg-[#e4f3f0] hover:text-soc5-ink";
+  "inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-soc5-line bg-soc5-panel px-1.5 text-xs font-semibold text-soc5-muted hover:border-soc5-line hover:bg-linehaul-teal-soft hover:text-soc5-ink";
 const densityToggleClass =
-  "inline-flex min-h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-soc5-line bg-soc5-panel px-2 text-xs font-semibold text-soc5-muted hover:border-[#8bbdb8] hover:bg-[#e4f3f0] hover:text-soc5-ink aria-[pressed=true]:border-[#8bbdb8] aria-[pressed=true]:bg-[#e4f3f0]";
+  "inline-flex min-h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-soc5-line bg-soc5-panel px-2 text-xs font-semibold text-soc5-muted hover:border-soc5-line hover:bg-linehaul-teal-soft hover:text-soc5-ink aria-[pressed=true]:border-soc5-line aria-[pressed=true]:bg-linehaul-teal-soft";
 const searchWrapClass =
   "relative order-first ml-auto w-full min-w-[9rem] max-w-[15.5rem] flex-1 max-[760px]:order-none max-[760px]:basis-full max-[480px]:col-span-full lg:order-none";
 const searchInputClass =
   "min-h-9 w-full rounded-[9px] border border-linehaul-line bg-linehaul-surface py-1.5 pr-3 pl-9 text-sm text-soc5-ink placeholder:text-gray-400 focus:border-linehaul-teal/30 focus:outline-none focus:ring-[3px] focus:ring-linehaul-teal/10";
 const menuOptionClass =
-  "min-h-[30px] cursor-pointer rounded-md border-0 bg-transparent px-2 text-left text-xs capitalize text-[#506062] hover:bg-[#eef8f7] hover:text-linehaul-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-linehaul-teal";
+  "min-h-[30px] cursor-pointer rounded-md border-0 bg-transparent px-2 text-left text-xs capitalize text-soc5-ink hover:bg-linehaul-teal-soft hover:text-linehaul-teal-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-linehaul-teal";
 type Props = {
   filters: RequestFilters;
   exporting?: boolean;
@@ -188,10 +188,10 @@ export function LhTableToolbar({
   }
 
   return (
-    <div ref={rootRef} className="flex min-h-0 min-w-0 flex-1 flex-col items-center gap-3 min-[481px]:flex-row max-[1120px]:flex-wrap max-[1120px]:gap-[.35rem] max-[760px]:gap-2.5 max-[680px]:p-[.45rem] max-[480px]:grid max-[480px]:grid-cols-2 lg:flex-row">
+    <div ref={rootRef} className="flex min-h-0 min-w-0 flex-1 flex-wrap flex-col items-center gap-3 min-[481px]:flex-row max-[1120px]:gap-[.35rem] max-[760px]:gap-2.5 max-[680px]:p-[.45rem] max-[480px]:grid max-[480px]:grid-cols-2 lg:flex-row">
       <div className="relative inline-flex max-[760px]:order-none max-[760px]:flex-none">
         <button
-          className={`${menuButtonClass} ${filters.status !== "ALL" ? "border-[#8bbdb8] bg-[#e4f3f0] text-soc5-ink" : ""}`}
+          className={`${menuButtonClass} ${filters.status !== "ALL" ? "border-soc5-line bg-linehaul-teal-soft text-soc5-ink" : ""}`}
           type="button"
           aria-expanded={openMenu === "status"}
           onClick={() => setOpenMenu(openMenu === "status" ? null : "status")}
@@ -212,7 +212,7 @@ export function LhTableToolbar({
       </div>
       <div className="relative inline-flex max-[760px]:order-none max-[760px]:flex-none">
         <button
-          className={`${menuButtonClass} ${openMenu === "filters" ? "border-[#8bbdb8] bg-[#e4f3f0] text-soc5-ink" : ""}`}
+          className={`${menuButtonClass} ${openMenu === "filters" ? "border-soc5-line bg-linehaul-teal-soft text-soc5-ink" : ""}`}
           type="button"
           aria-expanded={openMenu === "filters"}
           onClick={() => setOpenMenu(openMenu === "filters" ? null : "filters")}
@@ -226,10 +226,10 @@ export function LhTableToolbar({
             className={popoverClass}
             aria-label="Request filter controls"
           >
-            <label className="grid gap-1.5 text-sm font-medium text-[#657476]">
+            <label className="grid gap-1.5 text-sm font-medium text-soc5-muted">
               Date
               <input
-                className="min-h-[34px] rounded-[7px] border border-[#dce7e6] bg-linehaul-surface px-2 text-xs text-[#293b3d]"
+                className="min-h-[34px] rounded-[7px] border border-soc5-line bg-linehaul-surface px-2 text-xs text-soc5-ink"
                 type="date"
                 value={filters.dateFrom}
                 onChange={(event) =>
@@ -245,7 +245,7 @@ export function LhTableToolbar({
       </div>
       <div className="relative inline-flex max-[760px]:order-none max-[760px]:flex-none">
         <button
-          className={`${menuButtonClass} ${openMenu === "sort" ? "border-[#8bbdb8] bg-[#e4f3f0] text-soc5-ink" : ""}`}
+          className={`${menuButtonClass} ${openMenu === "sort" ? "border-soc5-line bg-linehaul-teal-soft text-soc5-ink" : ""}`}
           type="button"
           aria-expanded={openMenu === "sort"}
           onClick={() => setOpenMenu(openMenu === "sort" ? null : "sort")}
@@ -266,7 +266,7 @@ export function LhTableToolbar({
       </div>
       <div className="relative hidden max-[760px]:inline-flex">
         <button
-          className={`${menuButtonClass} ${activeFilterCount ? "border-[#8bbdb8] bg-[#e4f3f0] text-soc5-ink" : ""}`}
+          className={`${menuButtonClass} ${activeFilterCount ? "border-soc5-line bg-linehaul-teal-soft text-soc5-ink" : ""}`}
           type="button"
           aria-expanded={openMenu === "mobileFilters"}
           onClick={() =>
@@ -279,18 +279,18 @@ export function LhTableToolbar({
         </button>
         {openMenu === "mobileFilters" && (
           <div className={`${popoverClass} min-w-[220px]`} role="menu" aria-label="Filters and sorting">
-            <strong className="px-2 text-xs font-semibold text-[#657476]">Status</strong>
+            <strong className="px-2 text-xs font-semibold text-soc5-muted">Status</strong>
             {renderStatusOptions()}
-            <label className="grid gap-1.5 px-2 pt-2 text-sm font-medium text-[#657476]">
+            <label className="grid gap-1.5 px-2 pt-2 text-sm font-medium text-soc5-muted">
               Date
               <input
-                className="min-h-[34px] rounded-[7px] border border-[#dce7e6] bg-linehaul-surface px-2 text-xs text-[#293b3d]"
+                className="min-h-[34px] rounded-[7px] border border-soc5-line bg-linehaul-surface px-2 text-xs text-soc5-ink"
                 type="date"
                 value={filters.dateFrom}
                 onChange={(event) => set({ dateFrom: event.target.value, dateTo: event.target.value })}
               />
             </label>
-            <strong className="px-2 pt-2 text-xs font-semibold text-[#657476]">Sort by</strong>
+            <strong className="px-2 pt-2 text-xs font-semibold text-soc5-muted">Sort by</strong>
             {renderSortOptions()}
           </div>
         )}
@@ -330,7 +330,7 @@ export function LhTableToolbar({
         <span>{density === "compact" ? "Compact" : "Comfortable"}</span>
       </button>
       <button
-        className={`${actionButtonClass} border-soc5-ink bg-soc5-ink text-white hover:bg-[#4a4a4c] max-[480px]:w-full`}
+        className={`${actionButtonClass} border-soc5-ink bg-soc5-ink text-soc5-panel hover:bg-soc5-muted max-[480px]:w-full`}
         type="button"
         disabled={exporting}
         onClick={onExport}

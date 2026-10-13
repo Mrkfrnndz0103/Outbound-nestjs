@@ -54,6 +54,55 @@ final class RequestRepository
             ->through(fn (object $request): object => $this->forActor($actor, $request));
     }
 
+    /**
+     * Return the actor's actionable queue without scanning every request page.
+     *
+     * @return array{data:list<object>, has_more:bool, next_cursor:string|null, limit:int}
+     */
+    public function queue(object $actor, int $limit = 100, ?string $cursor = null): array
+    {
+        $limit = min(max($limit, 1), 100);
+        $query = DB::table('requests')
+            ->leftJoin('profiles as soc_pic', function ($join): void {
+                $join->on(DB::raw('CAST(soc_pic.id AS TEXT)'), '=', 'requests.ob_fte');
+            })
+            ->leftJoin('profiles as creator', 'creator.id', '=', 'requests.created_by')
+            ->select(array_merge(array_map(fn (string $column): string => 'requests.'.$column, $this->columns()), [
+                'soc_pic.name as ob_fte_name',
+                'creator.name as created_by_name',
+            ]));
+
+        $this->applyQueueScope($query, $actor);
+        if ($cursor !== null) {
+            [$createdAt, $id] = $this->decodeQueueCursor($cursor);
+            $query->where(function (Builder $cursorQuery) use ($createdAt, $id): void {
+                $cursorQuery->where('requests.created_at', '<', $createdAt)
+                    ->orWhere(function (Builder $tieQuery) use ($createdAt, $id): void {
+                        $tieQuery->where('requests.created_at', $createdAt)
+                            ->where('requests.id', '<', $id);
+                    });
+            });
+        }
+
+        $rows = $this->withWorkflowActors($query)
+            ->orderByDesc('requests.created_at')
+            ->orderByDesc('requests.id')
+            ->limit($limit + 1)
+            ->get()
+            ->map(fn (object $request): object => $this->forActor($actor, $request))
+            ->values();
+        $hasMore = $rows->count() > $limit;
+        $data = $rows->take($limit)->values()->all();
+        $last = $data === [] ? null : $data[array_key_last($data)];
+
+        return [
+            'data' => $data,
+            'has_more' => $hasMore,
+            'next_cursor' => $hasMore && $last !== null ? $this->encodeQueueCursor($last) : null,
+            'limit' => $limit,
+        ];
+    }
+
     public function metrics(object $actor, array $filters = []): Collection
     {
         $query = DB::table('requests')->select('status', DB::raw('count(*) as total'))->groupBy('status');
@@ -160,6 +209,60 @@ final class RequestRepository
         if ($dateTo = $filters['date_to'] ?? null) {
             $this->whereBusinessDate($query, '<=', $dateTo);
         }
+    }
+
+    private function applyQueueScope(Builder $query, object $actor): void
+    {
+        if ($actor->role === 'ops_pic' && ! ($actor->is_admin ?? false)) {
+            $query->where('requests.created_by', $actor->id);
+        }
+
+        $query->where(function (Builder $queue) use ($actor): void {
+            match ($actor->role) {
+                'fte_ops' => $queue->whereIn('requests.status', ['PENDING', 'REROUTED'])
+                    ->orWhere(fn (Builder $rejected): Builder => $rejected
+                        ->where('requests.status', 'REJECTED')
+                        ->where('requests.rejection_return_role', 'fte_ops')),
+                'fte_mm' => $queue->where('requests.status', 'REQUESTED'),
+                'doc_officer' => $queue->where('requests.status', 'DOCKING')
+                    ->where(function (Builder $driver): void {
+                        $driver->whereNull('requests.driver_id')->orWhere('requests.driver_id', '');
+                    }),
+                'ops_pic' => $queue
+                    ->where(function (Builder $docking): void {
+                        $docking->where('requests.status', 'DOCKING')->whereNotNull('requests.driver_id')->where('requests.driver_id', '<>', '');
+                    })
+                    ->orWhere('requests.status', 'DOCKED')
+                    ->orWhere(fn (Builder $rejected): Builder => $rejected
+                        ->where('requests.status', 'REJECTED')
+                        ->where('requests.rejection_return_role', 'ops_pic')),
+                default => $queue->whereRaw('1 = 0'),
+            };
+        });
+    }
+
+    private function encodeQueueCursor(object $request): string
+    {
+        return rtrim(strtr(base64_encode(json_encode([
+            'created_at' => (string) $request->created_at,
+            'id' => (string) $request->id,
+        ], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+    }
+
+    /** @return array{string, string} */
+    private function decodeQueueCursor(string $cursor): array
+    {
+        $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
+        $payload = $decoded === false ? null : json_decode($decoded, true);
+        abort_unless(
+            is_array($payload)
+                && is_string($payload['created_at'] ?? null)
+                && is_string($payload['id'] ?? null),
+            422,
+            'The queue cursor is invalid.',
+        );
+
+        return [$payload['created_at'], $payload['id']];
     }
 
     public function lock(string $id): object

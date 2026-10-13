@@ -10,6 +10,7 @@ export function MedeskLogo({ className, ...props }: SVGProps<SVGSVGElement>) {
       id="Logo"
       className={cn("size-8 text-primary", className)}
       {...props}
+      aria-hidden="true"
     >
       <g id="logomark">
         <path

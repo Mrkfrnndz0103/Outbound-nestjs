@@ -46,6 +46,7 @@ jobs:
         - npm run check:robots
         - npm run check:encoding
         - npm run lint
+        - npm run lint:a11y
         - npm run format:check
         - npm test
         - |

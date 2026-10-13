@@ -7,6 +7,12 @@ use App\Features\Approvals\ApprovalItemProvisioner;
 use App\Features\Approvals\ApprovalRouter;
 use App\Features\Approvals\ApprovalService;
 use App\Features\Approvals\ApprovalSource;
+use App\Features\Outbox\WorkflowGoogleSheetsOutbox;
+use App\Features\Outbox\WorkflowNotificationOutbox;
+use App\Features\Outbox\WorkflowOutboxDispatcher;
+use App\Features\Outbox\WorkflowOutboxRepository;
+use App\Features\Outbox\WorkflowOutboxWriter;
+use App\Features\Outbox\WorkflowSeaTalkOutbox;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -18,10 +24,27 @@ final class RequestService
         private RequestAuthorizer $authorizer,
         ?ApprovalService $approvals = null,
         ?ApprovalItemProvisioner $provisioner = null,
+        ?WorkflowNotificationOutbox $notifications = null,
+        ?WorkflowSeaTalkOutbox $seatalk = null,
+        ?WorkflowGoogleSheetsOutbox $sheets = null,
     ) {
         $this->approvals = $approvals ?? new ApprovalService($requests, $authorizer);
         $this->provisioner = $provisioner;
         $this->approvalRouter = $provisioner !== null ? new ApprovalRouter($provisioner) : null;
+        $this->notifications = $notifications ?? new WorkflowNotificationOutbox(
+            new WorkflowOutboxWriter(new WorkflowOutboxRepository),
+            new WorkflowOutboxDispatcher,
+        );
+        $this->seatalk = $seatalk ?? new WorkflowSeaTalkOutbox(
+            new WorkflowOutboxWriter(new WorkflowOutboxRepository),
+            new WorkflowOutboxDispatcher,
+            $provisioner,
+        );
+        $this->sheets = $sheets ?? new WorkflowGoogleSheetsOutbox(
+            new WorkflowOutboxWriter(new WorkflowOutboxRepository),
+            new WorkflowOutboxRepository,
+            new WorkflowOutboxDispatcher,
+        );
     }
 
     private ApprovalService $approvals;
@@ -29,6 +52,12 @@ final class RequestService
     private ?ApprovalItemProvisioner $provisioner;
 
     private ?ApprovalRouter $approvalRouter;
+
+    private WorkflowNotificationOutbox $notifications;
+
+    private WorkflowSeaTalkOutbox $seatalk;
+
+    private WorkflowGoogleSheetsOutbox $sheets;
 
     public function create(object $actor, array $data): object
     {
@@ -48,7 +77,7 @@ final class RequestService
                         return;
                     }
 
-                    $this->provisioner?->provisionForRequest($request);
+                    $this->seatalk->provision((string) $request->id);
                 });
             }
 
@@ -274,15 +303,16 @@ final class RequestService
     private function event(string $id, string $actor, string $type, ?string $from, string $to, array $meta = []): void
     {
         DB::table('request_events')->insert(['request_id' => $id, 'actor_id' => $actor, 'event_type' => $type, 'from_status' => $from, 'to_status' => $to, 'metadata' => json_encode($meta)]);
+        $this->sheets->requestSync();
     }
 
     private function notify(string $id, string $role, string $event, string $title, string $body): void
     {
-        DB::table('notifications')->insert(['request_id' => $id, 'target_role' => $role, 'event_type' => $event, 'title' => $title, 'body' => $body]);
+        $this->notifications->notify($id, $event, $title, $body, targetRole: $role);
     }
 
     private function notifyUser(string $id, string $userId, string $event, string $title, string $body): void
     {
-        DB::table('notifications')->insert(['request_id' => $id, 'user_id' => $userId, 'event_type' => $event, 'title' => $title, 'body' => $body]);
+        $this->notifications->notify($id, $event, $title, $body, userId: $userId);
     }
 }

@@ -23,4 +23,18 @@ describe("InlineCreateRow", () => {
     expect(markup).toContain('role="combobox"');
     expect(markup).toContain('aria-autocomplete="list"');
   });
+
+  it("renders backend validation beside the affected field", () => {
+    const markup = renderToStaticMarkup(
+      <InlineCreateRow
+        busy={false}
+        fieldErrors={{ truck_size: ["Choose a supported truck size."] }}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Choose a supported truck size.");
+    expect(markup).toContain('role="alert"');
+  });
 });

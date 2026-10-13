@@ -14,6 +14,7 @@ return new class extends Migration
         'jobs',
         'job_batches',
         'failed_jobs',
+        'workflow_outbox',
     ];
 
     public function up(): void

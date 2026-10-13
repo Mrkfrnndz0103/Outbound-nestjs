@@ -17,11 +17,11 @@ Invoke-WebRequest http://127.0.0.1:8000/up
 
 ## How the tests work
 
-`smoke.js` runs one user once. It checks the frontend, Laravel health endpoint, public authentication configuration, and—when authentication is supplied—`/auth/me`, `/requests`, and `/requests/metrics`.
+`smoke.js` runs one user once. It checks the frontend, Laravel health endpoint, public authentication configuration, and, when authentication is supplied, `/auth/me`, `/requests`, and `/requests/summary`.
 
 `load.js` gradually ramps through 10, 25, 50, 100, 200, and 300 VUs. Each VU pauses between browser/API-style actions. It performs only GET requests and does not create, update, approve, reject, assign, or delete requests.
 
-`api-load.js` runs a constant-arrival, read-only API workload. It rotates through authentication status, requests, metrics, analytics, intraday dispatch, notifications, and cluster lookup. It requires authentication because these Laravel routes are protected by `supabase.auth`.
+`api-load.js` runs a constant-arrival, read-only API workload. It rotates through authentication status, the paginated requests list, the bounded role-scoped request queue, the combined dashboard summary, intraday dispatch, notifications, and cluster lookup. It requires authentication because these Laravel routes are protected by `supabase.auth`.
 
 The tests never automate Google OAuth, SeaTalk OAuth, or Supabase OTP. If Backroom credentials are supplied, k6 performs exactly one login in `setup()` and reuses the returned access token for the run.
 

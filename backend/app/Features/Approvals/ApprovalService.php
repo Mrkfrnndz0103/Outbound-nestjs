@@ -2,6 +2,12 @@
 
 namespace App\Features\Approvals;
 
+use App\Features\Outbox\WorkflowGoogleSheetsOutbox;
+use App\Features\Outbox\WorkflowNotificationOutbox;
+use App\Features\Outbox\WorkflowOutboxDispatcher;
+use App\Features\Outbox\WorkflowOutboxRepository;
+use App\Features\Outbox\WorkflowOutboxWriter;
+use App\Features\Outbox\WorkflowSeaTalkOutbox;
 use App\Features\Requests\RequestAuthorizer;
 use App\Features\Requests\RequestRepository;
 use Carbon\CarbonImmutable;
@@ -16,7 +22,31 @@ final class ApprovalService
         private RequestRepository $requests,
         private RequestAuthorizer $authorizer,
         private ?ApprovalItemSynchronizer $synchronizer = null,
-    ) {}
+        ?WorkflowNotificationOutbox $notifications = null,
+        ?WorkflowSeaTalkOutbox $seatalk = null,
+        ?WorkflowGoogleSheetsOutbox $sheets = null,
+    ) {
+        $this->notifications = $notifications ?? new WorkflowNotificationOutbox(
+            new WorkflowOutboxWriter(new WorkflowOutboxRepository),
+            new WorkflowOutboxDispatcher,
+        );
+        $this->seatalk = $seatalk ?? new WorkflowSeaTalkOutbox(
+            new WorkflowOutboxWriter(new WorkflowOutboxRepository),
+            new WorkflowOutboxDispatcher,
+            synchronizer: $synchronizer,
+        );
+        $this->sheets = $sheets ?? new WorkflowGoogleSheetsOutbox(
+            new WorkflowOutboxWriter(new WorkflowOutboxRepository),
+            new WorkflowOutboxRepository,
+            new WorkflowOutboxDispatcher,
+        );
+    }
+
+    private WorkflowNotificationOutbox $notifications;
+
+    private WorkflowSeaTalkOutbox $seatalk;
+
+    private WorkflowGoogleSheetsOutbox $sheets;
 
     public function synchronizeAfterCommit(string $requestId): void
     {
@@ -24,9 +54,7 @@ final class ApprovalService
             return;
         }
 
-        DB::afterCommit(function () use ($requestId): void {
-            $this->synchronizer?->synchronize($requestId);
-        });
+        $this->seatalk->synchronize($requestId);
     }
 
     public function approve(
@@ -467,6 +495,7 @@ final class ApprovalService
             'to_status' => $to,
             'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
         ]);
+        $this->sheets->requestSync();
     }
 
     private function notify(
@@ -476,13 +505,7 @@ final class ApprovalService
         string $title,
         string $body,
     ): void {
-        DB::table('notifications')->insert([
-            'request_id' => $requestId,
-            'target_role' => $role,
-            'event_type' => $event,
-            'title' => $title,
-            'body' => $body,
-        ]);
+        $this->notifications->notify($requestId, $event, $title, $body, targetRole: $role);
     }
 
     private function notifyUser(
@@ -492,12 +515,6 @@ final class ApprovalService
         string $title,
         string $body,
     ): void {
-        DB::table('notifications')->insert([
-            'request_id' => $requestId,
-            'user_id' => $userId,
-            'event_type' => $event,
-            'title' => $title,
-            'body' => $body,
-        ]);
+        $this->notifications->notify($requestId, $event, $title, $body, userId: $userId);
     }
 }

@@ -98,6 +98,42 @@ final class RequestWorkflowTest extends TestCase
         $this->assertSame('ABC-1234', $result->items()[0]->plate_number);
     }
 
+    public function test_action_queue_is_bounded_role_scoped_and_cursor_paginated(): void
+    {
+        $actor = (object) ['id' => (string) Str::uuid(), 'role' => 'fte_ops'];
+        $first = $this->insertRequest(['status' => 'PENDING', 'created_at' => '2026-06-30 08:00:00', 'updated_at' => '2026-06-30 08:00:00']);
+        $second = $this->insertRequest(['status' => 'REJECTED', 'rejection_return_role' => 'fte_ops', 'created_at' => '2026-06-30 09:00:00', 'updated_at' => '2026-06-30 09:00:00']);
+        $this->insertRequest(['status' => 'REJECTED', 'rejection_return_role' => 'ops_pic', 'created_at' => '2026-06-30 10:00:00', 'updated_at' => '2026-06-30 10:00:00']);
+
+        $firstPage = $this->repository->queue($actor, 1);
+
+        $this->assertCount(1, $firstPage['data']);
+        $this->assertSame($second->id, $firstPage['data'][0]->id);
+        $this->assertTrue($firstPage['has_more']);
+        $this->assertNotNull($firstPage['next_cursor']);
+
+        $secondPage = $this->repository->queue($actor, 1, $firstPage['next_cursor']);
+
+        $this->assertSame($first->id, $secondPage['data'][0]->id);
+        $this->assertFalse($secondPage['has_more']);
+        $this->assertNull($secondPage['next_cursor']);
+    }
+
+    public function test_queue_endpoint_returns_bounded_cursor_contract(): void
+    {
+        $actor = (object) ['id' => (string) Str::uuid(), 'role' => 'fte_mm'];
+        $this->insertRequest(['status' => 'REQUESTED']);
+        $request = Request::create('/api/requests/queue?limit=1');
+        $request->attributes->set('actor', $actor);
+
+        $response = (new RequestController($this->repository, $this->service))->queue($request);
+        $payload = $response->getData(true);
+
+        $this->assertSame(['data', 'has_more', 'next_cursor', 'limit'], array_keys($payload));
+        $this->assertSame(1, $payload['limit']);
+        $this->assertCount(1, $payload['data']);
+    }
+
     public function test_fte_mm_sees_a_requested_handoff_as_requested(): void
     {
         $request = $this->insertRequest(['status' => 'REQUESTED']);
@@ -472,6 +508,24 @@ final class RequestWorkflowTest extends TestCase
         $response = (new RequestController($this->repository, $this->service))->metrics($httpRequest)->getData(true);
         $this->assertSame(1, $response['awaiting_action']);
         $this->assertSame(1, $response['by_status']['REJECTED']);
+    }
+
+    public function test_dashboard_summary_combines_metrics_and_analytics_under_one_filter_contract(): void
+    {
+        $actor = (object) ['id' => (string) Str::uuid(), 'role' => 'fte_ops'];
+        $this->insertRequest(['status' => 'PENDING', 'request_timestamp' => '2026-06-30 08:00:00']);
+        $httpRequest = Request::create('/api/requests/summary', 'GET', [
+            'date_from' => '2026-06-30',
+            'date_to' => '2026-06-30',
+        ]);
+        $httpRequest->attributes->set('actor', $actor);
+
+        $response = (new RequestController($this->repository, $this->service))->summary($httpRequest)->getData(true);
+
+        $this->assertSame(1, $response['metrics']['total']);
+        $this->assertSame(1, $response['metrics']['by_status']['PENDING']);
+        $this->assertArrayHasKey('truck_sizes', $response['analytics']);
+        $this->assertArrayHasKey('hourly', $response['analytics']);
     }
 
     public function test_old_release_column_cache_does_not_hide_new_workflow_metadata(): void

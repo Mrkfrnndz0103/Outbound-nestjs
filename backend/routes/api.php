@@ -8,6 +8,7 @@ use App\Features\Auth\SeatalkController;
 use App\Features\Dispatch\DispatchController;
 use App\Features\Kpi\KpiController;
 use App\Features\Notifications\NotificationController;
+use App\Features\Outbox\WorkflowOutboxStatusController;
 use App\Features\Requests\RequestController;
 use App\Features\Users\AccessRequestController;
 use App\Features\Users\UserController;
@@ -86,6 +87,9 @@ $registerApiRoutes = static function (string $prefix): void {
             Route::get('/dispatch/intraday', [DispatchController::class, 'intraday']);
             Route::get('/requests/metrics', [RequestController::class, 'metrics']);
             Route::get('/requests/analytics', [RequestController::class, 'analytics']);
+            Route::get('/requests/summary', [RequestController::class, 'summary']);
+            Route::get('/operations/outbox/status', [WorkflowOutboxStatusController::class, 'show']);
+            Route::get('/requests/queue', [RequestController::class, 'queue']);
             Route::get('/requests', [RequestController::class, 'index']);
             Route::post('/requests', [RequestController::class, 'store'])->middleware('idempotency');
             Route::post('/requests/bulk-approve', [RequestController::class, 'bulkApprove'])->middleware('idempotency');

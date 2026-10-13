@@ -26,14 +26,15 @@ backend/                 Laravel API
 frontend/                React/Vite application
 supabase/migrations/     PostgreSQL schema and RLS policies
 docs/                    Product and architecture documents
-tools/php.ini            Project-local PHP configuration
+tools/php.ini            Base PHP configuration template
 scripts/launchers/       Backend setup and development launchers
 ```
 
 ## Quick start on this Windows machine
 
-No administrator access is required. PHP and Composer use the project-local
-configuration in `tools/php.ini`.
+No administrator access is required. The setup script generates the
+machine-local PHP configuration in `tools/php.local.ini` from the tracked
+`tools/php.ini` template; launchers use the generated file automatically.
 
 Before starting, ensure `php`, `composer`, `npm`, and `cloudflared` are
 available on `PATH`. Authenticate `cloudflared` once if needed:
@@ -131,7 +132,7 @@ Run the repository preflight checks from PowerShell:
 
 ```powershell
 # Backend
-$env:PHPRC = (Resolve-Path .\tools\php.ini).Path
+$env:PHPRC = (Resolve-Path .\tools\php.local.ini).Path
 cd backend
 php artisan test
 .\vendor\bin\pint --test

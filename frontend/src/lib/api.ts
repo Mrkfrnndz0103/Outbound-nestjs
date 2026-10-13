@@ -7,10 +7,24 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly errors: Record<string, string[]> = {},
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export function apiFieldErrors(error: unknown): Record<string, string[]> {
+  return error instanceof ApiError ? error.errors : {};
+}
+
+export function apiErrorMessage(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined;
+  if (error instanceof ApiError && error.status === 409) {
+    return `This request changed before your update was saved. Refresh the list and try again. ${error.message}`;
+  }
+
+  return error.message;
 }
 
 export async function api<T = unknown>(
@@ -71,6 +85,16 @@ export async function api<T = unknown>(
     typeof body.message === "string"
       ? body.message
       : `Request failed (${response.status})`;
-  if (!response.ok) throw new ApiError(message, response.status);
+  const errors =
+    body && typeof body === "object" && "errors" in body && body.errors && typeof body.errors === "object"
+      ? Object.fromEntries(
+          Object.entries(body.errors).flatMap(([key, value]) =>
+            Array.isArray(value) && value.every((item) => typeof item === "string")
+              ? [[key, value]]
+              : [],
+          ),
+        )
+      : {};
+  if (!response.ok) throw new ApiError(message, response.status, errors);
   return body as T;
 }

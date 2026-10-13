@@ -27,6 +27,20 @@ final class RequestController
         return response()->json($this->repository->paginate($request->attributes->get('actor'), $filters));
     }
 
+    public function queue(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'limit' => 'nullable|integer|min:1|max:100',
+            'cursor' => 'nullable|string|max:200',
+        ]);
+
+        return response()->json($this->repository->queue(
+            $request->attributes->get('actor'),
+            (int) ($filters['limit'] ?? 100),
+            $filters['cursor'] ?? null,
+        ));
+    }
+
     public function metrics(Request $request): JsonResponse
     {
         $filters = $request->validate([
@@ -52,6 +66,28 @@ final class RequestController
         ]);
 
         return response()->json($this->repository->analytics($request->attributes->get('actor'), $filters));
+    }
+
+    public function summary(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'search' => 'nullable|string|max:50',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+        ]);
+        $actor = $request->attributes->get('actor');
+        $byStatus = $this->repository->metrics($actor, $filters);
+        $awaiting = collect(['PENDING', 'REQUESTED', 'REROUTED', 'REJECTED', 'DOCKING', 'ASSIGNED'])
+            ->sum(fn (string $status): int => (int) ($byStatus[$status] ?? 0));
+
+        return response()->json([
+            'metrics' => [
+                'total' => $byStatus->sum(),
+                'awaiting_action' => $awaiting,
+                'by_status' => $byStatus,
+            ],
+            'analytics' => $this->repository->analytics($actor, $filters),
+        ]);
     }
 
     public function store(Request $request): JsonResponse

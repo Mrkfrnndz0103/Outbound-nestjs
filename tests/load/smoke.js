@@ -20,6 +20,8 @@ export default function (auth) {
     randomPause(0.5, 1.5);
     apiRead(auth, 'requests', '?per_page=25&sort=created_at&direction=desc');
     randomPause(0.5, 1.5);
-    apiRead(auth, 'requests/metrics');
+    apiRead(auth, 'requests/queue', '?limit=100');
+    randomPause(0.5, 1.5);
+    apiRead(auth, 'requests/summary');
   }
 }

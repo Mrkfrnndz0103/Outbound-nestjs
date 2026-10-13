@@ -16,7 +16,7 @@ const { request, filters } = vi.hoisted(() => ({
     truck_type: "WETLEASE",
     created_by: "operator",
     created_at: "2026-10-12T00:00:00Z",
-    driver_assigned_at: "2026-10-12T01:42:00Z",
+    driver_assigned_at: "2026-10-12T09:42:00",
   } as TruckRequest,
   filters: {
     status: "ALL",
@@ -102,7 +102,7 @@ describe("request tables with the Status column hidden", () => {
       );
       expect(markup).toContain('aria-sort="descending"');
       expect(markup).toMatch(/Assigned time/);
-      expect(markup).toContain("1:42:00");
+      expect(markup).toContain("9:42:00 AM");
       expect(markup.match(/>Not recorded</g)).toHaveLength(2);
     });
   }
@@ -116,7 +116,7 @@ describe("request tables with the Status column hidden", () => {
     );
     expect(markup).toContain('aria-label="Select request table-request"');
     expect(markup).toContain('aria-sort="descending"');
-    expect(markup).toContain("1:42:00");
+    expect(markup).toContain("9:42:00 AM");
     expect(markup.match(/>Not recorded</g)).toHaveLength(2);
   });
 });

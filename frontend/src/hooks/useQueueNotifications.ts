@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { requestQueryKey } from "../lib/requestRefresh";
-import type { Page, Status, TruckRequest, User } from "../types";
+import type { Status, TruckRequest, User } from "../types";
 
 export type QueueSnapshot = {
   status: Status | null;
@@ -54,31 +54,13 @@ export function unacknowledgedQueueRows(
   return rows.filter((request) => acknowledged.get(request.id) !== queueAlertVersion(request));
 }
 
-async function fetchAllStatusPages(status: Status) {
-  const query = `status=${status}&per_page=100&sort=created_at&direction=desc`;
-  const firstPage = await api<Page<TruckRequest>>(`/requests?${query}&page=1`);
-  if (firstPage.last_page <= 1) return firstPage.data;
-
-  const remainingPages = await Promise.all(
-    Array.from({ length: firstPage.last_page - 1 }, (_, index) =>
-      api<Page<TruckRequest>>(`/requests?${query}&page=${index + 2}`),
-    ),
-  );
-  return [firstPage, ...remainingPages].flatMap((page) => page.data);
-}
-
 export function useQueueNotifications(user: User): QueueSnapshot {
   const statuses = queueStatusesForRole(user.role);
   const status = statuses[0] ?? null;
   const [acknowledged, setAcknowledged] = useState<Map<string, string>>(() => new Map());
   const query = useQuery({
     queryKey: [...requestQueryKey("notification-queue"), user.role, statuses],
-    queryFn: async () => {
-      const requestsByStatus = await Promise.all(statuses.map(fetchAllStatusPages));
-      const requests = new Map(requestsByStatus.flat().map((request) => [request.id, request]));
-      const rows = actionableQueueRows(user.role, [...requests.values()]);
-      return { rows, count: rows.length };
-    },
+    queryFn: async () => api<{ data: TruckRequest[]; limit: number }>("/requests/queue?limit=100"),
     enabled: statuses.length > 0,
     refetchInterval: false,
     refetchOnWindowFocus: true,
@@ -88,7 +70,7 @@ export function useQueueNotifications(user: User): QueueSnapshot {
     setAcknowledged(new Map());
   }, [user.id, user.role]);
 
-  const rows = query.data?.rows ?? [];
+  const rows = actionableQueueRows(user.role, query.data?.data ?? []);
   const alerts = useMemo(
     () => unacknowledgedQueueRows(rows, acknowledged),
     [acknowledged, rows],
@@ -98,7 +80,7 @@ export function useQueueNotifications(user: User): QueueSnapshot {
     status,
     rows,
     alerts,
-    count: query.data?.count ?? 0,
+    count: rows.length,
     isPending: status !== null && query.isPending,
     error: query.error,
     refetch: () => void query.refetch(),

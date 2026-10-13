@@ -17,6 +17,7 @@ import {
 import { Fragment, type ReactNode, useEffect, useState } from "react";
 import type { RequestSort, SortDirection, TruckRequest } from "../types";
 import { StatusText } from "./StatusBadge";
+import { NextActionText } from "./NextActionText";
 import { Skiper87 } from "./ui/skiper-ui/skiper87";
 import {
   genericRequestDetailCardClass,
@@ -64,6 +65,12 @@ const columns: Column[] = [
     render: (request) => (
       <StatusText status={request.display_status ?? request.status} />
     ),
+  },
+  {
+    key: "next_action",
+    label: "Next action",
+    icon: ListChecks,
+    render: (request) => <NextActionText role={request.next_action_role} />,
   },
   {
     key: "running_time",

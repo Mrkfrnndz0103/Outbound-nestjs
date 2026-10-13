@@ -18,7 +18,7 @@
    Backroom user creation first creates a Supabase auth account, then inserts a profile. If the local insert fails after the remote user is created, operators can get orphaned auth users or need manual repair.
 
 6. **The dashboard should not compute operational metrics from the first page.**
-   The dashboard still requests `/requests?per_page=20` for the latest activity feed, but now calls `/requests/metrics` so total and “awaiting action” counts are computed server-side across the authorized request set.
+   The dashboard requests `/requests?per_page=20` for the latest activity feed and calls `/requests/summary` so total, “awaiting action,” and analytics aggregates are computed server-side under one filter contract.
 
 7. **No read model or aggregation layer exists for operations metrics.**
    Metrics currently derive from request rows at read time. As stakeholders ask for per-status, per-region, backlog, aging, or SLA dashboards, repeated ad hoc scans over `requests` will become a common bottleneck.

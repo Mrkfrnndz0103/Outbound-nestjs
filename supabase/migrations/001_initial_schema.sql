@@ -5,7 +5,7 @@ create type public.request_status as enum (
   'PENDING','APPROVED','CANCELLED','REJECTED_BY_MM','ASSIGNED',
   'FOR_DOCKING','DOCKED','CONFIRMED'
 );
-create type public.truck_size as enum ('4W','6W','10W','6WF');
+create type public.truck_size as enum ('4W','6W','10W','6WF','4WAUV','4WCV');
 create type public.truck_type as enum ('WETLEASE','DRYLEASE');
 
 create table public.profiles (

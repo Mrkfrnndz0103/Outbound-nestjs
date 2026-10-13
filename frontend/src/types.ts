@@ -89,6 +89,11 @@ export interface RequestAnalytics {
   average_waiting_minutes?: number | null;
 }
 
+export interface RequestDashboardSummary {
+  metrics: RequestMetrics;
+  analytics: RequestAnalytics;
+}
+
 export type AppView =
   | "overview"
   | "lh-request"

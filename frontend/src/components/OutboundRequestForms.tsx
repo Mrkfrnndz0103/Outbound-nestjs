@@ -11,14 +11,23 @@ import { api } from "../lib/api";
 import type { ClusterLookup, TruckRequest } from "../types";
 import { inlineActionsClass, inlineCreateFormClass, inlineCreateInputClass, inlineCreateLabelClass, inlinePrimaryButtonClass, inlineSuggestionClass, inlineSuggestionsClass, secondaryButtonClass } from "../lib/uiClasses";
 
+export type FieldErrors = Record<string, string[]>;
+
+function FieldError({ name, errors }: { name: string; errors?: FieldErrors }) {
+  const message = errors?.[name]?.[0];
+  return message ? <span className="text-xs text-[var(--color-danger)]" role="alert">{message}</span> : null;
+}
+
 export function InlineCreateRow({
   busy,
   error,
+  fieldErrors,
   onCancel,
   onSubmit,
 }: {
   busy: boolean;
   error?: string;
+  fieldErrors?: FieldErrors;
   onCancel: () => void;
   onSubmit: (payload: RequestPayload) => void;
 }) {
@@ -70,6 +79,7 @@ export function InlineCreateRow({
             }}
             placeholder="Type 3 chars"
           />
+            <FieldError name="cluster" errors={fieldErrors} />
           <Combobox.Options as="div" className={inlineSuggestionsClass}>
             {searchIsCurrent &&
               clusterSearch.length >= 3 &&
@@ -111,6 +121,7 @@ export function InlineCreateRow({
       <label className={inlineCreateLabelClass}>
         Region
         <input className={inlineCreateInputClass} name="region" required readOnly value={selected?.region ?? ""} />
+        <FieldError name="region" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Dock No
@@ -122,6 +133,7 @@ export function InlineCreateRow({
           defaultValue={selected?.dock_number ?? ""}
           key={selected?.id ?? "dock"}
         />
+        <FieldError name="dock_no" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Backlogs
@@ -134,6 +146,7 @@ export function InlineCreateRow({
           min={0}
           value={selected?.backlogs ?? 0}
         />
+        <FieldError name="backlogs" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Backlogs Timestamp
@@ -162,6 +175,7 @@ export function InlineCreateRow({
           <option>10W</option>
           <option>6WF</option>
         </select>
+        <FieldError name="truck_size" errors={fieldErrors} />
       </label>
       {error && (
         <p className="error notice text-[var(--color-danger)]">{error}</p>
@@ -184,12 +198,14 @@ export function InlineEditRow({
   request,
   busy,
   error,
+  fieldErrors,
   onCancel,
   onSubmit,
 }: {
   request: TruckRequest;
   busy: boolean;
   error?: string;
+  fieldErrors?: FieldErrors;
   onCancel: () => void;
   onSubmit: (payload: RequestPayload) => void;
 }) {
@@ -209,6 +225,7 @@ export function InlineEditRow({
           maxLength={120}
           defaultValue={request.cluster}
         />
+        <FieldError name="cluster" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Region
@@ -219,6 +236,7 @@ export function InlineEditRow({
           maxLength={120}
           defaultValue={request.region}
         />
+        <FieldError name="region" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Dock No
@@ -229,6 +247,7 @@ export function InlineEditRow({
           maxLength={50}
           defaultValue={request.dock_no}
         />
+        <FieldError name="dock_no" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Backlogs
@@ -240,6 +259,7 @@ export function InlineEditRow({
           min={0}
           defaultValue={request.backlogs}
         />
+        <FieldError name="backlogs" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Truck Size
@@ -249,6 +269,7 @@ export function InlineEditRow({
           <option>10W</option>
           <option>6WF</option>
         </select>
+        <FieldError name="truck_size" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
         Truck Type
@@ -256,6 +277,7 @@ export function InlineEditRow({
           <option>WETLEASE</option>
           <option>DRYLEASE</option>
         </select>
+        <FieldError name="truck_type" errors={fieldErrors} />
       </label>
       {error && (
         <p className="error notice text-[var(--color-danger)]">{error}</p>

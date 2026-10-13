@@ -44,9 +44,8 @@ export default function (auth) {
     randomPause(1, 3);
     apiRead(auth, 'requests', '?per_page=50&sort=created_at&direction=desc');
     randomPause(1, 3);
-    apiRead(auth, 'requests/metrics');
+    apiRead(auth, 'requests/summary');
     randomPause(1, 3);
-    apiRead(auth, 'requests/analytics');
     randomPause(1, 3);
     apiRead(auth, 'dispatch/intraday', `?date=${todayIso()}`);
   }

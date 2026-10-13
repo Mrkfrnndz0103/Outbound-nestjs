@@ -12,7 +12,8 @@ BEGIN
         'cache_locks',
         'jobs',
         'job_batches',
-        'failed_jobs'
+        'failed_jobs',
+        'workflow_outbox'
     ] LOOP
         IF to_regclass(format('public.%I', table_name)) IS NOT NULL THEN
             EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);

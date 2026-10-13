@@ -2,6 +2,10 @@
 
 namespace App\Features\Approvals;
 
+use App\Features\Outbox\WorkflowOutboxDispatcher;
+use App\Features\Outbox\WorkflowOutboxRepository;
+use App\Features\Outbox\WorkflowOutboxWriter;
+use App\Features\Outbox\WorkflowSeaTalkOutbox;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -11,7 +15,16 @@ final class ApprovalRouter
 {
     private const SCOPE = 'fte_ops';
 
-    public function __construct(private ApprovalItemProvisioner $provisioner) {}
+    private WorkflowSeaTalkOutbox $seatalk;
+
+    public function __construct(private ApprovalItemProvisioner $provisioner)
+    {
+        $this->seatalk = new WorkflowSeaTalkOutbox(
+            new WorkflowOutboxWriter(new WorkflowOutboxRepository),
+            new WorkflowOutboxDispatcher,
+            $provisioner,
+        );
+    }
 
     public function assignNext(string $requestId): RoutingResult
     {
@@ -106,6 +119,12 @@ final class ApprovalRouter
         });
 
         if (! $result->assigned()) {
+            return $result;
+        }
+
+        if (Schema::hasTable('workflow_outbox')) {
+            $this->seatalk->provision($requestId);
+
             return $result;
         }
 

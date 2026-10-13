@@ -16,21 +16,11 @@ import {
   RefreshCw,
   Table2,
   Truck,
-  X,
 } from "lucide-react";
-import type { FormEvent } from "react";
 import { Fragment, useRef, useState } from "react";
-import { iconButtonClass, textButtonClass } from "../lib/uiClasses";
+import { textButtonClass } from "../lib/uiClasses";
 import {
-  compactFormDialogClass,
   compactRequestRowClass,
-  dialogActionsClass,
-  dialogFormClass,
-  dialogHeadClass,
-  dialogInputClass,
-  dialogLabelClass,
-  dialogTextareaClass,
-  formErrorClass,
   recordsScrollClass,
   recordsTableClass,
   requestAssignClass,
@@ -47,22 +37,21 @@ import {
   selectedRequestActionsClass,
   selectedRequestLabelClass,
   tableShellClass,
-  secondaryButtonClass,
 } from "../lib/uiClasses";
 import {
   linehaulColumnOptions,
-  linehaulPrimaryColumnKeys,
+  linehaulPrimaryColumnKeysForRole,
 } from "../components/ColumnVisibilityMenu";
 import { LhTableToolbar } from "../components/LhTableToolbar";
 import { LhRowActionMenu } from "../components/LhRowActionMenu";
-import { Modal } from "../components/Modal";
+import { MidmileActionDialog } from "../components/request/MidmileActionDialog";
 import { Pagination } from "../components/Pagination";
 import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
 import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
 import { StatusBadge, StatusText } from "../components/StatusBadge";
 import { RequestElapsedTime } from "../components/RequestTable";
 import { RequestExpandButton } from "../components/request/RequestExpandButton";
-import { RequestCancellationRemarks } from "../components/request/RequestCancellationRemarks";
+import { RequestExpandedDetails } from "../components/request/RequestExpandedDetails";
 import {
   displayRequestValue as displayValue,
   displayRequestActor,
@@ -72,19 +61,19 @@ import {
 import { useRequestFilters } from "../hooks/useRequestFilters";
 import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
-import { api } from "../lib/api";
+import { api, apiErrorMessage } from "../lib/api";
 import { buildIdempotencyHeaders } from "../lib/idempotency";
 import { requestQueryKey } from "../lib/requestRefresh";
+import { workflowActionPath, type WorkflowAction } from "../lib/workflow";
 import {
-  buildMidmileAssignmentPayload,
   openRequestsSheet,
   requestQueryString,
 } from "../lib/requests";
 import type { Page, RequestSort, TruckRequest, User } from "../types";
 
-type MmAction = "assign-truck" | "reject-mm";
+type MmAction = Extract<WorkflowAction, "assign-truck" | "reject-mm">;
 
-function formatCluster(value: string) {
+function _formatCluster(value: string) {
   return value
     .split(",")
     .map((cluster) => cluster.trim())
@@ -99,7 +88,7 @@ function shouldRenderExpandedField(
   return !visibleColumns.includes(fieldKey);
 }
 
-function expandedRequestGroups(
+function _expandedRequestGroups(
   row: TruckRequest,
   visibleColumns: readonly string[],
 ) {
@@ -196,7 +185,7 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
     useLinehaulTablePreferences(
       "midmile",
       linehaulColumnOptions.map(({ key }) => key),
-      linehaulPrimaryColumnKeys,
+      linehaulPrimaryColumnKeysForRole(user.role),
     );
   const hasColumn = (key: string) =>
     (visibleColumns as readonly string[]).includes(key);
@@ -234,7 +223,7 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
       action: MmAction;
       payload: Record<string, unknown>;
     }) =>
-      api<TruckRequest>(`/requests/${request.id}/${action}`, {
+      api<TruckRequest>(workflowActionPath(request.id, action), {
         method: "POST",
         body: JSON.stringify(payload),
         headers: buildIdempotencyHeaders(`midmile-${action}`, {
@@ -682,51 +671,10 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
                         </RequestRecordRow>
                         {expandedRow === row.id && (
                           <RequestDetailRow columns={visibleColumns.length + 2}>
-                          <section
-                            id={`request-detail-${row.id}`}
-                            className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-soc5-line border-l-2 border-l-[#a2c500] bg-linehaul-surface-soft px-5 py-3 text-xs text-soc5-ink"
-                            aria-label={`Expanded details for request ${row.id}`}
-                          >
-                            <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
-                              <dl>
-                                <div className="border-b border-soc5-line pb-3">
-                                  <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
-                                    Cluster
-                                  </dt>
-                                  <dd className="wrap-break-word text-base font-bold leading-6 tracking-normal text-soc5-ink">
-                                    {formatCluster(row.cluster)}
-                                  </dd>
-                                </div>
-                              </dl>
-                              <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(13rem,100%),1fr))] gap-3 overflow-x-hidden pt-3">
-                                {expandedRequestGroups(row, visibleColumns).map(
-                                  ({ fields }) => (
-                                    <section
-                                      className="min-w-0"
-                                      key={fields[0]?.key}
-                                    >
-                                      <dl className="grid gap-2">
-                                        {fields.map(({ key, label, value }) => (
-                                          <div
-                                            className="min-w-0 border-b border-soc5-line pb-2"
-                                            key={key}
-                                          >
-                                            <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
-                                              {label}
-                                            </dt>
-                                            <dd className="wrap-break-word text-xs font-medium leading-4 text-soc5-ink">
-                                              {value}
-                                            </dd>
-                                          </div>
-                                        ))}
-                                      </dl>
-                                    </section>
-                                  ),
-                                )}
-                              </div>
-                              <RequestCancellationRemarks remarks={row.cancellation_remarks} />
-                            </div>
-                          </section>
+                            <RequestExpandedDetails
+                              request={row}
+                              visibleColumns={visibleColumns}
+                            />
                           </RequestDetailRow>
                         )}
                       </Fragment>
@@ -802,142 +750,12 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
             returnFocus={modalTrigger.current}
             selection={selected}
             busy={transition.isPending}
-            error={transition.error?.message}
+            error={apiErrorMessage(transition.error)}
             onClose={() => setSelected(null)}
             onSubmit={(payload) => transition.mutate({ ...selected, payload })}
           />
         )}
       </section>
     </div>
-  );
-}
-
-function MidmileActionDialog({
-  selection,
-  returnFocus,
-  busy,
-  error,
-  onClose,
-  onSubmit,
-}: {
-  selection: { request: TruckRequest; action: MmAction };
-  returnFocus?: HTMLElement | null;
-  busy: boolean;
-  error?: string;
-  onClose: () => void;
-  onSubmit: (payload: Record<string, unknown>) => void;
-}) {
-  const confirming = selection.action === "assign-truck";
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    onSubmit(
-      confirming
-        ? buildMidmileAssignmentPayload(data)
-        : { rejection_remarks: data.get("rejection_remarks") },
-    );
-  }
-  return (
-    <Modal
-      returnFocus={returnFocus}
-      open
-      onClose={onClose}
-      className={compactFormDialogClass}
-      role="dialog"
-      ariaLabelledBy="action-title"
-    >
-      <div className={dialogHeadClass}>
-        <div>
-          <p className="mb-[0.35rem] text-linehaul-lime-ink text-xs font-bold tracking-wider uppercase">
-            {selection.request.cluster}
-          </p>
-          <h2 id="action-title">
-            {confirming ? "Assign truck" : "Reject request"}
-          </h2>
-        </div>
-        <button
-          className={iconButtonClass}
-          type="button"
-          title="Close"
-          aria-label="Close"
-          onClick={onClose}
-        >
-          <X size={19} />
-        </button>
-      </div>
-      <form className={dialogFormClass} onSubmit={submit}>
-        {confirming ? (
-          <>
-            <label className={dialogLabelClass}>
-              Plate number
-              <input
-                className={dialogInputClass}
-                name="plate_number"
-                required
-                maxLength={30}
-              />
-            </label>
-            <label className={dialogLabelClass}>
-              Truck size
-              <select
-                className={dialogInputClass}
-                name="truck_size"
-                defaultValue={selection.request.truck_size}
-              >
-                <option>4W</option>
-                <option>4WAUV</option>
-                <option>4WCV</option>
-                <option>6W</option>
-                <option>10W</option>
-                <option>6WF</option>
-              </select>
-            </label>
-            <label className={dialogLabelClass}>
-              Truck type
-              <select
-                className={dialogInputClass}
-                name="truck_type"
-                defaultValue={selection.request.truck_type}
-              >
-                <option>WETLEASE</option>
-                <option>DRYLEASE</option>
-              </select>
-            </label>
-          </>
-        ) : (
-          <label className={dialogLabelClass}>
-            Rejection remarks
-            <textarea
-              className={dialogTextareaClass}
-              name="rejection_remarks"
-              required
-              rows={4}
-            />
-          </label>
-        )}
-        {error && <p className={formErrorClass}>{error}</p>}
-        <div className={dialogActionsClass}>
-          <button
-            className={secondaryButtonClass}
-            type="button"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button type="submit" disabled={busy}>
-            {busy ? (
-              "Saving..."
-            ) : confirming ? (
-              <>
-                <Truck size={17} />
-                Assign truck
-              </>
-            ) : (
-              "Reject request"
-            )}
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }

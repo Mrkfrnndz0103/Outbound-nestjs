@@ -9,7 +9,6 @@ type Props = {
   className?: string;
   ariaLabelledBy?: string;
   ariaLabel?: string;
-  role?: "dialog";
   portal?: boolean;
   returnFocus?: HTMLElement | null;
 };

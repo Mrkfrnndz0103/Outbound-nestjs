@@ -12,7 +12,9 @@ It does not require administrator privileges.
 
 This machine uses Scoop-installed PHP and Composer. The compatible Visual C++
 runtime DLLs are stored beside the user-local PHP executable; no files under
-`C:\Windows\System32` are modified. `tools/php.ini` enables OpenSSL, cURL,
+`C:\Windows\System32` are modified. `tools/php.ini` is the tracked template;
+the setup script generates `tools/php.local.ini` with the active PHP extension
+directory and CA bundle. The generated configuration enables OpenSSL, cURL,
 mbstring, ZIP, sodium, and PostgreSQL extensions for this project.
 
 Verify the frontend tools:
@@ -207,20 +209,20 @@ composer --version
 Use the configured user-local PHP runtime. Do not replace the DLL under
 `System32`. Run backend commands through
 `scripts/launchers/setup-backend.ps1` or
-`scripts/launchers/start-backend.ps1`, which activate `tools/php.ini`.
+`scripts/launchers/start-backend.ps1`, which activate `tools/php.local.ini`.
 
 ### OpenSSL extension missing
 
 Confirm the project configuration is active:
 
 ```powershell
-$env:PHPRC = (Resolve-Path .\tools\php.ini).Path
+$env:PHPRC = (Resolve-Path .\tools\php.local.ini).Path
 php --ini
 php -m
 ```
 
-The loaded configuration should be `tools/php.ini`, and the module list should
-contain `openssl`.
+The loaded configuration should be `tools/php.local.ini`, and the module list
+should contain `openssl`.
 
 ### API returns database connection errors
 

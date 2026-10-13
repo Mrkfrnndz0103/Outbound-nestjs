@@ -23,8 +23,8 @@ export default function (auth) {
   const operations = [
     () => apiRead(auth, 'auth/me'),
     () => apiRead(auth, 'requests', '?per_page=50&sort=created_at&direction=desc'),
-    () => apiRead(auth, 'requests/metrics', `?date_from=${from}&date_to=${to}`),
-    () => apiRead(auth, 'requests/analytics', `?date_from=${from}&date_to=${to}`),
+    () => apiRead(auth, 'requests/queue', '?limit=100'),
+    () => apiRead(auth, 'requests/summary', `?date_from=${from}&date_to=${to}`),
     () => apiRead(auth, 'dispatch/intraday', `?date=${to}`),
     () => apiRead(auth, 'notifications'),
     () => apiRead(auth, 'clusters', `?search=${encodeURIComponent(__ENV.K6_CLUSTER_SEARCH || 'hub')}`),

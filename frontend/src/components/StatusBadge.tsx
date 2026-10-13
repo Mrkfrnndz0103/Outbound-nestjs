@@ -1,15 +1,5 @@
 import type { Status } from "../types";
-
-const statusLabelMap: Partial<Record<Status, string>> = {
-  REQUESTED: "Requested",
-  REJECTED: "Rejected",
-  ASSIGNED: "Assigned",
-  CANCELLED: "Cancelled",
-  DOCKING: "Docking",
-  DOCKED: "Docked",
-  PENDING: "Pending",
-  REROUTED: "Rerouted",
-};
+import { statusLabelFor } from "../lib/workflow";
 
 const statusClassMap: Record<Status, string> = {
   REQUESTED:
@@ -77,7 +67,7 @@ export function StatusBadge({
     <span
       className={`inline-block min-h-[22px] rounded-full border border-transparent px-2 py-[3px] text-xs leading-4 font-semibold ${statusClassMap[status]}${uppercase ? " uppercase" : ""}${className ? ` ${className}` : ""}`}
     >
-      {statusLabelMap[status] ?? status.replaceAll("_", " ")}
+      {statusLabelFor(status)}
     </span>
   );
 }

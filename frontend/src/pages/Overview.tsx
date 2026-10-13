@@ -66,8 +66,7 @@ import { useUiStore } from "../stores/ui";
 import type {
   AppView,
   Page,
-  RequestAnalytics,
-  RequestMetrics,
+  RequestDashboardSummary,
   Status,
   TruckRequest,
   User,
@@ -123,21 +122,15 @@ export function Overview({
     queryKey: ["requests", "dashboard"],
     queryFn: () =>
       api<Page<TruckRequest>>(
-        "/requests?per_page=100&sort=created_at&direction=desc",
+        "/requests?per_page=20&sort=created_at&direction=desc",
       ),
     placeholderData: (previous) => previous,
     refetchInterval: false,
     enabled: !preview,
   });
-  const metrics = useQuery({
-    queryKey: ["request-metrics", from, to],
-    queryFn: () => api<RequestMetrics>(`/requests/metrics?${range}`),
-    refetchInterval: false,
-    enabled: !preview,
-  });
-  const analytics = useQuery({
-    queryKey: ["request-analytics", from, to],
-    queryFn: () => api<RequestAnalytics>(`/requests/analytics?${range}`),
+  const summary = useQuery({
+    queryKey: ["request-summary", from, to],
+    queryFn: () => api<RequestDashboardSummary>(`/requests/summary?${range}`),
     refetchInterval: false,
     enabled: !preview,
   });
@@ -196,7 +189,7 @@ export function Overview({
     };
   }, [intraday.data?.data]);
   const sizes = ["4W", "4WAUV", "4WCV", "6W", "10W", "6WF"] as const;
-  const truckSizes = analytics.data?.truck_sizes ?? {};
+  const truckSizes = summary.data?.analytics.truck_sizes ?? {};
   const sizeTotal = sizes.reduce(
     (sum, size) => sum + (truckSizes[size] ?? 0),
     0,
@@ -224,8 +217,8 @@ export function Overview({
       })
       .join(",");
   }, [sizeTotal, truckSizes]);
-  const totalRequests = metrics.data?.total ?? 0;
-  const byStatus = metrics.data?.by_status ?? {};
+  const totalRequests = summary.data?.metrics.total ?? 0;
+  const byStatus = summary.data?.metrics.by_status ?? {};
   const pendingRequests = byStatus.PENDING ?? 0;
   const forDockingRequests = byStatus.DOCKING ?? 0;
   const dockedRequests = byStatus.DOCKED ?? 0;
@@ -288,8 +281,7 @@ export function Overview({
   return (
     <div className={`${dashboardViewClass} dashboard-overview`}>
       {(requests.error ||
-        metrics.error ||
-        analytics.error ||
+        summary.error ||
         intraday.error) && (
         <p className="error notice text-[var(--color-danger)]" role="alert">
           Some dashboard data could not be loaded. Check the affected panel for
@@ -303,7 +295,7 @@ export function Overview({
               key={card.status}
               label={card.label}
               value={
-                metrics.isPending ? (
+                summary.isPending ? (
                   <Skeleton width={64} height={26} />
                 ) : (
                   card.value.toLocaleString()
@@ -312,7 +304,7 @@ export function Overview({
               icon={card.icon}
               chip={card.chip}
               footnote={
-                metrics.isPending ? <Skeleton width={112} /> : card.footnote
+                summary.isPending ? <Skeleton width={112} /> : card.footnote
               }
               primary={card.primary}
               onClick={() => setDetailStatus(card.status)}
@@ -380,10 +372,10 @@ export function Overview({
         <MetricCard
           label="Average Dwell time"
           value={
-            analytics.isPending ? (
+            summary.isPending ? (
               <Skeleton width={64} height={26} />
             ) : (
-              formatDurationMinutes(analytics.data?.average_dwell_minutes)
+              formatDurationMinutes(summary.data?.analytics.average_dwell_minutes)
             )
           }
           icon={<Clock3 size={22} aria-hidden="true" />}
@@ -394,10 +386,10 @@ export function Overview({
         <MetricCard
           label="Average Waiting Time"
           value={
-            analytics.isPending ? (
+            summary.isPending ? (
               <Skeleton width={64} height={26} />
             ) : (
-              formatDurationMinutes(analytics.data?.average_waiting_minutes)
+              formatDurationMinutes(summary.data?.analytics.average_waiting_minutes)
             )
           }
           icon={<Truck size={22} aria-hidden="true" />}

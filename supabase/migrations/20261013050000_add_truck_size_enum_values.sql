@@ -1,0 +1,2 @@
+ALTER TYPE public.truck_size ADD VALUE IF NOT EXISTS '4WAUV';
+ALTER TYPE public.truck_size ADD VALUE IF NOT EXISTS '4WCV';

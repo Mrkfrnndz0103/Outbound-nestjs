@@ -1,5 +1,6 @@
 import { ChevronDown, Columns3 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import type { Role } from "../types";
 
 type Option = { key: string; label: string };
 
@@ -39,6 +40,22 @@ export const linehaulPrimaryColumnKeys = [
   "linehaulTrip",
   "dockedTime",
 ] as const;
+
+export function linehaulPrimaryColumnKeysForRole(role: Role) {
+  if (role === "fte_mm") {
+    return [
+      "status", "requestTime", "cluster", "region", "dock", "backlogs",
+      "lhTypeRequest", "lhTypeInput", "truckSize", "plateNumber", "provideTime",
+    ] as const;
+  }
+  if (role === "doc_officer") {
+    return [
+      "status", "requestTime", "cluster", "region", "dock", "plateNumber",
+      "truckSize", "provideTime", "assignedTime", "linehaulTrip",
+    ] as const;
+  }
+  return linehaulPrimaryColumnKeys;
+}
 
 type Props = {
   label: string;

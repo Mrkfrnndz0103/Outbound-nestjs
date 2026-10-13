@@ -160,24 +160,28 @@ flowchart LR
 ```
 
 Request mutations use database transactions. The request row, event row, and
-notifications are written as one logical operation. Create, update, and action
-routes use idempotency middleware where configured. Bulk approval executes
-multiple transitions inside a transaction.
+workflow outbox intents are written as one logical operation. Notification,
+SeaTalk, and Google Sheets handlers execute after commit and are idempotent;
+their durable status, retry attempts, and dead-letter state live in
+`workflow_outbox`. Create, update, and action routes use idempotency middleware
+where configured. Bulk approval executes multiple transitions inside a
+transaction.
 
 ## Read and Write Paths
 
 ### Dashboard reads
 
-The overview view currently issues four independent authenticated reads:
+The overview view currently issues three independent authenticated reads:
 
-1. `/requests?per_page=100...`
-2. `/requests/metrics`
-3. `/requests/analytics`
-4. `/dispatch/intraday`
+1. `/requests?per_page=20...` for the latest activity preview;
+2. `/requests/summary`
+   - combines dashboard metrics and analytics under the shared `date_from`, `date_to`, and optional `search` filter contract;
+   - legacy `/requests/metrics` and `/requests/analytics` routes remain available for compatibility.
+3. `/dispatch/intraday`
 
-These queries refetch every 15 seconds while the overview is active. Metric,
-analytics, and intraday query keys include date inputs where applicable. Detail
-requests are issued when an operator selects a status card.
+These queries are independently keyed by their relevant date inputs. Detail
+requests are issued when an operator selects a status card, using a bounded
+request page for the selected status.
 
 This is an observed request-volume characteristic, not yet a proven bottleneck.
 Phase 1 should measure latency, database time, result sizes, and concurrent
@@ -187,8 +191,23 @@ request volume before consolidating endpoints or introducing caching.
 
 The API validates payloads, checks actor permissions and legal state
 transitions, locks the request row, updates the request, and appends events and
-notifications inside a transaction. External work is not currently required to
-complete the core request transition.
+outbox intents inside a transaction. External work is not required to complete
+the core request transition. Database queue workers process the intents after
+commit; failed work is retried or exposed as dead letters through
+`outbox:status`.
+
+Operational queues use `GET /api/v1/requests/queue?limit=100` instead of
+fetching every status page. The endpoint derives actionable work from the
+authenticated role, caps each response at 100 rows, and returns an opaque
+cursor for deterministic `created_at`/`id` continuation. The frontend
+notification queue consumes this bounded contract as a single request.
+The PostgreSQL integration suite includes a queue query-plan check for the
+`created_at`/`id` cursor index, and the read-only k6 workload measures the
+endpoint through the existing `endpoint_duration` p95/p99 metrics.
+During a staging session, the browser console exposes the client-side
+coalescing snapshot as `window.__SOC5_REALTIME_METRICS__?.()`, separating
+realtime signals from actual query invalidations for the requests and
+intraday channels.
 
 ### External synchronization
 

@@ -77,7 +77,7 @@ Acceptance gate:
 - [x] Mobile navigation opens, closes, and traps no unintended focus.
 - [x] `responsive-shell.spec.ts` passes.
 
-Verification note: `responsive-shell.spec.ts` covers desktop zoom reflow plus mobile open/close and focus-return behavior. `npm run lint:a11y` currently reports 16 repository-wide findings, including pre-existing issues outside the shell migration. Those findings remain tracked separately and do not block the Stage 2 layout verification.
+Verification note: `responsive-shell.spec.ts` covers desktop zoom reflow plus mobile open/close and focus-return behavior. `npm run lint:a11y` passes across the frontend source; the remaining visual checks below still require a browser-capable environment.
 
 ## Stage 3 — Shared overlays and controls
 

@@ -136,7 +136,6 @@ export function OutboundRejectDialog({
       open
       onClose={onClose}
       className={compactFormDialogClass}
-      role="dialog"
       ariaLabelledBy="outbound-reject-title"
     >
       <div className={dialogHeadClass}>

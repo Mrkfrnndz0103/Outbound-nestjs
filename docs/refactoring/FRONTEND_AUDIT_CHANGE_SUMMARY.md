@@ -50,3 +50,16 @@ Performance follow-up completed:
 - No commit or push was performed.
 - Existing staged changes were preserved; review the combined staged and unstaged diff before committing.
 - The local E2E web server still logs expected connection-refused messages for `/api/v1/auth/seatalk/config` because the backend is not running in the frontend-only test environment; the tests pass using their configured route stubs.
+
+## Accessibility and viewport validation follow-up
+
+- Static accessibility lint now passes for all 132 frontend files.
+- Removed misleading group semantics and click handling from the unused non-interactive input-group wrappers.
+- Marked decorative Medesk icons and the adjacent logo as hidden from assistive technology; removed invalid `aria-hidden` from the keyboard hint.
+- Browser-based DOM and viewport capture remains unavailable because Playwright browser launch hung in this environment; no fresh viewport measurements or screenshot claims are made.
+- Verification: 95 frontend tests passed across 29 files, standard lint passed, production build passed, and `git diff --check` passed with only normal line-ending notices.
+- Backend regression verification: 182 tests passed with 723 assertions; 21 PostgreSQL-dependent tests remain skipped because the isolated PostgreSQL test database is unavailable locally.
+- CI follow-up: added `npm run lint:a11y` to the Travis frontend job; the existing pipeline already runs the PostgreSQL test job and Docker Compose config/build validation.
+- Removed the unused `role="dialog"` prop from the shared modal API and its request-dialog call sites; TypeScript, accessibility lint, focused dialog tests, build, and diff checks pass.
+- Release static gates passed via their PowerShell equivalents: conflict-marker scan, diff check, encoding, robots, frontend/root npm audits, Composer validation/audit, nginx callback/CSP assertions, and Supabase migration-manifest parity.
+- Local PostgreSQL verification completed after aligning the Laravel outbox migration with Supabase `jsonb`: 20 PostgreSQL tests passed with 59 assertions; one support-table RLS test remains skipped because the standalone database lacks Supabase's pre-existing `notifications` table. Pint passed; the non-PostgreSQL suite remains green from the preceding full run.

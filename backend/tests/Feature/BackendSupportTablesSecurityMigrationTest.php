@@ -19,6 +19,7 @@ final class BackendSupportTablesSecurityMigrationTest extends TestCase
         'jobs',
         'job_batches',
         'failed_jobs',
+        'workflow_outbox',
     ];
 
     protected function setUp(): void

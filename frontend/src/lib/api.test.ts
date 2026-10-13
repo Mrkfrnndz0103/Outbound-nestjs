@@ -8,9 +8,15 @@ vi.mock("./supabase", () => ({
   supabase: { auth: { getSession } },
 }));
 
-import { ApiError, api } from "./api";
+import { ApiError, api, apiErrorMessage } from "./api";
 
 describe("api request helper", () => {
+  it("turns conflicts into a recovery-oriented message", () => {
+    expect(apiErrorMessage(new ApiError("Cannot approve a DOCKED request.", 409))).toBe(
+      "This request changed before your update was saved. Refresh the list and try again. Cannot approve a DOCKED request.",
+    );
+  });
+
   beforeEach(() => {
     getSession.mockResolvedValue({
       data: { session: { access_token: "token-123" } },
@@ -81,6 +87,27 @@ describe("api request helper", () => {
       name: "ApiError",
       message: "Request is invalid.",
       status: 422,
+    });
+  });
+
+  it("preserves Laravel field validation errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({
+        message: "The given data was invalid.",
+        errors: {
+          truck_size: ["The selected truck size is invalid."],
+          cluster: ["The cluster field is required."],
+        },
+      }), { status: 422 }),
+    );
+
+    await expect(api("/requests")).rejects.toMatchObject({
+      status: 422,
+      message: "The given data was invalid.",
+      errors: {
+        truck_size: ["The selected truck size is invalid."],
+        cluster: ["The cluster field is required."],
+      },
     });
   });
 

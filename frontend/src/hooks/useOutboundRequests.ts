@@ -7,6 +7,7 @@ import {
   requestQueryKey,
   type RequestRefreshReason,
 } from "../lib/requestRefresh";
+import { workflowActionPath } from "../lib/workflow";
 import { requestQueryString, type RequestPayload } from "../lib/requests";
 import { useRequestFilters } from "./useRequestFilters";
 import type { Page, RequestSort, TruckRequest } from "../types";
@@ -103,7 +104,7 @@ export function useOutboundRequests() {
 
       return Promise.all(
         ids.map((id) =>
-          api<TruckRequest>(`/requests/${id}/approve`, {
+          api<TruckRequest>(workflowActionPath(id, "approve"), {
             method: "POST",
             body: JSON.stringify({}),
             headers: buildIdempotencyHeaders("outbound-approve", { id }),
@@ -121,7 +122,7 @@ export function useOutboundRequests() {
   });
   const rejectRequest = useMutation({
     mutationFn: ({ id, rejection_remarks }: { id: string; rejection_remarks: string }) =>
-      api<TruckRequest>(`/requests/${id}/reject-ops`, {
+      api<TruckRequest>(workflowActionPath(id, "reject-ops"), {
         method: "POST",
         body: JSON.stringify({ rejection_remarks }),
         headers: buildIdempotencyHeaders("outbound-reject", { id, rejection_remarks }),

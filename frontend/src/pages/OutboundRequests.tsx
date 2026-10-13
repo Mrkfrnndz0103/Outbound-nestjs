@@ -42,7 +42,7 @@ import {
 } from "../components/approval/ApprovalStateBadge";
 import {
   linehaulColumnOptions,
-  linehaulPrimaryColumnKeys,
+  linehaulPrimaryColumnKeysForRole,
 } from "../components/ColumnVisibilityMenu";
 import { LhRowActionMenu } from "../components/LhRowActionMenu";
 import { LhTableToolbar } from "../components/LhTableToolbar";
@@ -56,7 +56,7 @@ import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
 import { StatusBadge, StatusText } from "../components/StatusBadge";
 import { RequestElapsedTime } from "../components/RequestTable";
 import { RequestExpandButton } from "../components/request/RequestExpandButton";
-import { RequestCancellationRemarks } from "../components/request/RequestCancellationRemarks";
+import { RequestExpandedDetails } from "../components/request/RequestExpandedDetails";
 import {
   canEditDockedRequest,
   displayRequestValue as displayValue,
@@ -67,6 +67,7 @@ import {
 import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
 import { useOutboundRequests } from "../hooks/useOutboundRequests";
 import type { QueueSnapshot } from "../hooks/useQueueNotifications";
+import { apiErrorMessage, apiFieldErrors } from "../lib/api";
 import { openRequestsSheet } from "../lib/requests";
 import type { TruckRequest, User } from "../types";
 
@@ -81,7 +82,7 @@ const InlineEditRow = lazy(() =>
   })),
 );
 
-function formatCluster(value: string) {
+function _formatCluster(value: string) {
   return value
     .split(",")
     .map((cluster) => cluster.trim())
@@ -100,7 +101,7 @@ function shouldRenderExpandedField(
   return !visibleColumns.includes(fieldKey);
 }
 
-function expandedRequestGroups(
+function _expandedRequestGroups(
   row: TruckRequest,
   visibleColumns: readonly string[],
 ) {
@@ -221,7 +222,7 @@ export function OutboundRequests({
     useLinehaulTablePreferences(
       "outbound",
       linehaulColumnOptions.map(({ key }) => key),
-      linehaulPrimaryColumnKeys,
+      linehaulPrimaryColumnKeysForRole(_user.role),
     );
   const hasColumn = (key: string) =>
     (visibleColumns as readonly string[]).includes(key);
@@ -296,7 +297,8 @@ export function OutboundRequests({
               <InlineEditRow
                 request={editing}
                 busy={updateRequest.isPending}
-                error={updateRequest.error?.message}
+                error={apiErrorMessage(updateRequest.error)}
+                fieldErrors={apiFieldErrors(updateRequest.error)}
                 onCancel={() => {
                   updateRequest.reset();
                   setEditing(null);
@@ -314,6 +316,7 @@ export function OutboundRequests({
               <InlineCreateRow
                 busy={createRequest.isPending}
                 error={createRequest.error?.message}
+                fieldErrors={apiFieldErrors(createRequest.error)}
                 onCancel={() => {
                   createRequest.reset();
                   setCreating(false);
@@ -727,52 +730,10 @@ export function OutboundRequests({
                           </RequestRecordRow>
                           {isExpanded && (
                             <RequestDetailRow columns={visibleColumns.length + 2}>
-                            <section
-                              id={`request-detail-${row.id}`}
-                              className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-soc5-line border-l-2 border-l-[#a2c500] bg-linehaul-surface-soft px-5 py-3 text-xs text-soc5-ink"
-                              aria-label={`Expanded details for request ${row.id}`}
-                            >
-                              <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
-                                <dl>
-                                  <div className="border-b border-soc5-line pb-3">
-                                    <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
-                                      Cluster
-                                    </dt>
-                                    <dd className="wrap-break-word text-base font-semibold leading-6 tracking-normal text-soc5-ink">
-                                      {formatCluster(row.cluster)}
-                                    </dd>
-                                  </div>
-                                </dl>
-                                <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(13rem,100%),1fr))] gap-3 overflow-x-hidden pt-3">
-                                  {expandedRequestGroups(
-                                    row,
-                                    visibleColumns,
-                                  ).map(({ fields }) => (
-                                    <section
-                                      className="min-w-0"
-                                      key={fields[0]?.key}
-                                    >
-                                      <dl className="grid gap-2">
-                                        {fields.map(({ key, label, value }) => (
-                                          <div
-                                            className="min-w-0 border-b border-soc5-line pb-2"
-                                            key={key}
-                                          >
-                                            <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
-                                              {label}
-                                            </dt>
-                                            <dd className="wrap-break-word text-xs font-medium leading-4 text-soc5-ink">
-                                              {value}
-                                            </dd>
-                                          </div>
-                                        ))}
-                                      </dl>
-                                    </section>
-                                  ))}
-                                </div>
-                                <RequestCancellationRemarks remarks={row.cancellation_remarks} />
-                              </div>
-                            </section>
+                              <RequestExpandedDetails
+                                request={row}
+                                visibleColumns={visibleColumns}
+                              />
                             </RequestDetailRow>
                           )}
                         </Fragment>
@@ -880,7 +841,7 @@ export function OutboundRequests({
           returnFocus={drawerTrigger.current}
           request={rejecting}
           busy={rejectRequest.isPending}
-          error={rejectRequest.error?.message}
+          error={apiErrorMessage(rejectRequest.error)}
           onClose={() => setRejecting(null)}
           onSubmit={(remarks) =>
             rejectRequest.mutate(

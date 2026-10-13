@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { REQUEST_REALTIME_REFRESH_EVENT } from "../lib/requestRefresh";
+import {
+  recordRealtimeInvalidation,
+  recordRealtimeSignal,
+} from "../lib/realtimeMetrics";
 import { supabase } from "../lib/supabase";
 
 export type RealtimeSubscriptionStatus =
@@ -56,6 +60,7 @@ export function useRequestRealtime() {
 
   useEffect(() => {
     const invalidateRequestQueries = () => {
+      recordRealtimeInvalidation("requests");
       window.dispatchEvent(new Event(REQUEST_REALTIME_REFRESH_EVENT));
 
       return Promise.all([
@@ -66,6 +71,7 @@ export function useRequestRealtime() {
       ]);
     };
     const refreshRequestQueries = () => {
+      recordRealtimeSignal("requests");
       if (requestRefreshTimer.current !== null) return;
 
       requestRefreshTimer.current = window.setTimeout(() => {
@@ -74,10 +80,12 @@ export function useRequestRealtime() {
       }, 250);
     };
     const refreshIntradayDispatch = () => {
+      recordRealtimeSignal("intraday");
       if (intradayRefreshTimer.current !== null) return;
 
       intradayRefreshTimer.current = window.setTimeout(() => {
         intradayRefreshTimer.current = null;
+        recordRealtimeInvalidation("intraday");
         void queryClient.invalidateQueries({
           queryKey: ["intraday-dispatch"],
         });

@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Page, TruckRequest, User } from "../types";
+import type { TruckRequest, User } from "../types";
 import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 
 const { queue } = vi.hoisted(() => ({
   queue: {
-    data: undefined as Page<TruckRequest> | undefined,
+    data: undefined as { data: TruckRequest[]; limit: number } | undefined,
     isPending: false,
     isFetching: false,
     error: null as Error | null,
@@ -63,10 +63,7 @@ describe("docking queue feedback", () => {
           request_timestamp: "2026-10-12T00:00:00Z",
         } as TruckRequest,
       ],
-      current_page: 1,
-      last_page: 1,
-      per_page: 100,
-      total: 1,
+      limit: 100,
     };
     queue.error = new Error("Network unavailable");
     const markup = renderToStaticMarkup(<DockingConfirmation user={user} queue={queueAlerts} />);
@@ -79,10 +76,7 @@ describe("docking queue feedback", () => {
   it("only shows the empty queue message after a successful empty response", () => {
     queue.data = {
       data: [],
-      current_page: 1,
-      last_page: 1,
-      per_page: 100,
-      total: 0,
+      limit: 100,
     };
     const markup = renderToStaticMarkup(<DockingConfirmation user={user} queue={queueAlerts} />);
 

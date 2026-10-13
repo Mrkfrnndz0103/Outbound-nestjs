@@ -62,7 +62,7 @@ export function DashboardTopbar({ navigationGroups = defaultNavigationGroups }: 
         >
           <SearchIcon className="size-4" />
           <span className="hidden text-sm md:inline">Go to page</span>
-          <kbd aria-hidden="true" className="ml-auto hidden rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground md:inline">Ctrl / ⌘ K</kbd>
+          <kbd className="ml-auto hidden rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground md:inline">Ctrl / ⌘ K</kbd>
         </Button>
       </header>
       <AccessibleDialog

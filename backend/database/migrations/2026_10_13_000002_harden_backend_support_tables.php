@@ -19,6 +19,11 @@ return new class extends Migration
 
     public function up(): void
     {
+        $roles = DB::table('pg_roles')
+            ->whereIn('rolname', ['anon', 'authenticated'])
+            ->pluck('rolname')
+            ->all();
+
         foreach (self::TABLES as $table) {
             if (! DB::table('information_schema.tables')
                 ->where('table_schema', 'public')
@@ -28,7 +33,11 @@ return new class extends Migration
             }
 
             DB::statement("ALTER TABLE public.{$table} ENABLE ROW LEVEL SECURITY");
-            DB::statement("REVOKE ALL PRIVILEGES ON TABLE public.{$table} FROM PUBLIC, anon, authenticated");
+            DB::statement("REVOKE ALL PRIVILEGES ON TABLE public.{$table} FROM PUBLIC");
+
+            foreach ($roles as $role) {
+                DB::statement("REVOKE ALL PRIVILEGES ON TABLE public.{$table} FROM \"{$role}\"");
+            }
         }
     }
 

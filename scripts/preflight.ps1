@@ -499,6 +499,15 @@ if ($RunPostgres) {
         $env:DB_SSLMODE = "disable"
 
         Invoke-CommandChecked {
+            php artisan migrate:install
+            php artisan migrate --path=database/migrations/2026_09_19_024934_create_idempotency_keys_table.php --force --no-interaction
+            php artisan migrate --path=database/migrations/2026_09_20_000000_create_user_event_retries_table.php --force --no-interaction
+            php artisan migrate --path=database/migrations/2026_09_21_000000_add_status_to_user_event_retries_table.php --force --no-interaction
+            php artisan migrate --path=database/migrations/2026_09_25_000000_create_queue_support_tables.php --force --no-interaction
+            php artisan migrate --path=database/migrations/2026_10_13_000003_create_workflow_outbox.php --force --no-interaction
+        } "PostgreSQL test schema preparation failed"
+
+        Invoke-CommandChecked {
             php artisan test --group=postgres --fail-on-skipped
         } "PostgreSQL tests failed"
     }

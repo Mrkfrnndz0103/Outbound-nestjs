@@ -14,6 +14,7 @@ final class SeaTalkApprovalCallbackController
 {
     public function __construct(
         private ApprovalService $approvals,
+        private ?ApprovalToken $tokens = null,
     ) {}
 
     public function approve(Request $request): JsonResponse
@@ -35,6 +36,7 @@ final class SeaTalkApprovalCallbackController
         $data = $request->validate([
             'item_id' => ['required', 'string', 'max:100'],
             'event_id' => ['nullable', 'string', 'max:255'],
+            'token' => ['required', 'string', 'max:255'],
             'timestamp' => ['nullable', 'integer'],
             'employee.employee_code' => [
                 'required',
@@ -56,6 +58,7 @@ final class SeaTalkApprovalCallbackController
         $reason = $action === 'reject'
             ? trim((string) $data['reason'])
             : null;
+        $token = (string) $data['token'];
 
         // This fingerprint detects changed content under the same event ID.
         // It is intentionally separate from raw-body signature verification.
@@ -63,6 +66,7 @@ final class SeaTalkApprovalCallbackController
             'action' => $action,
             'item_id' => $itemId,
             'employee_code' => $employeeCode,
+            'token' => $token,
             'reason' => $reason,
         ], JSON_THROW_ON_ERROR));
 
@@ -87,6 +91,7 @@ final class SeaTalkApprovalCallbackController
             $payloadHash,
             $action,
             $reason,
+            $token,
         ): string {
             $item = $this->resolveItem($itemId);
             $requestId = (string) $item->request_id;
@@ -189,6 +194,19 @@ final class SeaTalkApprovalCallbackController
                 );
             }
 
+            $tokens = $this->tokens ?? app(ApprovalToken::class);
+            if (
+                ! is_string($assignment->approval_token_hash)
+                || $assignment->approval_token_hash === ''
+                || ! $tokens->matches(
+                    (string) $assignment->id,
+                    $token,
+                    $assignment->approval_token_hash,
+                )
+            ) {
+                return $this->ignoreEvent($eventId, 'The approval token is invalid.');
+            }
+
             // Do not bind a new callback to an arbitrary historical
             // completed assignment.
             if (
@@ -274,6 +292,7 @@ final class SeaTalkApprovalCallbackController
                 ->where('id', $assignment->id)
                 ->update([
                     'provider_response_id' => $eventId,
+                    'approval_token_used_at' => now(),
                     'updated_at' => now(),
                 ]);
 

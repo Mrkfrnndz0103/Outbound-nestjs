@@ -21,13 +21,16 @@ final class SeatalkApprovalConfigurationTest extends TestCase
         yield 'app id' => ['SEATALK_APP_ID'];
         yield 'app secret' => ['SEATALK_APP_SECRET'];
         yield 'callback signing secret' => ['SEATALK_CALLBACK_SIGNING_SECRET'];
+        yield 'approval token secret' => ['SEATALK_APPROVAL_TOKEN_SECRET'];
         yield 'approve callback url' => ['SEATALK_APPROVE_CALLBACK_URL'];
         yield 'reject callback url' => ['SEATALK_REJECT_CALLBACK_URL'];
     }
 
     public function test_approval_center_defaults_to_disabled_with_safe_non_secret_values(): void
     {
-        $approval = config('services.seatalk.approval');
+        $approval = $this->loadApprovalConfig([
+            'SEATALK_APPROVAL_ENABLED' => 'false',
+        ]);
 
         $this->assertIsArray($approval);
         $this->assertFalse($approval['enabled']);
@@ -87,6 +90,7 @@ final class SeatalkApprovalConfigurationTest extends TestCase
             'SEATALK_APP_ID' => 'test-app-id',
             'SEATALK_APP_SECRET' => 'test-app-secret',
             'SEATALK_CALLBACK_SIGNING_SECRET' => 'test-callback-signing-secret',
+            'SEATALK_APPROVAL_TOKEN_SECRET' => 'test-approval-token-secret',
             'SEATALK_APPROVE_CALLBACK_URL' => 'https://api.example.test/approve',
             'SEATALK_REJECT_CALLBACK_URL' => 'https://api.example.test/reject',
         ];

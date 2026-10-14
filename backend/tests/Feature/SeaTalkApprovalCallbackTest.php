@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Features\Approvals\ApprovalService;
+use App\Features\Approvals\ApprovalToken;
 use App\Features\Approvals\SeaTalkApprovalCallbackController;
 use App\Features\Approvals\SeaTalkCallbackSignature;
 use App\Features\Requests\RequestAuthorizer;
@@ -32,6 +33,7 @@ final class SeaTalkApprovalCallbackTest extends TestCase
         config()->set('database.connections.sqlite.database', ':memory:');
         config()->set('services.seatalk.approval.callback_signing_secret', 'callback-secret');
         config()->set('services.seatalk.app_secret', 'app-secret');
+        config()->set('services.seatalk.approval.token_secret', 'test-token-secret');
         DB::purge('sqlite');
         DB::reconnect('sqlite');
         $this->createSchema();
@@ -81,6 +83,22 @@ final class SeaTalkApprovalCallbackTest extends TestCase
             'failure_reason' => 'Actor is disabled or not provisioned.',
         ]);
 
+    }
+
+    public function test_invalid_assignment_token_is_acknowledged_without_mutating_request(): void
+    {
+        $payload = $this->payload();
+        $payload['token'] = 'wrong-token';
+        $controller = new SeaTalkApprovalCallbackController(new ApprovalService(new RequestRepository(new RequestAuthorizer), new RequestAuthorizer));
+
+        $response = $controller->approve($this->request($payload));
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('PENDING', DB::table('requests')->where('id', $this->requestId)->value('approval_status'));
+        $this->assertDatabaseHas('seatalk_callback_events', [
+            'status' => 'ignored',
+            'failure_reason' => 'The approval token is invalid.',
+        ]);
     }
 
     public function test_authenticated_seatalk_rejection_matches_web_state_and_ignores_late_approval(): void
@@ -161,6 +179,7 @@ final class SeaTalkApprovalCallbackTest extends TestCase
         return [
             'item_id' => 'provider-item-1',
             'employee' => ['employee_code' => 'employee-1'],
+            'token' => app(ApprovalToken::class)->forAssignment($this->assignmentId),
         ];
     }
 
@@ -237,6 +256,8 @@ final class SeaTalkApprovalCallbackTest extends TestCase
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('responded_at')->nullable();
             $table->string('provider_response_id')->nullable();
+            $table->string('approval_token_hash')->nullable();
+            $table->timestamp('approval_token_used_at')->nullable();
             $table->timestamp('updated_at')->nullable();
         });
 
@@ -270,6 +291,7 @@ final class SeaTalkApprovalCallbackTest extends TestCase
             'fte_user_id' => $this->profileId,
             'status' => 'ACTIVE',
             'expires_at' => now()->addMinutes(5),
+            'approval_token_hash' => app(ApprovalToken::class)->hash(app(ApprovalToken::class)->forAssignment($this->assignmentId)),
         ]);
 
         DB::table('requests')->insert(['id' => $this->requestId, 'status' => 'PENDING', 'created_by' => $this->profileId]);

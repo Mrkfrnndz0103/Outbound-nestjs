@@ -7,6 +7,7 @@ import { MedeskNavigationAdapter, createAppNavigationGroups } from "../component
 import { Skeleton } from "../components/Skeleton";
 import { SkeletonTable } from "../components/SkeletonTable";
 import { useQueueNotifications } from "../hooks/useQueueNotifications";
+import { useApprovalPresence } from "../hooks/useApprovalPresence";
 import { getAppPath, getAppView } from "../lib/routes";
 import {
   dashboardGridClass,
@@ -75,6 +76,7 @@ export function Dashboard({
     ...user,
     role: user.is_admin && viewRole ? viewRole : user.role,
   };
+  useApprovalPresence(activeUser.role);
   const allowed = (candidate: AppView) =>
     candidate === "overview" ||
     (candidate === "lh-request" &&

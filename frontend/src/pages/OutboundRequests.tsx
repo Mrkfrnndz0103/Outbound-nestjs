@@ -596,13 +596,13 @@ export function OutboundRequests({
                               )}
                             </span>
                             {hasColumn("status") && (
-                              <span className="flex items-center gap-2">
+                              <div className="flex min-w-max items-center gap-2">
                                 <StatusText status={row.display_status ?? row.status} />
                                 <ApprovalStateBadge
                                   status={row.status}
                                   approvalStatus={row.approval_status}
                                 />
-                              </span>
+                              </div>
                             )}
                             {hasColumn("runningTime") && (
                               <RequestElapsedTime request={row} />
@@ -729,7 +729,7 @@ export function OutboundRequests({
                             </LhRowActionMenu>
                           </RequestRecordRow>
                           {isExpanded && (
-                            <RequestDetailRow columns={visibleColumns.length + 2}>
+                            <RequestDetailRow id={`request-detail-${row.id}`} columns={visibleColumns.length + 2}>
                               <RequestExpandedDetails
                                 request={row}
                                 visibleColumns={visibleColumns}

@@ -67,6 +67,24 @@ final class ApprovalItemProvisioner
                 'updated_at' => now(),
             ], static fn (mixed $value): bool => $value !== null));
 
+            if (Schema::hasTable('seatalk_approval_assignments')) {
+                $assignment = DB::table('seatalk_approval_assignments')
+                    ->where('request_id', $request->id)
+                    ->whereIn('status', ['PENDING', 'ACTIVE'])
+                    ->orderByDesc('sequence')
+                    ->first();
+                if ($assignment !== null) {
+                    $assignmentUpdate = ['updated_at' => now()];
+                    if (Schema::hasColumn('seatalk_approval_assignments', 'seatalk_message_id')) {
+                        $assignmentUpdate['seatalk_message_id'] = $providerItemId;
+                    }
+                    if ($providerResponseId !== null && Schema::hasColumn('seatalk_approval_assignments', 'provider_response_id')) {
+                        $assignmentUpdate['provider_response_id'] = $providerResponseId;
+                    }
+                    DB::table('seatalk_approval_assignments')->where('id', $assignment->id)->update($assignmentUpdate);
+                }
+            }
+
             return new ProvisioningResult('delivered', (string) $item->id, $providerItemId);
         } catch (SeaTalkProviderException $exception) {
             $this->recordFailure((string) $item->id, $exception->getMessage());
@@ -133,8 +151,15 @@ final class ApprovalItemProvisioner
                     ->where('profiles.is_active', true)
                     ->whereNotNull('profiles.seatalk_employee_code')
                     ->orderBy('assignments.sequence')
-                    ->get(['profiles.seatalk_employee_code'])
-                    ->map(fn (object $profile): array => ['employee_code' => $profile->seatalk_employee_code, 'ts' => $createdAt])
+                    ->get(['assignments.id as assignment_id', 'profiles.seatalk_employee_code'])
+                    ->map(function (object $profile) use ($createdAt): array {
+                        $entry = ['employee_code' => $profile->seatalk_employee_code, 'ts' => $createdAt];
+                        if ((string) config('services.seatalk.approval.token_secret') !== '') {
+                            $entry['token'] = app(ApprovalToken::class)->forAssignment((string) $profile->assignment_id);
+                        }
+
+                        return $entry;
+                    })
                     ->all();
             }
 
@@ -157,6 +182,9 @@ final class ApprovalItemProvisioner
                 ? str_replace('{itemId}', rawurlencode($itemId), $appPathTemplate)
                 : rtrim($appPathTemplate, '?&').'?itemId='.rawurlencode($itemId))
             : null;
+        $callbackToken = is_string($pending[0]['token'] ?? null) ? $pending[0]['token'] : null;
+        $approveUrl = $this->callbackUrl((string) config('services.seatalk.approval.approve_callback_url'), $callbackToken);
+        $rejectUrl = $this->callbackUrl((string) config('services.seatalk.approval.reject_callback_url'), $callbackToken);
 
         return new ApprovalItemPayload(
             itemId: $itemId,
@@ -176,9 +204,18 @@ final class ApprovalItemProvisioner
             },
             statusState: $statusState ?? 0,
             appPath: $appPath,
-            approveUrl: (string) config('services.seatalk.approval.approve_callback_url'),
-            rejectUrl: (string) config('services.seatalk.approval.reject_callback_url'),
+            approveUrl: $approveUrl,
+            rejectUrl: $rejectUrl,
         );
+    }
+
+    private function callbackUrl(string $url, ?string $token): string
+    {
+        if ($token === null || $token === '') {
+            return $url;
+        }
+
+        return $url.(str_contains($url, '?') ? '&' : '?').http_build_query(['token' => $token]);
     }
 
     private function recordFailure(string $itemId, string $reason): void

@@ -115,7 +115,7 @@ test("pending password reset preserves its Escape close guard", async ({ page })
   await opener.click();
   const dialog = page.getByRole("dialog", { name: "Reset user password" });
   try {
-    await dialog.getByRole("button", { name: "Issue one-time password", exact: true }).click();
+    await dialog.getByRole("button", { name: "Reset password", exact: true }).click();
     await expect(dialog.getByRole("button", { name: "Resetting...", exact: true })).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();

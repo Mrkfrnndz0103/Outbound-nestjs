@@ -25,6 +25,7 @@ final class ApprovalRoutingTest extends TestCase
         config()->set('database.default', 'sqlite');
         config()->set('database.connections.sqlite.database', ':memory:');
         config()->set('services.seatalk.approval.enabled', false);
+        config()->set('services.seatalk.approval.token_secret', 'test-token-secret');
         DB::purge('sqlite');
         DB::reconnect('sqlite');
         $this->createSchema();
@@ -58,6 +59,23 @@ final class ApprovalRoutingTest extends TestCase
         $this->assertSame('PENDING', DB::table('requests')->where('id', $requestId)->value('status'));
     }
 
+    public function test_expired_users_are_skipped_until_the_current_routing_cycle_is_exhausted(): void
+    {
+        $this->insertProfile('11111111-1111-1111-1111-111111111111');
+        $this->insertProfile('22222222-2222-2222-2222-222222222222');
+        $requestId = $this->insertRequest();
+
+        $first = $this->router->assignNext($requestId);
+        DB::table('seatalk_approval_assignments')->where('id', $first->assignmentId)->update(['status' => 'EXPIRED']);
+        $second = $this->router->assignNext($requestId);
+        DB::table('seatalk_approval_assignments')->where('id', $second->assignmentId)->update(['status' => 'EXPIRED']);
+        $third = $this->router->assignNext($requestId);
+
+        $this->assertSame('22222222-2222-2222-2222-222222222222', $second->profileId);
+        $this->assertSame('11111111-1111-1111-1111-111111111111', $third->profileId);
+        $this->assertSame(2, (int) DB::table('seatalk_approval_assignments')->where('id', $third->assignmentId)->value('routing_cycle'));
+    }
+
     private function createSchema(): void
     {
         Schema::create('profiles', function (Blueprint $table): void {
@@ -85,11 +103,13 @@ final class ApprovalRoutingTest extends TestCase
             $table->uuid('seatalk_approval_item_id');
             $table->uuid('fte_user_id');
             $table->unsignedInteger('sequence');
+            $table->unsignedInteger('routing_cycle')->default(1);
             $table->string('status');
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('responded_at')->nullable();
             $table->text('failure_reason')->nullable();
+            $table->string('approval_token_hash')->nullable();
             $table->uuid('correlation_id')->nullable();
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();

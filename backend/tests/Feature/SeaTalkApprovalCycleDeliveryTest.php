@@ -32,6 +32,7 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
         config()->set('services.seatalk.approval.approve_callback_url', 'https://app.test/approve');
         config()->set('services.seatalk.approval.reject_callback_url', 'https://app.test/reject');
         config()->set('services.seatalk.approval.app_path', 'seatalk://application/sop/soc5/?itemId={itemId}');
+        config()->set('services.seatalk.approval.token_secret', 'test-token-secret');
         DB::purge('sqlite');
         DB::reconnect('sqlite');
         $this->createSchema();
@@ -54,7 +55,9 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
         $gateway = Mockery::mock(SeaTalkApprovalCenterGateway::class);
         $gateway->expects('createItem')
             ->with(Mockery::on(fn (ApprovalItemPayload $payload): bool => count($payload->pendingList) === 1
-                && $payload->pendingList[0]['employee_code'] === 'employee-ops-1'))
+                && $payload->pendingList[0]['employee_code'] === 'employee-ops-1'
+                && preg_match('/^[a-f0-9]{64}$/', (string) ($payload->pendingList[0]['token'] ?? '')) === 1
+                && str_contains((string) $payload->approveUrl, 'token=')))
             ->andReturn(new ProviderItemResult(new SeaTalkResponse(200, ['code' => 0, 'response_id' => 'response-1'])));
         $gateway->expects('updateItem')
             ->with('req_aaaaaaaaaaaaaaaaaaaaaaaaaa', Mockery::on(fn (ApprovalItemPayload $payload): bool => count($payload->pendingList) === 1
@@ -81,6 +84,8 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
             'fte_user_id' => $fteId,
             'sequence' => 1,
             'status' => 'ACTIVE',
+            'seatalk_message_id' => 'req_aaaaaaaaaaaaaaaaaaaaaaaaaa',
+            'provider_response_id' => 'response-1',
         ]);
 
         DB::table('requests')->where('id', $requestId)->update([
@@ -175,11 +180,15 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
             $table->uuid('seatalk_approval_item_id');
             $table->uuid('fte_user_id');
             $table->unsignedInteger('sequence');
+            $table->unsignedInteger('routing_cycle')->default(1);
             $table->string('status');
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('responded_at')->nullable();
             $table->text('failure_reason')->nullable();
+            $table->string('seatalk_message_id')->nullable();
+            $table->string('provider_response_id')->nullable();
+            $table->string('approval_token_hash')->nullable();
             $table->uuid('correlation_id')->nullable();
             $table->timestamps();
         });

@@ -44,8 +44,16 @@ function Invoke-ProjectBinary {
 }
 
 function Invoke-FrontendNpmCi {
-    $output = @(& npm.cmd ci --cache .npm --prefer-offline 2>&1)
-    $exitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    try {
+        $output = @(& npm.cmd ci --cache .npm --prefer-offline 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 
     $output | ForEach-Object { Write-Host ([string]$_) }
     $script:FrontendDependencyInstallOutput = (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine)

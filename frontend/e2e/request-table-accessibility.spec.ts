@@ -16,7 +16,7 @@ for (const role of ["ops_pic", "fte_ops", "fte_mm", "doc_officer"] as const) {
       if (pathname.endsWith("/auth/me")) {
         return route.fulfill({ json: { id: "table-user", name: "Table user", role, is_admin: false } });
       }
-      if (pathname.endsWith("/requests")) {
+      if (pathname.endsWith("/requests") || pathname.endsWith("/requests/queue")) {
         return route.fulfill({ json: {
           data: [{ id: "table-request", status: docking ? "DOCKING" : midmile ? "REQUESTED" : "PENDING",
             approval_status: "PENDING", cluster: "North Hub", region: "North", dock_no: "D-01",

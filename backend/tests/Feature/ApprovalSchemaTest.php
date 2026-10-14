@@ -86,6 +86,11 @@ final class ApprovalSchemaTest extends TestCase
             'approval_version',
             'approval_correlation_id',
         ]));
+        $this->assertTrue(Schema::hasColumns('seatalk_approval_assignments', [
+            'routing_cycle',
+            'approval_token_hash',
+            'approval_token_used_at',
+        ]));
     }
 
     public function test_active_assignment_is_unique_per_request_but_expired_history_is_allowed(): void
@@ -181,14 +186,18 @@ final class ApprovalSchemaTest extends TestCase
     {
         $requestMigration = require glob(base_path('database/migrations/*_add_approval_metadata_to_requests.php'))[0];
         $assignmentsMigration = require glob(base_path('database/migrations/*_create_seatalk_approval_assignments.php'))[0];
+        $hardeningMigration = require glob(base_path('database/migrations/*_harden_seatalk_approval_assignments.php'))[0];
         $requestMigration->up();
         $assignmentsMigration->up();
+        $hardeningMigration->up();
     }
 
     private function rollbackApprovalMigrations(): void
     {
         $requestMigration = require glob(base_path('database/migrations/*_add_approval_metadata_to_requests.php'))[0];
         $assignmentsMigration = require glob(base_path('database/migrations/*_create_seatalk_approval_assignments.php'))[0];
+        $hardeningMigration = require glob(base_path('database/migrations/*_harden_seatalk_approval_assignments.php'))[0];
+        $hardeningMigration->down();
         $assignmentsMigration->down();
         $requestMigration->down();
     }

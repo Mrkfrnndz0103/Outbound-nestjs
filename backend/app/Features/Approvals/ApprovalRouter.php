@@ -17,8 +17,11 @@ final class ApprovalRouter
 
     private WorkflowSeaTalkOutbox $seatalk;
 
-    public function __construct(private ApprovalItemProvisioner $provisioner)
+    private ApprovalToken $tokens;
+
+    public function __construct(private ApprovalItemProvisioner $provisioner, ?ApprovalToken $tokens = null)
     {
+        $this->tokens = $tokens ?? app(ApprovalToken::class);
         $this->seatalk = new WorkflowSeaTalkOutbox(
             new WorkflowOutboxWriter(new WorkflowOutboxRepository),
             new WorkflowOutboxDispatcher,
@@ -65,11 +68,29 @@ final class ApprovalRouter
                 return new RoutingResult('no_candidate', $requestId);
             }
 
+            $routingCycle = Schema::hasColumn('seatalk_approval_assignments', 'routing_cycle')
+                ? max(1, (int) (DB::table('seatalk_approval_assignments')->where('request_id', $requestId)->max('routing_cycle') ?: 1))
+                : 1;
+            $attemptedIds = Schema::hasColumn('seatalk_approval_assignments', 'routing_cycle')
+                ? DB::table('seatalk_approval_assignments')
+                    ->where('request_id', $requestId)
+                    ->where('routing_cycle', $routingCycle)
+                    ->whereIn('status', ['EXPIRED', 'FAILED'])
+                    ->pluck('fte_user_id')
+                    ->map(fn (mixed $id): string => (string) $id)
+                    ->all()
+                : [];
+            $eligible = $candidates->reject(fn (object $candidate): bool => in_array((string) $candidate->id, $attemptedIds, true))->values();
+            if ($eligible->isEmpty()) {
+                $routingCycle++;
+                $eligible = $candidates;
+            }
+
             $cursor = DB::table('approval_routing_cursors')->where('scope', self::SCOPE)->lockForUpdate()->first();
-            $selected = $candidates->first();
+            $selected = $eligible->first();
             if ($cursor?->cursor_profile_id !== null) {
-                $afterCursor = $candidates->first(fn (object $candidate): bool => (string) $candidate->id > (string) $cursor->cursor_profile_id);
-                $selected = $afterCursor ?? $candidates->first();
+                $afterCursor = $eligible->first(fn (object $candidate): bool => (string) $candidate->id > (string) $cursor->cursor_profile_id);
+                $selected = $afterCursor ?? $eligible->first();
             }
             if ($cursor === null) {
                 DB::table('approval_routing_cursors')->insert([
@@ -101,7 +122,7 @@ final class ApprovalRouter
 
             $sequence = ((int) DB::table('seatalk_approval_assignments')->where('request_id', $requestId)->max('sequence')) + 1;
             $assignmentId = (string) Str::uuid();
-            DB::table('seatalk_approval_assignments')->insert([
+            $assignment = [
                 'id' => $assignmentId,
                 'request_id' => $requestId,
                 'seatalk_approval_item_id' => $item->id,
@@ -113,7 +134,14 @@ final class ApprovalRouter
                 'correlation_id' => (string) Str::uuid(),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('seatalk_approval_assignments', 'routing_cycle')) {
+                $assignment['routing_cycle'] = $routingCycle;
+            }
+            if (Schema::hasColumn('seatalk_approval_assignments', 'approval_token_hash')) {
+                $assignment['approval_token_hash'] = $this->tokens->hash($this->tokens->forAssignment($assignmentId));
+            }
+            DB::table('seatalk_approval_assignments')->insert($assignment);
 
             return new RoutingResult('assigned', $requestId, $assignmentId, (string) $selected->id);
         });

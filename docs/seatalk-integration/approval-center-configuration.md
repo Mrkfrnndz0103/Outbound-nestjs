@@ -14,6 +14,7 @@ Approval Center is disabled unless all of the following are true:
 - `SEATALK_APP_ID` is present;
 - `SEATALK_APP_SECRET` is present;
 - `SEATALK_CALLBACK_SIGNING_SECRET` is present;
+- `SEATALK_APPROVAL_TOKEN_SECRET` is present;
 - `SEATALK_APPROVE_CALLBACK_URL` is present; and
 - `SEATALK_REJECT_CALLBACK_URL` is present.
 
@@ -29,6 +30,7 @@ intentional placeholders; no real credential belongs in that file.
 | Environment variable | Purpose | Default |
 | --- | --- | --- |
 | `SEATALK_APPROVAL_ENABLED` | Explicit rollout gate | `false` |
+| `SEATALK_APPROVAL_TOKEN_SECRET` | Server-only secret used to bind callbacks to assignments; never expose or log it | unset |
 | `SEATALK_APP_ID` | SeaTalk Workspace App ID | empty |
 | `SEATALK_APP_SECRET` | Workspace App secret | empty |
 | `SEATALK_CALLBACK_SIGNING_SECRET` | Secret used for event callback SHA-256 verification | empty |

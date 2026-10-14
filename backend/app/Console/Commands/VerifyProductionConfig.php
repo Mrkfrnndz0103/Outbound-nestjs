@@ -91,6 +91,11 @@ final class VerifyProductionConfig extends Command
                     $this->error("SESSION_SECURE_COOKIE must be true in {$deploymentMode}.");
                     $failed = true;
                 }
+                if (config('services.seatalk.approval.requested_enabled')
+                    && blank(config('services.seatalk.approval.token_secret'))) {
+                    $this->error('SEATALK_APPROVAL_TOKEN_SECRET is required when SeaTalk approvals are enabled.');
+                    $failed = true;
+                }
                 if ($deploymentMode === 'production' && config('services.seatalk.approval.enabled')
                     && blank(config('services.seatalk.approval.callback_signing_secret'))) {
                     $this->error('SEATALK_CALLBACK_SIGNING_SECRET is required when SeaTalk approvals are enabled.');

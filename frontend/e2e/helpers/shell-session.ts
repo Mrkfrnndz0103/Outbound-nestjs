@@ -15,6 +15,10 @@ export async function mockShellSession(page: Page) {
       await route.fulfill({ json: { truck_sizes: {}, hourly: [], shift_start: "06:00" } });
       return;
     }
+    if (pathname.endsWith("/requests/summary")) {
+      await route.fulfill({ json: { metrics: { total: 0, awaiting_action: 0, by_status: {} }, analytics: { truck_sizes: {}, hourly: [], shift_start: "06:00" } } });
+      return;
+    }
     if (new URL(route.request().url()).pathname.endsWith("/auth/me")) {
       await route.fulfill({ json: {
         id: "shell-test-user", name: "Shell test user", role: "ops_pic",

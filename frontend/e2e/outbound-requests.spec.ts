@@ -71,7 +71,7 @@ test.beforeEach(async ({ page }) => {
       return;
     }
 
-    if (url.pathname.endsWith('/requests')) {
+    if (url.pathname.endsWith('/requests') || url.pathname.endsWith('/requests/queue')) {
       const pageNumber = Number(url.searchParams.get('page') ?? 1);
       const hasNoMatches = url.searchParams.get('search') === 'No matches';
       await route.fulfill({

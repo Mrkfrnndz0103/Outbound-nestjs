@@ -8,4 +8,8 @@ Describe 'Development script preflight coverage' {
         ($preflightSource -match 'scripts/cloudflare-tunnel\.ps1') | Should Be $true
         ($preflightSource -match 'Invoke-Pester') | Should Be $true
     }
+
+    It 'does not promote npm warnings to frontend dependency failures' {
+        ($preflightSource -match '\$ErrorActionPreference\s*=\s*["'']Continue["'']') | Should Be $true
+    }
 }

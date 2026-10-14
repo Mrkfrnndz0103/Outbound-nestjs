@@ -193,4 +193,33 @@ final class ProductionConfigTest extends TestCase
             ->expectsOutput('SESSION_SECURE_COOKIE must be true in production.')
             ->assertExitCode(1);
     }
+
+    public function test_staging_config_rejects_enabled_seatalk_approvals_without_assignment_token_secret(): void
+    {
+        Schema::shouldReceive('hasTable')->with('user_events')->andReturnTrue();
+        Schema::shouldReceive('hasTable')->with('idempotency_keys')->andReturnTrue();
+
+        config()->set([
+            'app.env' => 'staging',
+            'app.debug' => false,
+            'app.key' => 'base64:test-key',
+            'app.url' => 'https://staging-api.example.test',
+            'app.frontend_url' => 'https://staging-frontend.example.test',
+            'session.secure' => true,
+            'services.supabase.url' => 'https://project.supabase.co',
+            'services.supabase.anon_key' => 'publishable-key',
+            'services.supabase.service_key' => 'service-key',
+            'services.admin_emails' => ['admin@example.test'],
+            'database.connections.pgsql.host' => 'db.example.test',
+            'database.connections.pgsql.username' => 'postgres',
+            'database.connections.pgsql.password' => 'password',
+            'database.connections.pgsql.sslmode' => 'require',
+            'services.seatalk.approval.requested_enabled' => true,
+            'services.seatalk.approval.token_secret' => null,
+        ]);
+
+        $this->artisan('system:verify-config', ['--staging' => true])
+            ->expectsOutput('SEATALK_APPROVAL_TOKEN_SECRET is required when SeaTalk approvals are enabled.')
+            ->assertExitCode(1);
+    }
 }

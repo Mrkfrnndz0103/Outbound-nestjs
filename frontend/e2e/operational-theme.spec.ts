@@ -9,6 +9,7 @@ async function darkSession(page: Page, role = "ops_pic") {
     if (path.endsWith("/auth/me")) return route.fulfill({ json: { id: "theme-user", name: "Theme user", role, is_admin: false } });
     if (path.endsWith("/requests/metrics")) return route.fulfill({ json: { total: 1, awaiting_action: 1, by_status: { PENDING: 1 } } });
     if (path.endsWith("/requests/analytics")) return route.fulfill({ json: { truck_sizes: { "6W": 1 }, hourly: [], shift_start: "06:00" } });
+    if (path.endsWith("/requests/summary")) return route.fulfill({ json: { metrics: { total: 1, awaiting_action: 1, by_status: { PENDING: 1 } }, analytics: { truck_sizes: { "6W": 1 }, hourly: [], shift_start: "06:00" } } });
     if (path.endsWith("/dispatch/intraday")) return route.fulfill({ json: { data: [{ hour: 6, orderQty: 2 }, { hour: 7, orderQty: 4 }] } });
     if (path.includes("/users")) return route.fulfill({ json: { data: [{ id: "operator", name: "Test operator", email: "operator@example.com", role: "ops_pic", is_active: true }], total: 1 } });
     return route.fulfill({ json: { data: [{ id: "theme-request", status: role === "doc_officer" ? "DOCKING" : "PENDING", cluster: "North Hub", region: "North", dock_no: "D-01", backlogs: 4, truck_size: "6W", truck_type: "WETLEASE", driver_id: "DRV-12345", plate_number: "ABC-123", created_by: "theme-user", created_at: "2026-10-12T00:00:00Z" }], current_page: 1, last_page: 1, per_page: 20, total: 1 } });

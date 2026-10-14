@@ -100,7 +100,10 @@ test("docking fetch failure can be retried without claiming the queue is empty",
         id: "doc-user", name: "Document officer", role: "doc_officer", is_admin: false,
       } });
     }
-    if (url.pathname.endsWith("/requests")) {
+    if (url.pathname.endsWith("/requests/summary")) {
+      return route.fulfill({ json: { metrics: { total: 0, awaiting_action: 0, by_status: {} }, analytics: { truck_sizes: {}, hourly: [], shift_start: "06:00" } } });
+    }
+    if (url.pathname.endsWith("/requests/queue")) {
       return fail
         ? route.fulfill({ status: 503, json: { message: "Queue temporarily unavailable" } })
         : route.fulfill({ json: {
@@ -167,7 +170,10 @@ test("failed docking refresh retains cached trucks until Retry succeeds", async 
         id: "doc-user", name: "Document officer", role: "doc_officer", is_admin: false,
       } });
     }
-    if (url.pathname.endsWith("/requests")) {
+    if (url.pathname.endsWith("/requests/summary")) {
+      return route.fulfill({ json: { metrics: { total: 1, awaiting_action: 0, by_status: {} }, analytics: { truck_sizes: { "6W": 1 }, hourly: [], shift_start: "06:00" } } });
+    }
+    if (url.pathname.endsWith("/requests/queue")) {
       return fail
         ? route.fulfill({ status: 503, json: { message: "Queue temporarily unavailable" } })
         : route.fulfill({ json: {

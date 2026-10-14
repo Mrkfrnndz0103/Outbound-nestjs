@@ -118,12 +118,14 @@ export function RequestRecordRow({
 export function RequestDetailRow({
   children,
   columns,
+  id,
 }: {
   children: ReactNode;
   columns: number;
+  id?: string;
 }) {
   return (
-    <tr className="col-span-full grid min-w-0 grid-cols-subgrid">
+    <tr id={id} className="col-span-full grid min-w-0 grid-cols-subgrid">
       <td colSpan={columns} className="col-span-full min-w-0 p-0">
         {children}
       </td>

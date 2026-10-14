@@ -670,7 +670,7 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
                           </LhRowActionMenu>
                         </RequestRecordRow>
                         {expandedRow === row.id && (
-                          <RequestDetailRow columns={visibleColumns.length + 2}>
+                          <RequestDetailRow id={`request-detail-${row.id}`} columns={visibleColumns.length + 2}>
                             <RequestExpandedDetails
                               request={row}
                               visibleColumns={visibleColumns}

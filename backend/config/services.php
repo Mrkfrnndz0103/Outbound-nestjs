@@ -34,15 +34,18 @@ return [
         'approval' => [
             // Provider traffic remains disabled unless the rollout flag and
             // every required server-side setting is present.
+            'requested_enabled' => (bool) env('SEATALK_APPROVAL_ENABLED', false),
             'enabled' => (bool) env('SEATALK_APPROVAL_ENABLED', false)
                 && filled(env('SEATALK_APP_ID'))
                 && filled(env('SEATALK_APP_SECRET'))
                 && filled(env('SEATALK_CALLBACK_SIGNING_SECRET'))
+                && filled(env('SEATALK_APPROVAL_TOKEN_SECRET'))
                 && filled(env('SEATALK_APPROVE_CALLBACK_URL'))
                 && filled(env('SEATALK_REJECT_CALLBACK_URL')),
             'app_id' => env('SEATALK_APP_ID'),
             'app_secret' => env('SEATALK_APP_SECRET'),
             'callback_signing_secret' => env('SEATALK_CALLBACK_SIGNING_SECRET'),
+            'token_secret' => env('SEATALK_APPROVAL_TOKEN_SECRET'),
             'base_url' => env('SEATALK_APPROVAL_BASE_URL', 'https://openapi.seatalk.io'),
             'create_path' => env('SEATALK_APPROVAL_CREATE_PATH'),
             'update_path' => env('SEATALK_APPROVAL_UPDATE_PATH'),

@@ -4,9 +4,10 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use PDO;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
-/** @group postgres */
+#[Group('postgres')]
 final class PostgresRequestQueueQueryPlanTest extends TestCase
 {
     protected function setUp(): void

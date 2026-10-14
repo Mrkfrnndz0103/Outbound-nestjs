@@ -56,7 +56,10 @@ final class ApprovalSchemaTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (getenv('POSTGRES_TESTS') === '1' && in_array('pgsql', PDO::getAvailableDrivers(), true)) {
+        $host = strtolower((string) config('database.connections.pgsql.host'));
+        if (getenv('POSTGRES_TESTS') === '1'
+            && in_array('pgsql', PDO::getAvailableDrivers(), true)
+            && in_array($host, ['127.0.0.1', 'localhost', '::1', 'postgres'], true)) {
             Schema::dropIfExists('seatalk_approval_assignments');
             Schema::dropIfExists('seatalk_approval_items');
             Schema::dropIfExists('requests');

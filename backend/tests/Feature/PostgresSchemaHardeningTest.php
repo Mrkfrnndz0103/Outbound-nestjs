@@ -7,9 +7,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use PDO;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
-/** @group postgres */
+#[Group('postgres')]
 final class PostgresSchemaHardeningTest extends TestCase
 {
     protected function setUp(): void
@@ -20,6 +21,11 @@ final class PostgresSchemaHardeningTest extends TestCase
         }
 
         config()->set('database.default', 'pgsql');
+        $host = strtolower((string) config('database.connections.pgsql.host'));
+        if (! in_array($host, ['127.0.0.1', 'localhost', '::1', 'postgres'], true)) {
+            $this->markTestSkipped('PostgreSQL integration tests require a local or CI test database host.');
+        }
+
         DB::purge('pgsql');
         DB::reconnect('pgsql');
         Schema::dropIfExists('user_events');
@@ -50,7 +56,10 @@ final class PostgresSchemaHardeningTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (getenv('POSTGRES_TESTS') === '1' && in_array('pgsql', PDO::getAvailableDrivers(), true)) {
+        $host = strtolower((string) config('database.connections.pgsql.host'));
+        if (getenv('POSTGRES_TESTS') === '1'
+            && in_array('pgsql', PDO::getAvailableDrivers(), true)
+            && in_array($host, ['127.0.0.1', 'localhost', '::1', 'postgres'], true)) {
             Schema::dropIfExists('user_events');
             Schema::dropIfExists('user_imports');
             Schema::dropIfExists('profiles');

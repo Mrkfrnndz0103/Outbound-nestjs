@@ -8,9 +8,10 @@ use App\Features\Requests\RequestRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PDO;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
-/** @group postgres */
+#[Group('postgres')]
 final class PostgresReportingTest extends TestCase
 {
     protected function setUp(): void

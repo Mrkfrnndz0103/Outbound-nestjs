@@ -34,7 +34,7 @@ try {
         throw 'Production Docker Compose startup failed.'
     }
 
-    $webCheck = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/' -UseBasicParsing -TimeoutSec 30
+    $webCheck = Invoke-WebRequest -Uri 'http://127.0.0.1:4173/' -UseBasicParsing -TimeoutSec 30
     if ($webCheck.StatusCode -ne 200 -or $webCheck.Content -match '/@vite/client|/src/main\.tsx') {
         throw 'The production frontend did not return static build HTML.'
     }
@@ -48,7 +48,7 @@ try {
     $token = Get-CloudflareTokenFromOutput -Output ([string[]]$tokenOutput)
 
     Write-Host 'Production Docker stack is running.' -ForegroundColor Green
-    Write-Host 'Frontend origin: http://127.0.0.1:5173 (NGINX serving frontend/dist)' -ForegroundColor Cyan
+    Write-Host 'Frontend origin: http://127.0.0.1:4173 (NGINX serving frontend/dist)' -ForegroundColor Cyan
     Write-Host 'Starting the named Cloudflare Tunnel. Press Ctrl+C to stop the tunnel and stack.' -ForegroundColor Yellow
     & $cloudflared tunnel run --token $token
 }

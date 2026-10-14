@@ -99,8 +99,8 @@ host-managed tunnel:
 .\scripts\launchers\start-production.ps1
 ```
 
-The production origin is `127.0.0.1:5173` so the existing named tunnel route
-does not need to change. SPA routes fall back to `index.html`, and `/api` is
+The production origin is `127.0.0.1:4173`, which is the Docker host binding for
+the NGINX frontend and the configured named tunnel route. SPA routes fall back to `index.html`, and `/api` is
 proxied to Laravel by the frontend NGINX configuration.
 
 Laravel runs on `http://127.0.0.1:8000`; Vite proxies browser `/api` requests to
@@ -108,7 +108,7 @@ that address. To validate the local services from another PowerShell window:
 
 ```powershell
 Test-NetConnection 127.0.0.1 -Port 8000
-Test-NetConnection 127.0.0.1 -Port 5173
+Test-NetConnection 127.0.0.1 -Port 4173
 ```
 
 Both checks should report `TcpTestSucceeded: True`.
@@ -171,7 +171,7 @@ netstat -ano | findstr ":3000 :5173 :4173 :8080"
 
 cd frontend
 npm run build
-npm run preview -- --host 127.0.0.1 --port 5173 --strictPort .
+npm run preview -- --host 127.0.0.1 --port 4173 --strictPort .
 
 cd /path/to/soc-5-outbound
 git pull --ff-only origin staging

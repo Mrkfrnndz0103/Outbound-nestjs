@@ -42,7 +42,7 @@ release/test team.
 
 Have the platform owner confirm that the host is dedicated to staging and has
 Docker Engine and Compose v2 installed. The current Compose setup binds the
-frontend to `127.0.0.1:5173`; it is not configured to run beside production on
+frontend to `127.0.0.1:4173`; it is not configured to run beside production on
 the same host. A separate host is the recommended setup.
 
 The production launcher,
@@ -224,8 +224,8 @@ Check health and logs:
 docker compose --env-file backend/.env logs --tail 200 api
 docker compose --env-file backend/.env logs --tail 200 scheduler
 docker compose --env-file backend/.env logs --tail 200 web
-curl --fail http://127.0.0.1:5173/
-curl --fail http://127.0.0.1:5173/up
+curl --fail http://127.0.0.1:4173/
+curl --fail http://127.0.0.1:4173/up
 ```
 
 Investigate unhealthy or restarting containers before connecting ingress.
@@ -234,7 +234,7 @@ The frontend response must be the built app, not a Vite development server.
 ### Step 10. Connect staging HTTPS ingress
 
 Have the platform owner route the staging hostname through the dedicated
-staging tunnel or approved ingress to `http://127.0.0.1:5173`. Configure DNS
+staging tunnel or approved ingress to `http://127.0.0.1:4173`. Configure DNS
 and TLS independently from production. Do not expose ports 8000 or 6379, route
 the production hostname to staging, or use the production tunnel.
 

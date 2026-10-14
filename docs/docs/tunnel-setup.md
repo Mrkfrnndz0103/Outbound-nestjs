@@ -16,7 +16,7 @@ The project runs these services locally:
 - Frontend: `http://localhost:5173`
 - Backend: `http://127.0.0.1:8000`
 
-For production, use the Docker web container on `http://127.0.0.1:5173`. It
+For production, use the Docker web container on `http://127.0.0.1:4173`. It
 serves the built frontend through NGINX and proxies `/api` to Laravel. The
 Vite server is for local development only.
 
@@ -36,7 +36,7 @@ Start with these values:
 ```dotenv
 # backend/.env
 APP_URL=http://127.0.0.1:8000
-FRONTEND_URL=http://127.0.0.1:5173
+FRONTEND_URL=http://127.0.0.1:4173
 
 # frontend/.env
 VITE_API_URL=/api
@@ -216,7 +216,7 @@ value. Recheck `frontend/.env` and restart Vite.
 
 Confirm each tunnel points to the correct local port:
 
-- `5173` for the production NGINX frontend origin (or Vite during local development)
+- `4173` for the production NGINX frontend origin; use `5173` for Vite development
 - `8000` for the backend
 
 ### `cloudflared tunnel token` fails

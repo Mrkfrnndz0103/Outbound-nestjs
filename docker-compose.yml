@@ -28,9 +28,9 @@ services:
         VITE_API_URL: /api
         VITE_SUPABASE_URL: ${SUPABASE_URL}
         VITE_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
-    # The named Cloudflare Tunnel currently targets the frontend origin on
-    # port 5173. NGINX inside this image serves the built /app/dist output.
-    ports: ["127.0.0.1:5173:80"]
+    # The named Cloudflare Tunnel targets the production frontend origin on
+    # port 4173. NGINX inside this image serves the built /app/dist output.
+    ports: ["127.0.0.1:4173:80"]
     depends_on:
       api:
         condition: service_healthy

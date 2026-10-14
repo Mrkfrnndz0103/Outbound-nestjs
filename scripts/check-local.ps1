@@ -56,7 +56,7 @@ $caPath = $env:PHP_CA_BUNDLE
 if (-not $caPath) { $caPath = Join-Path $ProjectRoot 'tools\cacert.pem' }
 Check-Condition (Test-Path -LiteralPath $caPath -PathType Leaf) "Found CA bundle $caPath" "CA bundle not found at $caPath; set PHP_CA_BUNDLE or place cacert.pem in tools"
 
-foreach ($port in @(8000, 5173)) {
+foreach ($port in @(8000, 5173, 4173)) {
     $listener = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     Check-Condition ($null -eq $listener) "Port $port is available" "Port $port is already in use"
 }

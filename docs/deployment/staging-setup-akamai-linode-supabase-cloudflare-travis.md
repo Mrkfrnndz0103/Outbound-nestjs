@@ -52,7 +52,7 @@ Supabase staging project
 The Compose stack publishes only the frontend origin locally:
 
 ```text
-127.0.0.1:5173 -> web:80
+127.0.0.1:4173 -> web:80
 ```
 
 The frontend Nginx container proxies:
@@ -215,7 +215,7 @@ ufw status verbose
 Do not expose these ports to the Internet:
 
 ```text
-5173
+4173
 8000
 6379
 ```
@@ -308,7 +308,7 @@ Outbound DNS
 Do not allow public inbound access to:
 
 ```text
-5173
+4173
 8000
 6379
 80
@@ -393,7 +393,7 @@ NAT Gateways add cost.
 
 Cloudflare Tunnel makes an outbound connection from the VM to Cloudflare. The
 VPC does not need inbound HTTP or HTTPS routes. Keep the security group closed
-to ports 80, 443, 5173, 8000, and 6379.
+to ports 80, 443, 4173, 8000, and 6379.
 
 Verify the ECS host has outbound connectivity before installing Docker:
 
@@ -761,8 +761,8 @@ docker compose --env-file backend/.env logs --tail 200 web
 Check the frontend and API health endpoint locally:
 
 ```sh
-curl --fail http://127.0.0.1:5173/
-curl --fail http://127.0.0.1:5173/up
+curl --fail http://127.0.0.1:4173/
+curl --fail http://127.0.0.1:4173/up
 ```
 
 Confirm that the frontend is a production build and not a Vite development
@@ -810,7 +810,7 @@ Create a Published Application route:
 
 ```text
 Hostname: staging.example.com
-Service URL: http://127.0.0.1:5173
+Service URL: http://127.0.0.1:4173
 ```
 
 Do not point the tunnel to the API port. The frontend Nginx container already
@@ -1186,7 +1186,7 @@ rollback:
 - [ ] Firewall restricts SSH
 - [ ] Docker Engine installed
 - [ ] Docker Compose v2 available
-- [ ] Ports 5173, 8000, and 6379 are not public
+- [ ] Ports 4173, 8000, and 6379 are not public
 
 ### Supabase
 
@@ -1204,7 +1204,7 @@ rollback:
 
 - [ ] Domain is managed in Cloudflare DNS
 - [ ] Dedicated staging tunnel exists
-- [ ] Published hostname points to `http://127.0.0.1:5173`
+- [ ] Published hostname points to `http://127.0.0.1:4173`
 - [ ] Cloudflare Access application exists
 - [ ] Access policy is limited to staging users
 - [ ] `cloudflared` runs as a service

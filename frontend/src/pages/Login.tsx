@@ -217,8 +217,8 @@ export function Login({
 
   return (
     <LoginCard modal={modal} visible={visible}>
-      <div className="mb-4">
-        <span className="mb-1.5 block text-xs font-medium text-auth-faint">
+      <div className="mb-5">
+        <span className="mb-2 block text-[.68rem] font-semibold uppercase tracking-[.16em] text-auth-faint">
           Login as
         </span>
         <UserTypeToggle value={type} onChange={switchType} />

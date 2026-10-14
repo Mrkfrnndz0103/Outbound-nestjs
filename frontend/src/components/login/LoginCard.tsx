@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { ShieldCheck } from "lucide-react";
 import { loginModalCardClass, loginModalLayerClass } from "../../lib/uiClasses";
 import { AccessibleDialog } from "../AccessibleDialog";
 import { AmbientGlows } from "./AmbientGlows";
@@ -26,7 +27,7 @@ export function LoginCard({
         overlayClassName={loginModalLayerClass}
         className={`${loginModalCardClass} translate-y-0 opacity-100 animate-login-modal-enter motion-reduce:animate-none`}
       >
-        <div className="relative grid lg:grid-cols-[1fr_1fr]">
+        <div className="relative grid lg:grid-cols-[.92fr_1.08fr]">
           <QrPanel enabled={visible} compact />
           <div
             aria-hidden
@@ -37,15 +38,21 @@ export function LoginCard({
               OR
             </span>
           </div>
-          <div className="flex items-center gap-3 px-5 lg:hidden">
-            <span className="h-px flex-1 bg-auth-line" />
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted">
-              OR
-            </span>
-            <span className="h-px flex-1 bg-auth-line" />
-          </div>
-          <section className="flex items-center justify-center px-4 py-4 sm:px-5">
+          <section className="flex items-center justify-center border-white/10 bg-white/[0.045] px-4 py-5 lg:border-l sm:px-6 sm:py-6">
             <Reveal delay={140} className="w-full max-w-[330px]">
+              <div className="mb-5 flex items-center gap-2.5 border-b border-auth-line pb-4">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-auth-accent/15 text-auth-link ring-1 ring-auth-accent/30">
+                  <ShieldCheck className="h-4 w-4" strokeWidth={2.1} />
+                </span>
+                <div>
+                  <p className="font-display text-xs font-semibold tracking-tight text-auth-ink">
+                    Secure workspace
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-tight text-auth-faint">
+                    Authorized operations access
+                  </p>
+                </div>
+              </div>
               {children}
             </Reveal>
           </section>

@@ -88,7 +88,7 @@ export function BackroomLoginForm({
           onChange={(event) => setRequestName(event.target.value)}
           required
           maxLength={120}
-          className="mt-1.5 h-10 w-full rounded-lg border border-auth-line bg-white/[0.07] px-3 text-base text-auth-ink outline-none focus:border-auth-accent focus:ring-4 focus:ring-auth-accent/20"
+          className="mt-2 h-11 w-full rounded-xl border border-auth-line bg-black/10 px-3 text-base text-auth-ink outline-none transition-[border-color,background-color,box-shadow] focus:border-auth-accent focus:bg-white/[0.1] focus:ring-4 focus:ring-auth-accent/20"
         />
         <label
           htmlFor="access-request-ops-id"
@@ -106,7 +106,7 @@ export function BackroomLoginForm({
           required
           pattern="[Oo][Pp][Ss][0-9]+"
           maxLength={40}
-          className="mt-1.5 h-10 w-full rounded-lg border border-auth-line bg-white/[0.07] px-3 text-base uppercase text-auth-ink outline-none placeholder:text-auth-faint focus:border-auth-accent focus:ring-4 focus:ring-auth-accent/20"
+          className="mt-2 h-11 w-full rounded-xl border border-auth-line bg-black/10 px-3 text-base uppercase text-auth-ink outline-none placeholder:text-auth-faint/75 transition-[border-color,background-color,box-shadow] focus:border-auth-accent focus:bg-white/[0.1] focus:ring-4 focus:ring-auth-accent/20"
         />
         {requestError && (
           <p className="mt-2 text-xs font-medium text-auth-danger leading-snug">
@@ -201,7 +201,7 @@ export function BackroomLoginForm({
       </div>
 
       {error && (
-        <p className="mt-2.5 text-xs font-medium text-auth-danger leading-snug">
+        <p role="alert" className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug">
           {error}
         </p>
       )}
@@ -248,7 +248,7 @@ export function BackroomLoginForm({
       <button
         type="submit"
         disabled={busy}
-        className={`${loginShineButtonClass} group mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-auth-accent to-auth-accent-2 font-display text-sm font-semibold text-white shadow-lg shadow-auth-accent/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-auth-accent/40 hover:brightness-110 active:translate-y-0 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
+        className={`${loginShineButtonClass} group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-auth-accent font-display text-sm font-semibold text-white shadow-[0_.7rem_1.3rem_rgb(29_100_216_/_28%)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-auth-accent-2 hover:shadow-xl hover:shadow-auth-accent/35 hover:brightness-110 active:translate-y-0 active:scale-[.99] disabled:cursor-wait disabled:opacity-85 tracking-tight`}
       >
         {busy ? (
           <>

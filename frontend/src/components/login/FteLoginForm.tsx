@@ -72,12 +72,12 @@ export function FteLoginForm({
 
       <label
         htmlFor="email-input"
-        className="mt-4 block text-sm font-medium text-auth-faint"
+        className="mt-5 block text-[.68rem] font-semibold uppercase tracking-[.14em] text-auth-faint"
       >
         Work Email
       </label>
       <div
-        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-auth-accent focus-within:ring-4 focus-within:ring-auth-accent/20 ${error ? "border-auth-danger/70" : "border-auth-line"}`}
+        className={`mt-2 flex h-12 items-stretch rounded-xl border bg-black/10 transition-[border-color,background-color,box-shadow] duration-200 focus-within:border-auth-accent focus-within:bg-white/[0.1] focus-within:ring-4 focus-within:ring-auth-accent/20 ${error ? "border-auth-danger/70" : "border-auth-line"}`}
       >
         <span className="grid w-10 shrink-0 place-items-center text-auth-faint">
           <AtSign className="h-4 w-4" />
@@ -89,12 +89,12 @@ export function FteLoginForm({
           onChange={(e) => onEmailChange(e.target.value)}
           placeholder="name@spxexpress.com"
           aria-label="Work email"
-          className="min-w-0 flex-1 bg-transparent text-base text-auth-ink outline-none placeholder:text-auth-faint"
+          className="min-w-0 flex-1 bg-transparent text-base text-auth-ink outline-none placeholder:text-auth-faint/75"
         />
       </div>
 
       {error && (
-        <p className="mt-2.5 text-xs font-medium text-auth-danger leading-snug">
+        <p role="alert" className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug">
           {error}
         </p>
       )}
@@ -102,7 +102,7 @@ export function FteLoginForm({
       <button
         type="submit"
         disabled={busy}
-        className={`${loginShineButtonClass} group mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-auth-accent to-auth-accent-2 font-display text-sm font-semibold text-white shadow-lg shadow-auth-accent/30 transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
+        className={`${loginShineButtonClass} group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-auth-accent font-display text-sm font-semibold text-white shadow-[0_.7rem_1.3rem_rgb(29_100_216_/_28%)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-auth-accent-2 hover:brightness-110 active:translate-y-0 active:scale-[.99] disabled:cursor-wait disabled:opacity-85 tracking-tight`}
       >
         {busy ? (
           <>
@@ -129,7 +129,7 @@ export function FteLoginForm({
         type="button"
         onClick={onGoogleSignIn}
         disabled={busy}
-        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-auth-line bg-white/[0.07] font-display text-sm font-semibold text-auth-ink transition-all duration-300 hover:bg-white/[0.11] disabled:cursor-wait disabled:opacity-50"
+        className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-auth-line bg-white/[0.06] font-display text-sm font-semibold text-auth-ink transition-all duration-300 hover:border-white/25 hover:bg-white/[0.11] active:scale-[.99] disabled:cursor-wait disabled:opacity-50"
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
           <path

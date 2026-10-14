@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSession } = vi.hoisted(() => ({
+const { getSession, refreshSession } = vi.hoisted(() => ({
   getSession: vi.fn(),
+  refreshSession: vi.fn(),
 }));
 
 vi.mock("./supabase", () => ({
-  supabase: { auth: { getSession } },
+  supabase: { auth: { getSession, refreshSession } },
 }));
 
 import { ApiError, api, apiErrorMessage } from "./api";
@@ -20,6 +21,10 @@ describe("api request helper", () => {
   beforeEach(() => {
     getSession.mockResolvedValue({
       data: { session: { access_token: "token-123" } },
+      error: null,
+    });
+    refreshSession.mockResolvedValue({
+      data: { session: null },
       error: null,
     });
   });
@@ -50,6 +55,23 @@ describe("api request helper", () => {
     const getHeaders = new Headers(fetchMock.mock.calls[1]?.[1]?.headers);
     expect(getHeaders.has("Content-Type")).toBe(false);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/v1/health");
+  });
+
+  it("restores a persisted session when the initial session read is empty", async () => {
+    getSession.mockResolvedValueOnce({ data: { session: null }, error: null });
+    refreshSession.mockResolvedValueOnce({
+      data: { session: { access_token: "refreshed-token" } },
+      error: null,
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    await api("/requests");
+
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(refreshSession).toHaveBeenCalledOnce();
+    expect(headers.get("Authorization")).toBe("Bearer refreshed-token");
   });
 
   it("preserves an explicitly supplied content type", async () => {

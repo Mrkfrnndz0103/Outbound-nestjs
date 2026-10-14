@@ -3,6 +3,16 @@ import { supabase } from "./supabase";
 
 const base = import.meta.env.VITE_API_URL ?? "/api/v1";
 
+async function getApiSession() {
+  const current = await supabase.auth.getSession();
+  if (current.data.session || current.error) return current.data.session;
+
+  // Supabase can briefly expose no session while restoring a persisted one.
+  // Recover it before sending a protected request without Authorization.
+  const refreshed = await supabase.auth.refreshSession();
+  return refreshed.data.session;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -31,9 +41,7 @@ export async function api<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getApiSession();
   let response: Response;
   try {
     const viewRole = useUiStore.getState().viewRole;

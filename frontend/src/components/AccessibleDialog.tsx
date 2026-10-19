@@ -5,6 +5,7 @@ type Props = {
   open: boolean;
   label: string;
   labelledBy?: string;
+  describedBy?: string;
   portal?: boolean;
   dismissOnOutside?: boolean;
   children: ReactNode;
@@ -19,6 +20,7 @@ export function AccessibleDialog({
   open,
   label,
   labelledBy,
+  describedBy,
   portal = true,
   dismissOnOutside = true,
   children,
@@ -36,7 +38,7 @@ export function AccessibleDialog({
         asChild
         aria-label={label}
         aria-labelledby={labelledBy}
-        aria-describedby={undefined}
+        aria-describedby={describedBy}
         onOpenAutoFocus={() => {
           opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         }}

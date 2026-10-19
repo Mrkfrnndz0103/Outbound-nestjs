@@ -1,5 +1,5 @@
-import { ArrowRight, IdCard, KeyRound, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Eye, EyeOff, IdCard, KeyRound, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { loginShineButtonClass } from "../../lib/uiClasses";
 
@@ -32,16 +32,14 @@ export function BackroomLoginForm({
   const [requestSent, setRequestSent] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const triggerShake = () => {
+  useEffect(() => {
+    if (!error) return;
     setShaking(true);
-    setTimeout(() => setShaking(false), 500);
-  };
-
-  // Trigger shake animation when there's an error
-  if (error && !shaking) {
-    triggerShake();
-  }
+    const timer = window.setTimeout(() => setShaking(false), 500);
+    return () => window.clearTimeout(timer);
+  }, [error]);
 
   async function submitAccessRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -170,7 +168,9 @@ export function BackroomLoginForm({
           id="backroom-ops-id"
           aria-label="Ops ID"
           autoComplete="username"
-          className="min-w-0 flex-1 bg-transparent pr-3 text-base tracking-wide text-auth-ink outline-none placeholder:text-auth-faint uppercase"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "backroom-login-error" : undefined}
+          className="min-w-0 flex-1 bg-transparent pr-3 text-base tracking-wide text-auth-ink outline-none placeholder:text-auth-faint uppercase focus-visible:outline-none"
         />
       </div>
 
@@ -190,26 +190,43 @@ export function BackroomLoginForm({
         </span>
         <input
           id="backroom-password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           value={password}
           onChange={(event) => onPasswordChange(event.target.value)}
           aria-label="Password"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "backroom-login-error" : undefined}
           autoComplete="current-password"
           required
-          className="min-w-0 flex-1 bg-transparent pr-3 text-base tracking-wide text-auth-ink outline-none placeholder:text-auth-faint"
+          className="min-w-0 flex-1 bg-transparent text-base tracking-wide text-auth-ink outline-none placeholder:text-auth-faint focus-visible:outline-none"
         />
+        <button
+          type="button"
+          aria-label={showPassword ? "Hide secret" : "Reveal secret"}
+          title={showPassword ? "Hide password" : "Show password"}
+          onClick={() => setShowPassword((visible) => !visible)}
+          className="grid w-10 shrink-0 place-items-center text-auth-faint transition-colors hover:text-auth-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-auth-accent/60"
+        >
+          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
       </div>
 
       {error && (
-        <p role="alert" className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug">
+        <p id="backroom-login-error" role="alert" className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug">
           {error}
         </p>
       )}
 
       <div className="mt-3.5 flex items-center justify-between">
         <label className="group flex cursor-pointer items-center gap-2 text-xs font-medium text-auth-muted leading-snug">
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={keepSignedIn}
+            onChange={(event) => setKeepSignedIn(event.target.checked)}
+          />
           <span
-            className={`grid h-4 w-4 place-items-center rounded border transition-all duration-200 ${
+            className={`grid h-4 w-4 place-items-center rounded border transition-all duration-200 group-focus-within:ring-2 group-focus-within:ring-auth-accent/60 ${
               keepSignedIn
                 ? "border-auth-accent bg-auth-accent"
                 : "border-auth-line bg-transparent"
@@ -228,18 +245,12 @@ export function BackroomLoginForm({
               </svg>
             )}
           </span>
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={keepSignedIn}
-            onChange={(event) => setKeepSignedIn(event.target.checked)}
-          />
           Keep me signed in
         </label>
         <button
           type="button"
           onClick={onForgotPassword}
-          className="text-xs font-semibold text-auth-link underline-offset-4 hover:underline tracking-tight"
+          className="text-xs font-semibold text-auth-link underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-accent/60 tracking-tight"
         >
           Forgot password?
         </button>
@@ -248,7 +259,7 @@ export function BackroomLoginForm({
       <button
         type="submit"
         disabled={busy}
-        className={`${loginShineButtonClass} group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-auth-accent font-display text-sm font-semibold text-white shadow-[0_.7rem_1.3rem_rgb(29_100_216_/_28%)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-auth-accent-2 hover:shadow-xl hover:shadow-auth-accent/35 hover:brightness-110 active:translate-y-0 active:scale-[.99] disabled:cursor-wait disabled:opacity-85 tracking-tight`}
+        className={`${loginShineButtonClass} group mt-5 flex h-[48px] min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-auth-accent font-display text-sm font-semibold text-white shadow-[0_.7rem_1.3rem_rgb(29_100_216_/_28%)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-auth-accent-2 hover:shadow-xl hover:shadow-auth-accent/35 hover:brightness-110 active:translate-y-0 active:scale-[.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-auth-accent/35 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
       >
         {busy ? (
           <>

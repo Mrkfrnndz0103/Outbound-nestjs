@@ -69,6 +69,81 @@ test('keeps the login modal compact on desktop viewports', async ({ page }) => {
   await expect(dialog.locator('..')).toHaveCSS('overflow-y', 'auto');
 });
 
+test('uses a spacious two-column authentication card on desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Sign in to SOC 5 Outbound',
+  });
+  await expect(dialog).toBeVisible({ timeout: loginEntryTimeout });
+
+  const box = await dialog.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.width).toBeGreaterThanOrEqual(640);
+  const seatalkBox = await dialog.getByRole('group', { name: 'SeaTalk login' }).boundingBox();
+  const emailBox = await dialog.getByLabel('Work email').boundingBox();
+  expect(seatalkBox).not.toBeNull();
+  expect(emailBox).not.toBeNull();
+  expect(seatalkBox!.x).toBeLessThan(emailBox!.x);
+  expect(Math.abs(seatalkBox!.y - emailBox!.y)).toBeLessThan(220);
+  await expect(dialog.getByText('Continue with SeaTalk to sign in.')).toBeVisible();
+});
+
+test('matches the reference viewport proportions at 1920x811', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 811 });
+  await page.goto('/');
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Sign in to SOC 5 Outbound',
+  });
+  await expect(dialog).toBeVisible({ timeout: loginEntryTimeout });
+  await page.getByRole('tab', { name: 'Backroom' }).click();
+  await expect(page.getByLabel('Ops ID')).toBeVisible();
+  await expect(page.getByLabel('Password')).toBeVisible();
+
+  const box = await dialog.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(880);
+  expect(box!.width).toBeLessThanOrEqual(920);
+  expect(box!.height).toBeLessThanOrEqual(690);
+
+  await page.screenshot({
+    path: 'output/playwright/login-modal-reference-1920x811.png',
+    animations: 'disabled',
+  });
+});
+
+test('stacks login controls without horizontal overflow at desktop and mobile sizes', async ({ page }) => {
+  for (const viewport of [
+    { width: 1366, height: 768, name: '1366x768' },
+    { width: 375, height: 812, name: '375x812' },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+
+    const dialog = page.getByRole('dialog', {
+      name: 'Sign in to SOC 5 Outbound',
+    });
+    await expect(dialog).toBeVisible({ timeout: loginEntryTimeout });
+    await expect(page.getByText('SOC 5 OUTBOUND', { exact: true })).toBeVisible();
+    await expect(page.getByText('Continue with SeaTalk to sign in.')).toBeVisible();
+    await expect(page.getByRole('tablist', { name: 'Login as' })).toBeVisible();
+    await expect(page.getByLabel('Work email')).toBeVisible();
+
+    const overflow = await page.evaluate(() => ({
+      bodyWidth: document.body.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }));
+    expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.viewportWidth);
+
+    await page.screenshot({
+      path: `output/playwright/login-modal-${viewport.name}.png`,
+      animations: 'disabled',
+    });
+  }
+});
+
 test('keeps natural app sizing on desktop and mobile viewports', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');

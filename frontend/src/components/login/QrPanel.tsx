@@ -18,7 +18,10 @@ interface QrPanelProps {
   compact?: boolean;
 }
 
-export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelProps) {
+export function QrPanel({
+  enabled: _enabled = true,
+  compact = false,
+}: QrPanelProps) {
   const widgetRef = useRef<HTMLFieldSetElement>(null);
   const sdkContainerRef = useRef<HTMLDivElement>(null);
   const renderLoginOnce = useRef<(() => Promise<void>) | null>(null);
@@ -96,7 +99,7 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
   }, [_enabled]);
 
   return (
-    <section className={`relative hidden lg:flex flex-col overflow-hidden ${compact ? "px-4 pb-10 pt-3 sm:px-5" : "px-5 pb-24 pt-6 sm:px-7"}`}>
+    <section className={`relative ${compact ? "flex lg:justify-center" : "hidden lg:flex"} min-w-0 flex-col overflow-hidden ${compact ? "px-4 pb-4 pt-4 sm:px-6" : "px-5 pb-24 pt-6 sm:px-7"}`}>
       <div
         aria-hidden
         className="absolute right-2 top-28 h-48 w-36 bg-[radial-gradient(rgb(214_228_255_/_34%)_.055rem,transparent_.055rem)] bg-[length:.75rem_.75rem] opacity-60 [mask-image:radial-gradient(closest-side,black,transparent)]"
@@ -112,10 +115,10 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
           <img
             src="/dashboard-icon/icon_logo.png"
             alt="SOC 5"
-            className={`${compact ? "h-10 w-10 rounded-lg" : "h-[52px] w-[52px] rounded-xl"} shrink-0 object-cover shadow-lg shadow-auth-accent/30`}
+            className={`${compact ? "h-9 w-9 rounded-lg" : "h-[52px] w-[52px] rounded-xl"} shrink-0 object-cover shadow-lg shadow-auth-accent/30`}
           />
           <div>
-            <p className={`font-display ${compact ? "text-sm" : "text-base"} font-semibold tracking-tight leading-snug text-auth-ink`}>
+            <p className={`font-display ${compact ? "text-[.8rem]" : "text-base"} font-semibold tracking-tight leading-snug text-auth-ink`}>
               SOC 5 OUTBOUND
             </p>
             <p className="text-xs font-medium text-auth-faint leading-snug">
@@ -126,21 +129,21 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
       </Reveal>
 
       {/* heading */}
-      <Reveal delay={90} className={compact ? "mt-3" : "mt-5"}>
-        <h1 className={`font-display ${compact ? "text-lg" : "text-xl"} font-semibold leading-tight tracking-tight text-auth-ink`}>
+      <Reveal delay={90} className={compact ? "mt-2" : "mt-5"}>
+        <h1 className={`font-display ${compact ? "text-base" : "text-xl"} font-semibold leading-tight tracking-tight text-auth-ink`}>
           Login to continue
         </h1>
-        <p className={`${compact ? "mt-1" : "mt-2"} text-xs text-auth-muted leading-relaxed`}>
+        <p className={`${compact ? "mt-0.5" : "mt-2"} text-[.7rem] text-auth-muted leading-relaxed`}>
           Use your work email or Ops ID to sign in below.
         </p>
       </Reveal>
 
-      <Reveal delay={180} className={compact ? "mt-3" : "mt-6"}>
-        <div className={`rounded-2xl border border-auth-line bg-white/[0.03] ${compact ? "p-3" : "p-4"} text-center`}>
+      <Reveal delay={180} className={compact ? "mt-2" : "mt-6"}>
+        <div className={`${compact ? "space-y-2" : "rounded-2xl border border-auth-line bg-white/[0.03] p-4"} text-center`}>
           <fieldset
             ref={widgetRef}
             aria-label="SeaTalk login"
-            className={`mx-auto flex w-full ${compact ? "min-h-[112px] p-2" : "min-h-[176px] p-3"} items-center justify-center overflow-hidden rounded-xl border-0 bg-white`}
+            className={`mx-auto flex w-full ${compact ? "min-h-[72px] p-1" : "min-h-[176px] p-3"} items-center justify-center overflow-hidden rounded-xl border-0 bg-white`}
           >
             <div
               ref={sdkContainerRef}
@@ -163,31 +166,32 @@ export function QrPanel({ enabled: _enabled = true, compact = false }: QrPanelPr
             </div>
           )}
           {status !== "error" && (
-              <p className={`${compact ? "mt-2" : "mt-3"} text-xs leading-relaxed text-auth-muted`}>
+              <p className={`${compact ? "mt-1.5" : "mt-3"} text-[.7rem] leading-relaxed text-auth-muted`}>
               Continue with SeaTalk to sign in.
             </p>
           )}
         </div>
       </Reveal>
 
-      {/* freight scene */}
-      <div
-        aria-hidden
-        className={`pointer-events-none absolute inset-x-0 bottom-0 ${compact ? "h-20" : "h-32"}`}
-      >
-        <img
-          src={trucksImage}
-          alt=""
-          className="h-full w-full object-cover object-bottom [mask-image:linear-gradient(to_top,black_45%,transparent)]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-auth-deep-2/60 via-transparent to-transparent" />
-        <div className="absolute bottom-[42%] left-[27%]">
-          <span className="absolute inset-0 animate-login-ping rounded-full bg-auth-accent/50 motion-reduce:animate-none" />
-          <span className="relative grid h-7 w-7 animate-login-float place-items-center rounded-full bg-auth-accent shadow-lg shadow-auth-accent/50 ring-4 ring-auth-accent/25 motion-reduce:animate-none">
-            <MapPin className="h-3.5 w-3.5 text-white" fill="currentColor" />
-          </span>
+      {!compact && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-32"
+        >
+          <img
+            src={trucksImage}
+            alt=""
+            className="h-full w-full object-cover object-bottom [mask-image:linear-gradient(to_top,black_45%,transparent)]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-auth-deep-2/60 via-transparent to-transparent" />
+          <div className="absolute bottom-[42%] left-[27%]">
+            <span className="absolute inset-0 animate-login-ping rounded-full bg-auth-accent/50 motion-reduce:animate-none" />
+            <span className="relative grid h-7 w-7 animate-login-float place-items-center rounded-full bg-auth-accent shadow-lg shadow-auth-accent/50 ring-4 ring-auth-accent/25 motion-reduce:animate-none">
+              <MapPin className="h-3.5 w-3.5 text-white" fill="currentColor" />
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

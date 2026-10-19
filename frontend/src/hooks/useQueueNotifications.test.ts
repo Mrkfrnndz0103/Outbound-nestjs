@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   actionableQueueRows,
+  isQueueQueryEnabled,
   queueStatusesForRole,
   unacknowledgedQueueRows,
 } from "./useQueueNotifications";
@@ -23,6 +24,11 @@ function request(overrides: Partial<TruckRequest> = {}): TruckRequest {
 }
 
 describe("role request notification queues", () => {
+  it("does not enable the protected queue query in preview mode", () => {
+    expect(isQueueQueryEnabled(true, "ops_pic")).toBe(false);
+    expect(isQueueQueryEnabled(false, "ops_pic")).toBe(true);
+  });
+
   it("loads REQUESTED work for FTE MM and only unassigned DOCKING work for DOC", () => {
     expect(queueStatusesForRole("fte_ops")).toEqual(["PENDING", "REROUTED", "REJECTED"]);
     expect(queueStatusesForRole("fte_mm")).toEqual(["REQUESTED"]);

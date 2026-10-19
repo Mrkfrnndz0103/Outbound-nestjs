@@ -85,10 +85,17 @@ final class SeatalkController
             ]);
             abort_unless($profile, 403, 'SeaTalk account is not provisioned for SOC 5 Outbound.');
 
+            $employeeCode = trim((string) data_get($employee, 'employee_code'));
+            if ($employeeCode !== '') {
+                DB::table('profiles')->where('id', $profile->id)->update([
+                    'seatalk_employee_code' => $employeeCode,
+                ]);
+            }
+
             $request->session()->regenerate();
             $request->session()->put('seatalk_profile_id', $profile->id);
             $request->session()->put('seatalk_email', $email);
-            $request->session()->put('seatalk_employee_code', data_get($employee, 'employee_code'));
+            $request->session()->put('seatalk_employee_code', $employeeCode !== '' ? $employeeCode : null);
 
             return redirect()->to($frontend.'/?seatalk=success');
         } catch (Throwable) {

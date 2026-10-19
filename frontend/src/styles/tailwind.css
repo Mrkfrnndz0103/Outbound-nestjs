@@ -209,6 +209,10 @@ body {
   from { opacity: 0; transform: translateY(.9rem); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes login-modal-enter-compact {
+  from { opacity: 0; transform: translateY(.9rem) scale(.84); }
+  to { opacity: 1; transform: translateY(0) scale(.84); }
+}
 @keyframes sidebar-subitem-in {
   from { opacity: 0; transform: translateY(-0.15rem); }
   to { opacity: 1; transform: translateY(0); }

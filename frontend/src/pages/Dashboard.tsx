@@ -90,7 +90,7 @@ export function Dashboard({
       (activeUser.role === "fte_ops" || activeUser.role === "fte_mm"));
   const requestedView = getAppView(location.pathname);
   const view = allowed(requestedView) ? requestedView : "overview";
-  const queue = useQueueNotifications(activeUser);
+  const queue = useQueueNotifications(activeUser, isPreview);
   const navigationGroups = createAppNavigationGroups({
     role: activeUser.role,
     pendingCount: queue.count,

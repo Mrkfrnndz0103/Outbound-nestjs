@@ -216,14 +216,18 @@ export function Login({
   }
 
   return (
-    <LoginCard modal={modal} visible={visible}>
-      <div className="mb-5">
-        <span className="mb-2 block text-[.68rem] font-semibold uppercase tracking-[.16em] text-auth-faint">
-          Login as
-        </span>
-        <UserTypeToggle value={type} onChange={switchType} />
-      </div>
-
+    <LoginCard
+      modal={modal}
+      visible={visible}
+      beforeAuthentication={
+        <div>
+          <span className="mb-2 block text-[.68rem] font-semibold uppercase tracking-[.16em] text-auth-faint">
+            Login as
+          </span>
+          <UserTypeToggle value={type} onChange={switchType} />
+        </div>
+      }
+    >
       {type === "fte" ? (
         <FteLoginForm
           key="fte"

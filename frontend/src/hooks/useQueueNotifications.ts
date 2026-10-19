@@ -28,6 +28,10 @@ export function queueStatusesForRole(role: User["role"]): Status[] {
   }
 }
 
+export function isQueueQueryEnabled(preview: boolean, role: User["role"]): boolean {
+  return !preview && queueStatusesForRole(role).length > 0;
+}
+
 export function actionableQueueRows(role: User["role"], rows: TruckRequest[]) {
   return rows.filter((request) => {
     if (role === "fte_ops") {
@@ -54,14 +58,14 @@ export function unacknowledgedQueueRows(
   return rows.filter((request) => acknowledged.get(request.id) !== queueAlertVersion(request));
 }
 
-export function useQueueNotifications(user: User): QueueSnapshot {
+export function useQueueNotifications(user: User, preview = false): QueueSnapshot {
   const statuses = queueStatusesForRole(user.role);
   const status = statuses[0] ?? null;
   const [acknowledged, setAcknowledged] = useState<Map<string, string>>(() => new Map());
   const query = useQuery({
     queryKey: [...requestQueryKey("notification-queue"), user.role, statuses],
     queryFn: async () => api<{ data: TruckRequest[]; limit: number }>("/requests/queue?limit=100"),
-    enabled: statuses.length > 0,
+    enabled: isQueueQueryEnabled(preview, user.role),
     refetchInterval: false,
     refetchOnWindowFocus: true,
   });

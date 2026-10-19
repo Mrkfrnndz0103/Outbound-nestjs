@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { ShieldCheck } from "lucide-react";
 import { loginModalCardClass, loginModalLayerClass } from "../../lib/uiClasses";
 import { AccessibleDialog } from "../AccessibleDialog";
 import { AmbientGlows } from "./AmbientGlows";
@@ -9,12 +8,14 @@ import { Reveal } from "./Reveal";
 
 interface LoginCardProps {
   children: ReactNode;
+  beforeAuthentication?: ReactNode;
   modal?: boolean;
   visible?: boolean;
 }
 
 export function LoginCard({
   children,
+  beforeAuthentication,
   modal = false,
   visible = true,
 }: LoginCardProps) {
@@ -23,37 +24,29 @@ export function LoginCard({
       <AccessibleDialog
         open={visible}
         label="Sign in to SOC 5 Outbound"
+        describedBy="login-dialog-description"
         dismissible={false}
         overlayClassName={loginModalLayerClass}
-        className={`${loginModalCardClass} translate-y-0 opacity-100 animate-login-modal-enter motion-reduce:animate-none`}
+        className={loginModalCardClass}
       >
-        <div className="relative grid lg:grid-cols-[.92fr_1.08fr]">
+        <div className="relative grid min-w-0 lg:grid-cols-2">
+          <p id="login-dialog-description" className="sr-only">
+            Choose a sign-in method for the SOC 5 Outbound operations workspace.
+          </p>
           <QrPanel enabled={visible} compact />
           <div
             aria-hidden
-            className="absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-auth-line lg:block"
+            className="absolute inset-y-0 left-1/2 hidden w-px bg-white/10 lg:block"
           />
-          <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
-            <span className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted backdrop-blur-md">
-              OR
-            </span>
-          </div>
-          <section className="flex items-center justify-center border-white/10 bg-white/[0.045] px-4 py-5 lg:border-l sm:px-6 sm:py-6">
-            <Reveal delay={140} className="w-full max-w-[330px]">
-              <div className="mb-5 flex items-center gap-2.5 border-b border-auth-line pb-4">
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-auth-accent/15 text-auth-link ring-1 ring-auth-accent/30">
-                  <ShieldCheck className="h-4 w-4" strokeWidth={2.1} />
-                </span>
-                <div>
-                  <p className="font-display text-xs font-semibold tracking-tight text-auth-ink">
-                    Secure workspace
-                  </p>
-                  <p className="mt-0.5 text-[10px] leading-tight text-auth-faint">
-                    Authorized operations access
-                  </p>
-                </div>
-              </div>
+          <section className="min-w-0 border-t border-white/10 bg-[rgb(19_30_39_/_48%)] px-4 py-5 sm:px-6 sm:py-7 lg:border-l lg:border-t-0">
+            <Reveal delay={140} className="mx-auto block w-full max-w-[360px]">
+              {beforeAuthentication}
+              <div className="mt-6 border-t border-white/10 pt-5">
+                <p className="mb-4 font-display text-sm font-semibold text-auth-ink">
+                  Sign in to your operations workspace
+                </p>
               {children}
+              </div>
             </Reveal>
           </section>
         </div>

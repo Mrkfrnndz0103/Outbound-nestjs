@@ -1,32 +1,32 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useRequestRealtime } from "../hooks/useRequestRealtime";
 import { lazy, Suspense, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import DashboardLayout from "../components/watermelon/medesk-dashboard/dashboard-layout";
-import { MedeskNavigationAdapter, createAppNavigationGroups } from "../components/shell/MedeskNavigationAdapter";
 import { Skeleton } from "../components/Skeleton";
 import { SkeletonTable } from "../components/SkeletonTable";
-import { useQueueNotifications } from "../hooks/useQueueNotifications";
+import { AppShell } from "../components/shell/AppShell";
+import { createAppNavigationGroups } from "../components/shell/navigation";
 import { useApprovalPresence } from "../hooks/useApprovalPresence";
+import { useQueueNotifications } from "../hooks/useQueueNotifications";
+import { useRequestRealtime } from "../hooks/useRequestRealtime";
+import { api } from "../lib/api";
 import { getAppPath, getAppView } from "../lib/routes";
+import { supabase } from "../lib/supabase";
 import {
   dashboardGridClass,
+  dashboardListClass,
   dashboardPanelClass,
-  dashboardViewClass,
   dashboardTripsPanelClass,
+  dashboardViewClass,
   intradayCardClass,
   intradayFiltersClass,
   intradayShellClass,
   lineChartClass,
-  dashboardListClass,
   loadingChipClass,
   loadingShellClass,
   loadingToolbarClass,
   overviewMetricsClass,
   workspaceViewClass,
 } from "../lib/uiClasses";
-import { api } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import { useUiStore } from "../stores/ui";
 import type { AppView, Role, User } from "../types";
 
@@ -127,27 +127,43 @@ export function Dashboard({
   }, [location.pathname, routerNavigate, view]);
 
   return (
-    <MedeskNavigationAdapter>
-      <DashboardLayout
-        navigationGroups={navigationGroups}
-        currentUser={{ name: activeUser.name, email: activeUser.email ?? "", role: activeUser.role, isAdmin: activeUser.is_admin }}
-        onSignOut={() => void signOut()}
-        onRoleChange={(role) => void switchRole(role)}
+    <AppShell
+      navigationGroups={navigationGroups}
+      currentUser={{
+        name: activeUser.name,
+        email: activeUser.email ?? "",
+        role: activeUser.role,
+        isAdmin: activeUser.is_admin,
+      }}
+      onSignOut={() => void signOut()}
+      onRoleChange={(role) => void switchRole(role)}
+    >
+      <section
+        className="relative z-[2] flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-y-auto overscroll-y-contain"
+        aria-live="polite"
       >
-        <section className="relative z-[2] flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-y-auto overscroll-y-contain" aria-live="polite">
-          <Suspense fallback={<ViewLoading view={view} />}>
-            {view === "overview" && (
-              <Overview user={activeUser} onNavigate={navigate} preview={isPreview} />
-            )}
-            {view === "lh-request" && <OutboundRequests user={activeUser} queue={queue} />}
-            {view === "truck-request" && <MidmileRequests user={activeUser} queue={queue} />}
-            {view === "docking" && <DockingConfirmation user={activeUser} queue={queue} />}
-            {view === "kpi" && <Kpi />}
-            {view === "users" && <UserManagement />}
-          </Suspense>
-        </section>
-      </DashboardLayout>
-    </MedeskNavigationAdapter>
+        <Suspense fallback={<ViewLoading view={view} />}>
+          {view === "overview" && (
+            <Overview
+              user={activeUser}
+              onNavigate={navigate}
+              preview={isPreview}
+            />
+          )}
+          {view === "lh-request" && (
+            <OutboundRequests user={activeUser} queue={queue} />
+          )}
+          {view === "truck-request" && (
+            <MidmileRequests user={activeUser} queue={queue} />
+          )}
+          {view === "docking" && (
+            <DockingConfirmation user={activeUser} queue={queue} />
+          )}
+          {view === "kpi" && <Kpi />}
+          {view === "users" && <UserManagement />}
+        </Suspense>
+      </section>
+    </AppShell>
   );
 }
 
@@ -155,7 +171,10 @@ function ViewLoading({ view }: { view: AppView }) {
   if (view === "overview") {
     return (
       <div className={dashboardViewClass}>
-        <section className={`${overviewMetricsClass} min-[1024px]:grid-cols-4`} aria-hidden="true">
+        <section
+          className={`${overviewMetricsClass} min-[1024px]:grid-cols-4`}
+          aria-hidden="true"
+        >
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
@@ -212,7 +231,9 @@ function ViewLoading({ view }: { view: AppView }) {
               <SkeletonTable columns={2} rows={3} compact />
             </div>
           </article>
-          <article className={`${dashboardPanelClass} ${dashboardTripsPanelClass}`}>
+          <article
+            className={`${dashboardPanelClass} ${dashboardTripsPanelClass}`}
+          >
             <div className="flex items-start justify-between gap-3 px-3.5 pt-3.5">
               <div>
                 <Skeleton width={120} variant="head" />

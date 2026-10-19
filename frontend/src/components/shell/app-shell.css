@@ -1,6 +1,6 @@
-.medesk-dashboard,
-body:has(.medesk-dashboard) [data-slot="sidebar"][data-mobile="true"],
-body:has(.medesk-dashboard) [data-slot="sheet-content"] {
+.app-shell,
+body:has(.app-shell) [data-slot="sidebar"][data-mobile="true"],
+body:has(.app-shell) [data-slot="sheet-content"] {
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -21,10 +21,10 @@ body:has(.medesk-dashboard) [data-slot="sheet-content"] {
   --dashboard-secondary: oklch(0.59276 0.14905 282.66);
 }
 
-.medesk-dashboard.dark,
-.dark .medesk-dashboard,
-.dark body:has(.medesk-dashboard) [data-slot="sidebar"][data-mobile="true"],
-.dark body:has(.medesk-dashboard) [data-slot="sheet-content"] {
+.app-shell.dark,
+.dark .app-shell,
+.dark body:has(.app-shell) [data-slot="sidebar"][data-mobile="true"],
+.dark body:has(.app-shell) [data-slot="sheet-content"] {
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -40,20 +40,20 @@ body:has(.medesk-dashboard) [data-slot="sheet-content"] {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-.medesk-dashboard.no-scrollbar,
-.medesk-dashboard.no-scrollbar *,
-.medesk-dashboard .no-scrollbar,
-.medesk-dashboard .no-scrollbar * {
+.app-shell.no-scrollbar,
+.app-shell.no-scrollbar *,
+.app-shell .no-scrollbar,
+.app-shell .no-scrollbar * {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-.medesk-dashboard .dashboard-load-segment {
+.app-shell .dashboard-load-segment {
   width: var(--department-width);
   animation: dashboard-load-grow 700ms ease-out both;
 }
 
-.medesk-dashboard .dashboard-resource-progress {
+.app-shell .dashboard-resource-progress {
   transform-origin: left;
   animation: dashboard-resource-grow 700ms ease-out both;
 }
@@ -78,10 +78,10 @@ body:has(.medesk-dashboard) [data-slot="sheet-content"] {
   }
 }
 
-.medesk-dashboard.no-scrollbar::-webkit-scrollbar,
-.medesk-dashboard.no-scrollbar *::-webkit-scrollbar,
-.medesk-dashboard .no-scrollbar::-webkit-scrollbar,
-.medesk-dashboard .no-scrollbar *::-webkit-scrollbar {
+.app-shell.no-scrollbar::-webkit-scrollbar,
+.app-shell.no-scrollbar *::-webkit-scrollbar,
+.app-shell .no-scrollbar::-webkit-scrollbar,
+.app-shell .no-scrollbar *::-webkit-scrollbar {
   display: none;
 }
 

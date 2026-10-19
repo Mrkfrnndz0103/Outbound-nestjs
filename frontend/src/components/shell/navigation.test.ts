@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAppNavigationGroups } from "./MedeskNavigationAdapter";
+import { createAppNavigationGroups } from "./navigation";
 
 describe("createAppNavigationGroups", () => {
   it("maps existing routes and preserves role-aware visibility", () => {
@@ -15,7 +15,9 @@ describe("createAppNavigationGroups", () => {
       "/kpi",
       "/users",
     ]);
-    expect(items.find((item) => item.href === "/outbound/lh-request")?.badge).toBe("4");
+    expect(
+      items.find((item) => item.href === "/outbound/lh-request")?.badge,
+    ).toBe("4");
   });
 
   it("does not expose routes unavailable to the current role", () => {
@@ -23,7 +25,9 @@ describe("createAppNavigationGroups", () => {
       role: "ops_pic",
       pendingCount: 0,
     });
-    const hrefs = groups.flatMap((group) => group.items).map((item) => item.href);
+    const hrefs = groups
+      .flatMap((group) => group.items)
+      .map((item) => item.href);
 
     expect(hrefs).toEqual(["/dashboard", "/outbound/lh-request", "/kpi"]);
     expect(hrefs).not.toContain("/users");

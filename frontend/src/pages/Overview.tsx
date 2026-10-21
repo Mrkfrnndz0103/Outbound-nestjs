@@ -1,44 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  avatarClass,
-  dashboardGridClass,
-  dashboardPanelBodyClass,
-  dashboardPanelHeadClass,
-  dashboardPanelKickerClass,
-  dashboardPanelClass,
-  dashboardTripsPanelClass,
-  dashboardViewClass,
-  donutCenterClass,
-  donutCenterLabelClass,
-  donutCenterValueClass,
-  donutClass,
-  donutLayoutClass,
-  donutLegendClass,
-  donutLegendItemClass,
-  donutLegendSwatchClass,
-  mutedCaptionClass,
-  donutLegendValueClass,
-  dialogHeadClass,
-  iconButtonClass,
-  intradayCardClass,
-  intradayMetaDotClass,
-  intradayShellClass,
-  loadingChipClass,
-  loadingShellClass,
-  loadingToolbarClass,
-  overviewMetricsClass,
-  scorecardsLayoutClass,
-  timingMetricsClass,
-  linehaulRowClass,
-  queueRowGroupClass,
-  requestDetailContentClass,
-  requestDetailCopyClass,
-  requestDetailDialogClass,
-  requestDetailTitleClass,
-  textButtonClass,
-  truckDotClass,
-  tripsPanelBodyClass,
-} from "../lib/uiClasses";
 import { CheckCircle2, ClipboardList, Clock3, Truck, X } from "lucide-react";
 import {
   type ReactNode,
@@ -47,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ChartHeader } from "../components/dashboard/ChartHeader";
 import {
   IntradayDateSelector,
@@ -59,9 +20,48 @@ import { Panel } from "../components/dashboard/Panel";
 import { QueuePreview } from "../components/dashboard/QueuePreview";
 import { Modal } from "../components/Modal";
 import { RequestTable } from "../components/RequestTable";
-import { Skeleton } from "../components/Skeleton";
 import { SkeletonTable } from "../components/SkeletonTable";
 import { api } from "../lib/api";
+import {
+  avatarClass,
+  dashboardGridClass,
+  dashboardPanelBodyClass,
+  dashboardPanelClass,
+  dashboardPanelHeadClass,
+  dashboardPanelKickerClass,
+  dashboardTripsPanelClass,
+  dashboardViewClass,
+  dialogHeadClass,
+  donutCenterClass,
+  donutCenterLabelClass,
+  donutCenterValueClass,
+  donutClass,
+  donutLayoutClass,
+  donutLegendClass,
+  donutLegendItemClass,
+  donutLegendSwatchClass,
+  donutLegendValueClass,
+  iconButtonClass,
+  intradayCardClass,
+  intradayMetaDotClass,
+  intradayShellClass,
+  linehaulRowClass,
+  loadingChipClass,
+  loadingShellClass,
+  loadingToolbarClass,
+  mutedCaptionClass,
+  overviewMetricsClass,
+  queueRowGroupClass,
+  requestDetailContentClass,
+  requestDetailCopyClass,
+  requestDetailDialogClass,
+  requestDetailTitleClass,
+  scorecardsLayoutClass,
+  textButtonClass,
+  timingMetricsClass,
+  tripsPanelBodyClass,
+  truckDotClass,
+} from "../lib/uiClasses";
 import { useUiStore } from "../stores/ui";
 import type {
   AppView,
@@ -76,6 +76,7 @@ const INTRADAY_HOURS = [
   6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2,
   3, 4, 5,
 ] as const;
+
 import type { IntradayChartPoint } from "../components/dashboard/IntradayCharts";
 
 function getTodayDate(now = new Date()) {
@@ -280,9 +281,7 @@ export function Overview({
 
   return (
     <div className={`${dashboardViewClass} dashboard-overview`}>
-      {(requests.error ||
-        summary.error ||
-        intraday.error) && (
+      {(requests.error || summary.error || intraday.error) && (
         <p className="error notice text-[var(--color-danger)]" role="alert">
           Some dashboard data could not be loaded. Check the affected panel for
           details.
@@ -296,7 +295,7 @@ export function Overview({
               label={card.label}
               value={
                 summary.isPending ? (
-                  <Skeleton width={64} height={26} />
+                  <Skeleton className="h-[26px] w-[64px]" />
                 ) : (
                   card.value.toLocaleString()
                 )
@@ -304,7 +303,11 @@ export function Overview({
               icon={card.icon}
               chip={card.chip}
               footnote={
-                summary.isPending ? <Skeleton width={112} /> : card.footnote
+                summary.isPending ? (
+                  <Skeleton className="h-2.5 w-[112px]" />
+                ) : (
+                  card.footnote
+                )
               }
               primary={card.primary}
               onClick={() => setDetailStatus(card.status)}
@@ -373,9 +376,11 @@ export function Overview({
           label="Average Dwell time"
           value={
             summary.isPending ? (
-              <Skeleton width={64} height={26} />
+              <Skeleton className="h-[26px] w-[64px]" />
             ) : (
-              formatDurationMinutes(summary.data?.analytics.average_dwell_minutes)
+              formatDurationMinutes(
+                summary.data?.analytics.average_dwell_minutes,
+              )
             )
           }
           icon={<Clock3 size={22} aria-hidden="true" />}
@@ -387,9 +392,11 @@ export function Overview({
           label="Average Waiting Time"
           value={
             summary.isPending ? (
-              <Skeleton width={64} height={26} />
+              <Skeleton className="h-[26px] w-[64px]" />
             ) : (
-              formatDurationMinutes(summary.data?.analytics.average_waiting_minutes)
+              formatDurationMinutes(
+                summary.data?.analytics.average_waiting_minutes,
+              )
             )
           }
           icon={<Truck size={22} aria-hidden="true" />}
@@ -452,7 +459,9 @@ export function Overview({
             className={`${dashboardPanelHeadClass} border-b border-[#087f7c]/[.24] pb-[.65rem]`}
           >
             <div>
-              <p className={`${dashboardPanelKickerClass} !text-linehaul-teal-ink`}>
+              <p
+                className={`${dashboardPanelKickerClass} !text-linehaul-teal-ink`}
+              >
                 Live dispatch board
               </p>
               <h2 className="m-0 text-sm font-semibold text-soc5-ink">
@@ -508,7 +517,9 @@ export function Overview({
         <article className={`${dashboardPanelClass} min-h-[15.5rem]`}>
           <div className={dashboardPanelHeadClass}>
             <div>
-              <p className={`${dashboardPanelKickerClass} !text-linehaul-teal-ink`}>
+              <p
+                className={`${dashboardPanelKickerClass} !text-linehaul-teal-ink`}
+              >
                 Docking queue
               </p>
               <h2 className="m-0 text-sm font-semibold text-soc5-ink">

@@ -1,58 +1,36 @@
-import type { CSSProperties, ReactNode } from "react";
-import { requestSkeletonCellClass, requestSkeletonClass, requestSkeletonRowClass } from "../lib/uiClasses";
-
-type SkeletonProps = {
-  width?: number | string;
-  height?: number | string;
-  radius?: number | string;
-  className?: string;
-  variant?: "head" | "subtle" | "short" | "pill" | "avatar";
-};
-
-const variantClasses = {
-  head: "min-h-3 rounded-[.3rem]",
-  subtle: "opacity-[.62]",
-  short: "max-w-[72px]",
-  pill: "rounded-[99px]",
-  avatar: "flex-none rounded-[.6rem]",
-} as const;
-
-export function Skeleton({
-  width,
-  height,
-  radius,
-  className = "",
-  variant,
-}: SkeletonProps) {
-  const style: CSSProperties = {
-    ...(width !== undefined ? { width } : {}),
-    ...(height !== undefined ? { height } : {}),
-    ...(radius !== undefined ? { borderRadius: radius } : {}),
-  };
-
-  return (
-    <span
-      className={`block min-h-2.5 rounded-[5px] bg-[linear-gradient(90deg,var(--color-skeleton-base)_0%,var(--color-skeleton-highlight)_48%,var(--color-skeleton-base)_100%)] bg-[length:220%_100%] animate-skeleton-shimmer motion-reduce:animate-none${variant ? ` ${variantClasses[variant]}` : ""}${className ? ` ${className}` : ""}`}
-      style={style}
-      aria-hidden="true"
-    />
-  );
-}
+import type { ReactNode } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  requestSkeletonCellClass,
+  requestSkeletonClass,
+  requestSkeletonRowClass,
+} from "../lib/uiClasses";
 
 export function SkeletonList({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="grid gap-0" role="status" aria-label="Loading list" aria-busy="true">
+    <div
+      className="grid gap-0"
+      role="status"
+      aria-label="Loading list"
+      aria-busy="true"
+    >
       {Array.from({ length: Math.max(1, rows) }).map((_, index) => (
         <div
           className="flex min-h-[62px] items-center gap-3 border-b border-soc5-line py-2.5"
           key={index}
         >
-          <Skeleton variant="avatar" width={34} height={34} radius="50%" />
+          <Skeleton className="h-[34px] w-[34px] flex-none rounded-full" />
           <span className="grid flex-1 gap-[7px]">
-            <Skeleton width={`${58 + (index % 3) * 10}%`} />
-            <Skeleton width={`${38 + (index % 2) * 14}%`} variant="subtle" />
+            <Skeleton
+              className="h-2.5"
+              style={{ width: `${58 + (index % 3) * 10}%` }}
+            />
+            <Skeleton
+              className="h-2.5 opacity-[.62]"
+              style={{ width: `${38 + (index % 2) * 14}%` }}
+            />
           </span>
-          <Skeleton width={56} variant="short" className="shrink-0 basis-14" />
+          <Skeleton className="h-2.5 w-[56px] max-w-[72px] shrink-0 basis-14" />
         </div>
       ))}
     </div>
@@ -72,12 +50,15 @@ export function SkeletonCardList({ rows = 3 }: { rows?: number }) {
           className="grid min-h-[138px] gap-2.5 rounded-card border border-card-line bg-card-surface p-4"
           key={index}
         >
-          <Skeleton width="34%" variant="head" />
-          <Skeleton width={`${72 - (index % 2) * 8}%`} height={18} />
-          <Skeleton width="52%" variant="subtle" />
+          <Skeleton className="h-3 w-[34%] rounded-[.3rem]" />
+          <Skeleton
+            className="h-[18px]"
+            style={{ width: `${72 - (index % 2) * 8}%` }}
+          />
+          <Skeleton className="h-2.5 w-[52%] opacity-[.62]" />
           <div className="mt-auto flex justify-between gap-3">
-            <Skeleton width={72} variant="short" />
-            <Skeleton width={48} variant="short" />
+            <Skeleton className="h-2.5 w-[72px] max-w-[72px]" />
+            <Skeleton className="h-2.5 w-[48px] max-w-[72px]" />
           </div>
         </article>
       ))}
@@ -113,20 +94,24 @@ export function SkeletonRequestTable({
       {Array.from({ length: Math.max(1, rows) }).map((_, rowIndex) => (
         <div className={requestSkeletonRowClass} key={rowIndex}>
           {Array.from({ length: columnCount }).map((_, columnIndex) => {
-            const width = columnWidths[(rowIndex + columnIndex) % columnWidths.length];
+            const width =
+              columnWidths[(rowIndex + columnIndex) % columnWidths.length];
             const isActionsColumn = columnIndex === columnCount - 1;
 
             return (
               <span className={requestSkeletonCellClass} key={columnIndex}>
                 {isActionsColumn ? (
-                  <Skeleton width={20} height={20} radius={5} />
+                  <Skeleton className="h-5 w-5 rounded-[5px]" />
                 ) : columnIndex === 0 ? (
                   <>
-                    <Skeleton width={13} height={13} radius="50%" />
-                    <Skeleton width={`${width}%`} height={18} variant="pill" />
+                    <Skeleton className="h-[13px] w-[13px] rounded-full" />
+                    <Skeleton
+                      className="h-[18px] rounded-full"
+                      style={{ width: `${width}%` }}
+                    />
                   </>
                 ) : (
-                  <Skeleton width={`${width}%`} height={10} />
+                  <Skeleton className="h-2.5" style={{ width: `${width}%` }} />
                 )}
               </span>
             );

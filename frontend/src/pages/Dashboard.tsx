@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Skeleton } from "../components/Skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonTable } from "../components/SkeletonTable";
 import { AppShell } from "../components/shell/AppShell";
 import { createAppNavigationGroups } from "../components/shell/navigation";
@@ -182,21 +182,16 @@ function ViewLoading({ view }: { view: AppView }) {
             >
               <span className="mb-1.5 flex items-center justify-between">
                 <span className="grid size-8 place-items-center rounded-lg bg-[#f7ffdf] text-[#a2c500]">
-                  <Skeleton
-                    width={18}
-                    height={18}
-                    radius={999}
-                    variant="head"
-                  />
+                  <Skeleton className="h-[18px] w-[18px] rounded-full" />
                 </span>
                 <span className={loadingChipClass} />
               </span>
               <span className="flex min-h-0 flex-col items-start justify-center gap-1.5">
-                <Skeleton width={88} variant="head" className="mb-2.5" />
-                <Skeleton width={64} height={26} />
+                <Skeleton className="mb-2.5 h-3 w-[88px] rounded-[.3rem]" />
+                <Skeleton className="h-[26px] w-[64px]" />
               </span>
               <span className="mt-2.5 flex items-center justify-between gap-1.5">
-                <Skeleton width={140} />
+                <Skeleton className="h-2.5 w-[140px]" />
               </span>
             </div>
           ))}
@@ -205,8 +200,8 @@ function ViewLoading({ view }: { view: AppView }) {
           <article className={intradayCardClass}>
             <div className="flex items-center justify-between gap-3.5 mb-2 max-[600px]:flex-col max-[600px]:items-start">
               <div>
-                <Skeleton width={150} variant="head" />
-                <Skeleton width={220} className="mt-2.5" />
+                <Skeleton className="h-3 w-[150px] rounded-[.3rem]" />
+                <Skeleton className="mt-2.5 h-2.5 w-[220px]" />
               </div>
               <div className={intradayFiltersClass}>
                 <span className={loadingChipClass} />
@@ -223,8 +218,8 @@ function ViewLoading({ view }: { view: AppView }) {
           <article className="dashboard-panel chart-panel truck-mix-panel">
             <div className="flex items-start justify-between gap-3 px-3.5 pt-3.5">
               <div>
-                <Skeleton width={110} variant="head" />
-                <Skeleton width={160} className="mt-2.5" />
+                <Skeleton className="h-3 w-[110px] rounded-[.3rem]" />
+                <Skeleton className="mt-2.5 h-2.5 w-[160px]" />
               </div>
             </div>
             <div className={loadingShellClass}>
@@ -236,8 +231,8 @@ function ViewLoading({ view }: { view: AppView }) {
           >
             <div className="flex items-start justify-between gap-3 px-3.5 pt-3.5">
               <div>
-                <Skeleton width={120} variant="head" />
-                <Skeleton width={180} className="mt-2.5" />
+                <Skeleton className="h-3 w-[120px] rounded-[.3rem]" />
+                <Skeleton className="mt-2.5 h-2.5 w-[180px]" />
               </div>
             </div>
             <div className={dashboardListClass}>
@@ -247,8 +242,8 @@ function ViewLoading({ view }: { view: AppView }) {
           <article className={`${dashboardPanelClass} min-h-[15.5rem]`}>
             <div className="flex items-start justify-between gap-3 px-3.5 pt-3.5">
               <div>
-                <Skeleton width={120} variant="head" />
-                <Skeleton width={180} className="mt-2.5" />
+                <Skeleton className="h-3 w-[120px] rounded-[.3rem]" />
+                <Skeleton className="mt-2.5 h-2.5 w-[180px]" />
               </div>
             </div>
             <div className={dashboardListClass}>

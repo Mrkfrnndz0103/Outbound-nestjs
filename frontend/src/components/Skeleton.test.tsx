@@ -1,34 +1,25 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Skeleton, SkeletonRequestTable } from "./Skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonRequestTable } from "./Skeleton";
 
 describe("Skeleton", () => {
-  it("renders the token-backed shimmer with reduced-motion support", () => {
+  it("renders the shadcn pulse placeholder", () => {
     const markup = renderToStaticMarkup(<Skeleton />);
 
-    expect(markup).toContain("--color-skeleton-base");
-    expect(markup).toContain("--color-skeleton-highlight");
-    expect(markup).toContain("animate-skeleton-shimmer");
-    expect(markup).toContain("motion-reduce:animate-none");
-    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('data-slot="skeleton"');
+    expect(markup).toContain("animate-pulse");
+    expect(markup).toContain("bg-accent");
   });
 
-  it("preserves dimensions, radius, variants, and extension classes", () => {
+  it("forwards className and style to the placeholder", () => {
     const markup = renderToStaticMarkup(
-      <Skeleton
-        width="62%"
-        height={18}
-        radius={9}
-        variant="subtle"
-        className="self-center"
-      />,
+      <Skeleton className="h-[18px] self-center" style={{ width: "62%" }} />,
     );
 
-    expect(markup).toContain("opacity-[.62]");
+    expect(markup).toContain("h-[18px]");
     expect(markup).toContain("self-center");
     expect(markup).toContain("width:62%");
-    expect(markup).toContain("height:18px");
-    expect(markup).toContain("border-radius:9px");
   });
 
   it("keeps request loading rows full-width and clipped to the table grid", () => {

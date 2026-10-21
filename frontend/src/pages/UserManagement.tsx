@@ -13,11 +13,52 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Modal } from "../components/Modal";
-import { Skeleton } from "../components/Skeleton";
 import { Skiper87 } from "../components/ui/skiper-ui/skiper87";
 import { api } from "../lib/api";
-import { compactFormDialogClass, dialogActionsClass, dialogFormClass, dialogHeadClass, dialogInputClass, dialogLabelClass, formErrorClass, genericTableScrollClass, genericTableWrapClass, iconButtonClass, secondaryButtonClass, tableActionClass, usersActiveStatusClass, usersAvatarClass, usersDialogClass, usersDialogCopyClass, usersDisabledStatusClass, usersIdentityClass, usersLoadingClass, usersLoadingRowClass, usersPageClass, usersPageKickerClass, usersPrimaryActionClass, usersResetConfirmClass, usersResetCopyClass, usersResetIconClass, usersResetIdentityClass, usersResetLabelClass, usersRoleSelectClass, usersSearchClass, usersSummaryCardClass, usersSummaryClass, usersSummaryIconClass, usersTableCellClass, usersTableClass, usersTableHeadCellClass, usersTablePanelClass, usersTableStateClass, usersToolbarActionsClass, usersToolbarClass } from "../lib/uiClasses";
+import {
+  compactFormDialogClass,
+  dialogActionsClass,
+  dialogFormClass,
+  dialogHeadClass,
+  dialogInputClass,
+  dialogLabelClass,
+  formErrorClass,
+  genericTableScrollClass,
+  genericTableWrapClass,
+  iconButtonClass,
+  secondaryButtonClass,
+  tableActionClass,
+  usersActiveStatusClass,
+  usersAvatarClass,
+  usersDialogClass,
+  usersDialogCopyClass,
+  usersDisabledStatusClass,
+  usersIdentityClass,
+  usersLoadingClass,
+  usersLoadingRowClass,
+  usersPageClass,
+  usersPageKickerClass,
+  usersPrimaryActionClass,
+  usersResetConfirmClass,
+  usersResetCopyClass,
+  usersResetIconClass,
+  usersResetIdentityClass,
+  usersResetLabelClass,
+  usersRoleSelectClass,
+  usersSearchClass,
+  usersSummaryCardClass,
+  usersSummaryClass,
+  usersSummaryIconClass,
+  usersTableCellClass,
+  usersTableClass,
+  usersTableHeadCellClass,
+  usersTablePanelClass,
+  usersTableStateClass,
+  usersToolbarActionsClass,
+  usersToolbarClass,
+} from "../lib/uiClasses";
 import type { ManagedUser, Role } from "../types";
 
 const roles: Role[] = ["ops_pic", "fte_ops", "fte_mm", "doc_officer"];
@@ -67,7 +108,11 @@ export function UserManagement() {
     queryFn: () => api<{ data: ManagedUser[] }>("/users"),
   });
   const create = useMutation({
-    mutationFn: (body: { name: string; ops_id: string; role: "ops_pic" | "doc_officer" }) =>
+    mutationFn: (body: {
+      name: string;
+      ops_id: string;
+      role: "ops_pic" | "doc_officer";
+    }) =>
       api<{ name: string; initial_password: string }>("/users", {
         method: "POST",
         body: JSON.stringify(body),
@@ -139,26 +184,42 @@ export function UserManagement() {
             <Users size={17} />
           </span>
           <span className="grid gap-[.05rem]">
-            <small className="text-xs font-medium text-soc5-muted">Total users</small>
-            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">{allUsers.length}</strong>
+            <small className="text-xs font-medium text-soc5-muted">
+              Total users
+            </small>
+            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">
+              {allUsers.length}
+            </strong>
           </span>
         </div>
         <div className={usersSummaryCardClass}>
-          <span className={`${usersSummaryIconClass} bg-linehaul-lime-surface text-linehaul-lime-ink`}>
+          <span
+            className={`${usersSummaryIconClass} bg-linehaul-lime-surface text-linehaul-lime-ink`}
+          >
             <ShieldCheck size={17} />
           </span>
           <span className="grid gap-[.05rem]">
-            <small className="text-xs font-medium text-soc5-muted">Active accounts</small>
-            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">{activeUsers}</strong>
+            <small className="text-xs font-medium text-soc5-muted">
+              Active accounts
+            </small>
+            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">
+              {activeUsers}
+            </strong>
           </span>
         </div>
         <div className={usersSummaryCardClass}>
-          <span className={`${usersSummaryIconClass} bg-linehaul-surface-soft text-status-info-ink`}>
+          <span
+            className={`${usersSummaryIconClass} bg-linehaul-surface-soft text-status-info-ink`}
+          >
             <UserRound size={17} />
           </span>
           <span className="grid gap-[.05rem]">
-            <small className="text-xs font-medium text-soc5-muted">Role groups</small>
-            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">{roleCount}</strong>
+            <small className="text-xs font-medium text-soc5-muted">
+              Role groups
+            </small>
+            <strong className="text-base leading-tight font-semibold tabular-nums text-soc5-ink">
+              {roleCount}
+            </strong>
           </span>
         </div>
       </section>
@@ -171,7 +232,9 @@ export function UserManagement() {
       <section className={usersTablePanelClass}>
         <div className={usersToolbarClass}>
           <div>
-            <h2 className="m-0 text-sm font-semibold tracking-tight text-soc5-ink">Directory</h2>
+            <h2 className="m-0 text-sm font-semibold tracking-tight text-soc5-ink">
+              Directory
+            </h2>
             <p className="mt-[.2rem] text-xs text-soc5-muted">
               {query
                 ? `${filteredUsers.length} matching accounts`
@@ -191,7 +254,10 @@ export function UserManagement() {
             <button
               className={usersPrimaryActionClass}
               type="button"
-              onClick={(event) => { modalTrigger.current = event.currentTarget; setCreating(true); }}
+              onClick={(event) => {
+                modalTrigger.current = event.currentTarget;
+                setCreating(true);
+              }}
             >
               <Plus size={17} />
               Add Ops PIC
@@ -239,7 +305,9 @@ export function UserManagement() {
                             {initials(user.name)}
                           </span>
                           <span className="grid min-w-0 gap-[.15rem]">
-                            <strong className="overflow-hidden text-xs text-soc5-ink text-ellipsis whitespace-nowrap">{user.name}</strong>
+                            <strong className="overflow-hidden text-xs text-soc5-ink text-ellipsis whitespace-nowrap">
+                              {user.name}
+                            </strong>
                             <small className="text-xs text-soc5-muted">
                               {user.is_active
                                 ? "Account enabled"
@@ -277,9 +345,15 @@ export function UserManagement() {
                       </td>
                       <td className={usersTableCellClass}>
                         <span
-                          className={user.is_active ? usersActiveStatusClass : usersDisabledStatusClass}
+                          className={
+                            user.is_active
+                              ? usersActiveStatusClass
+                              : usersDisabledStatusClass
+                          }
                         >
-                            <i className={`size-[.3rem] rounded-full ${user.is_active ? "bg-[#55aa7b] shadow-[0_0_0_.15rem_rgb(85_170_123_/_14%)]" : "bg-[#aeb7b7]"}`} />
+                          <i
+                            className={`size-[.3rem] rounded-full ${user.is_active ? "bg-[#55aa7b] shadow-[0_0_0_.15rem_rgb(85_170_123_/_14%)]" : "bg-[#aeb7b7]"}`}
+                          />
                           {user.is_active ? "Active" : "Disabled"}
                         </span>
                       </td>
@@ -288,7 +362,9 @@ export function UserManagement() {
                           {formatJoinedDate(user.created_at)}
                         </span>
                       </td>
-                      <td className={`${usersTableCellClass} whitespace-nowrap`}>
+                      <td
+                        className={`${usersTableCellClass} whitespace-nowrap`}
+                      >
                         {user.is_active && (
                           <>
                             {user.role === "ops_pic" && (
@@ -296,7 +372,10 @@ export function UserManagement() {
                                 className={tableActionClass}
                                 type="button"
                                 aria-label={`Reset password for ${user.name}`}
-                                onClick={(event) => { modalTrigger.current = event.currentTarget; setResetUser(user); }}
+                                onClick={(event) => {
+                                  modalTrigger.current = event.currentTarget;
+                                  setResetUser(user);
+                                }}
                               >
                                 <RotateCcw size={15} />
                                 Reset Password
@@ -442,13 +521,18 @@ export function UserManagement() {
 
 function UserTableLoading() {
   return (
-    <div className={usersLoadingClass} role="status" aria-label="Loading users" aria-busy="true">
+    <div
+      className={usersLoadingClass}
+      role="status"
+      aria-label="Loading users"
+      aria-busy="true"
+    >
       {Array.from({ length: 4 }).map((_, index) => (
         <div className={usersLoadingRowClass} key={index}>
-          <Skeleton width="72%" />
-          <Skeleton />
-          <Skeleton />
-          <Skeleton width="64%" />
+          <Skeleton className="h-2.5 w-[72%]" />
+          <Skeleton className="h-2.5" />
+          <Skeleton className="h-2.5" />
+          <Skeleton className="h-2.5 w-[64%]" />
         </div>
       ))}
     </div>
@@ -466,7 +550,11 @@ function CreateUser({
   returnFocus?: HTMLElement | null;
   error?: string;
   onClose: () => void;
-  onSubmit: (body: { name: string; ops_id: string; role: "ops_pic" | "doc_officer" }) => void;
+  onSubmit: (body: {
+    name: string;
+    ops_id: string;
+    role: "ops_pic" | "doc_officer";
+  }) => void;
 }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -474,7 +562,7 @@ function CreateUser({
     onSubmit({
       name: String(data.get("name") ?? ""),
       ops_id: String(data.get("ops_id") ?? ""),
-      role: (String(data.get("role") ?? "ops_pic") as "ops_pic" | "doc_officer"),
+      role: String(data.get("role") ?? "ops_pic") as "ops_pic" | "doc_officer",
     });
   }
   return (
@@ -503,7 +591,11 @@ function CreateUser({
         </label>
         <label className={dialogLabelClass}>
           Role
-          <select className={dialogInputClass} name="role" defaultValue="ops_pic">
+          <select
+            className={dialogInputClass}
+            name="role"
+            defaultValue="ops_pic"
+          >
             <option value="ops_pic">Ops PIC</option>
             <option value="doc_officer">DOC Officer</option>
           </select>
@@ -518,11 +610,13 @@ function CreateUser({
             placeholder="ops12345"
           />
         </label>
-        {error && (
-          <p className={formErrorClass}>{error}</p>
-        )}
+        {error && <p className={formErrorClass}>{error}</p>}
         <div className={dialogActionsClass}>
-          <button type="button" className={secondaryButtonClass} onClick={onClose}>
+          <button
+            type="button"
+            className={secondaryButtonClass}
+            onClick={onClose}
+          >
             Cancel
           </button>
           <button type="submit" disabled={busy}>

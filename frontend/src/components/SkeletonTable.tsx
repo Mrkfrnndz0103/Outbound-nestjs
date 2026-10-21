@@ -1,4 +1,4 @@
-import { Skeleton } from "./Skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   columns: number;
@@ -11,7 +11,7 @@ export function SkeletonTable({ columns, rows = 5, compact = false }: Props) {
   const rowCount = Math.max(1, rows);
   const gridClassName =
     "grid grid-cols-[repeat(var(--skeleton-cols),minmax(0,1fr))] gap-3";
-  const cellHeight = compact ? 10 : 12;
+  const cellHeightClass = compact ? "h-2.5" : "h-3";
 
   return (
     <div
@@ -27,8 +27,15 @@ export function SkeletonTable({ columns, rows = 5, compact = false }: Props) {
         {Array.from({ length: columnCount }).map((_, index) => (
           <Skeleton
             key={index}
-            width={index === 0 ? "68%" : index === columnCount - 1 ? "42%" : `${54 + ((index * 13) % 28)}%`}
-            variant="head"
+            className="h-3 rounded-[.3rem]"
+            style={{
+              width:
+                index === 0
+                  ? "68%"
+                  : index === columnCount - 1
+                    ? "42%"
+                    : `${54 + ((index * 13) % 28)}%`,
+            }}
           />
         ))}
       </div>
@@ -41,14 +48,13 @@ export function SkeletonTable({ columns, rows = 5, compact = false }: Props) {
             {Array.from({ length: columnCount }).map((__, columnIndex) => (
               <Skeleton
                 key={columnIndex}
-                height={cellHeight}
-                variant={
-                  columnIndex === 0
-                    ? "pill"
-                    : columnIndex === columnCount - 1
-                      ? "short"
-                      : undefined
-                }
+                className={[
+                  cellHeightClass,
+                  columnIndex === 0 ? "rounded-full" : "",
+                  columnIndex === columnCount - 1 ? "max-w-[72px]" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               />
             ))}
           </div>

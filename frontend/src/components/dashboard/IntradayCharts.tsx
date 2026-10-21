@@ -1,5 +1,6 @@
 import { CalendarDays } from "lucide-react";
 import { Fragment } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   chartGridLineClass,
   chartHoverStateClass,
@@ -21,7 +22,6 @@ import {
   lineChartSvgClass,
   lineStrokeClass,
 } from "../../lib/uiClasses";
-import { Skeleton } from "../Skeleton";
 
 export type IntradayChartPoint = {
   label: string;
@@ -82,7 +82,7 @@ export function IntradayKpi({
         className={`${intradayKpiValueClass}${accent ? ` ${intradayKpiAccentClass}` : ""}`}
       >
         {loading ? (
-          <Skeleton width={118} height={36} />
+          <Skeleton className="h-9 w-[118px]" />
         ) : (
           <>
             {value}

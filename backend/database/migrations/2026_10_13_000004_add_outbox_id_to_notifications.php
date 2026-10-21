@@ -8,7 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (! Schema::hasTable('notifications') || Schema::hasColumn('notifications', 'outbox_id')) {
+        if (! Schema::hasTable('notifications')) {
+            throw new RuntimeException('The notifications table is owned by supabase/migrations. Apply those migrations before running this one.');
+        }
+
+        if (Schema::hasColumn('notifications', 'outbox_id')) {
             return;
         }
 

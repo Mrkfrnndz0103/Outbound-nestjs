@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! Schema::hasTable('requests')) {
+            throw new RuntimeException('The requests table is owned by supabase/migrations. Apply those migrations before running this one.');
+        }
+
         if (DB::connection()->getDriverName() === 'pgsql') {
             DB::unprepared("ALTER TYPE public.request_status ADD VALUE IF NOT EXISTS 'REJECTED'");
         }

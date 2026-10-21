@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! Schema::hasTable('requests')) {
+            throw new RuntimeException('The requests table is owned by supabase/migrations. Apply those migrations before running this one.');
+        }
+
         $columns = array_filter([
             ! Schema::hasColumn('requests', 'approval_status') ? 'approval_status' : null,
             ! Schema::hasColumn('requests', 'approved_by') ? 'approved_by' : null,

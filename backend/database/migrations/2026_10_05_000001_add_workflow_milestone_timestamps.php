@@ -8,9 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! Schema::hasTable('requests')) {
+            throw new RuntimeException('The requests table is owned by supabase/migrations. Apply those migrations before running this one.');
+        }
+
         Schema::table('requests', function (Blueprint $table): void {
-            $table->timestampTz('driver_assigned_at')->nullable();
-            $table->timestampTz('linehaul_trip_at')->nullable();
+            if (! Schema::hasColumn('requests', 'driver_assigned_at')) {
+                $table->timestampTz('driver_assigned_at')->nullable();
+            }
+            if (! Schema::hasColumn('requests', 'linehaul_trip_at')) {
+                $table->timestampTz('linehaul_trip_at')->nullable();
+            }
         });
     }
 

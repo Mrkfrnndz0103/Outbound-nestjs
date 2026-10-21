@@ -8,7 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('profiles') && ! Schema::hasColumn('profiles', 'last_seen_at')) {
+        if (! Schema::hasTable('profiles')) {
+            throw new RuntimeException('The profiles table is owned by supabase/migrations. Apply those migrations before running this one.');
+        }
+
+        if (! Schema::hasColumn('profiles', 'last_seen_at')) {
             Schema::table('profiles', function (Blueprint $table): void {
                 $table->timestampTz('last_seen_at')->nullable();
                 $table->index(['role', 'is_active', 'last_seen_at'], 'profiles_presence_eligibility_idx');

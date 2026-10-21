@@ -81,7 +81,7 @@ jobs:
         - php artisan test --fail-on-skipped --exclude-group=postgres
 
     - name: "Backend PostgreSQL"
-      if: type != pull_request
+      if: branch = main AND type != pull_request
       language: php
       dist: jammy
       php: "8.3"
@@ -111,6 +111,32 @@ jobs:
         - php artisan migrate --path=database/migrations/2026_09_25_000000_create_queue_support_tables.php --force --no-interaction
         - php artisan migrate --path=database/migrations/2026_10_13_000003_create_workflow_outbox.php --force --no-interaction
         - php artisan test --group=postgres --fail-on-skipped
+
+    - name: "Backend migration chain"
+      if: branch = main AND type != pull_request
+      language: php
+      dist: jammy
+      php: "8.3"
+      cache:
+        directories:
+          - $HOME/.cache/composer
+      services:
+        - postgresql
+      env: >-
+        DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_PORT=5432 DB_DATABASE=postgres
+        DB_USERNAME=postgres DB_PASSWORD='' DB_SSLMODE=disable
+        PGHOST=127.0.0.1 PGPORT=5432 PGUSER=postgres PGDATABASE=postgres PGPASSWORD=''
+      before_script:
+        - sudo apt-get update
+        - sudo apt-get install -y --no-install-recommends unzip libxml2-dev libonig-dev libpq-dev postgresql-client
+        - cd backend
+        - cp .env.example .env
+        - mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+        - composer install --no-interaction --prefer-dist --no-progress --no-scripts
+        - php artisan key:generate --force
+        - composer dump-autoload --optimize
+      script:
+        - bash "$TRAVIS_BUILD_DIR/scripts/ci/apply-postgres-migration-chain.sh"
 
     - name: "Edge Functions"
       language: minimal

@@ -137,3 +137,6 @@ Desktop.ini
 /frontend/chrome_dev_elements/
 
 /playwright-auth.json
+
+# Local-only tooling state
+.seawork/

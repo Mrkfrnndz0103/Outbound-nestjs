@@ -97,7 +97,11 @@ export function FteLoginForm({
       </div>
 
       {error && (
-        <p id="fte-login-error" role="alert" className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug">
+        <p
+          id="fte-login-error"
+          role="alert"
+          className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug"
+        >
           {error}
         </p>
       )}

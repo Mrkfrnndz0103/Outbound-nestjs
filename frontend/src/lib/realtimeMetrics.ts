@@ -2,14 +2,34 @@ export type RealtimeMetricChannel = "requests" | "intraday";
 
 export type RealtimeRefreshMetrics = {
   startedAt: number;
-  requests: { signals: number; invalidations: number; lastSignalAt: number | null; lastInvalidationAt: number | null };
-  intraday: { signals: number; invalidations: number; lastSignalAt: number | null; lastInvalidationAt: number | null };
+  requests: {
+    signals: number;
+    invalidations: number;
+    lastSignalAt: number | null;
+    lastInvalidationAt: number | null;
+  };
+  intraday: {
+    signals: number;
+    invalidations: number;
+    lastSignalAt: number | null;
+    lastInvalidationAt: number | null;
+  };
 };
 
 const metrics: RealtimeRefreshMetrics = {
   startedAt: Date.now(),
-  requests: { signals: 0, invalidations: 0, lastSignalAt: null, lastInvalidationAt: null },
-  intraday: { signals: 0, invalidations: 0, lastSignalAt: null, lastInvalidationAt: null },
+  requests: {
+    signals: 0,
+    invalidations: 0,
+    lastSignalAt: null,
+    lastInvalidationAt: null,
+  },
+  intraday: {
+    signals: 0,
+    invalidations: 0,
+    lastSignalAt: null,
+    lastInvalidationAt: null,
+  },
 };
 
 function now() {

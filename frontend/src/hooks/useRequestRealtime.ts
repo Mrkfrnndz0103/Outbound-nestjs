@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { REQUEST_REALTIME_REFRESH_EVENT } from "../lib/requestRefresh";
+import { useEffect, useRef } from "react";
 import {
   recordRealtimeInvalidation,
   recordRealtimeSignal,
 } from "../lib/realtimeMetrics";
+import { REQUEST_REALTIME_REFRESH_EVENT } from "../lib/requestRefresh";
 import { supabase } from "../lib/supabase";
 
 export type RealtimeSubscriptionStatus =
@@ -91,18 +91,17 @@ export function useRequestRealtime() {
         });
       }, 250);
     };
-    const recoverAfterReconnect = createRealtimeRecoveryTracker(
-      (channels) =>
-        Promise.all([
-          ...(channels.has("requests") ? [invalidateRequestQueries()] : []),
-          ...(channels.has("intraday")
-            ? [
-                queryClient.invalidateQueries({
-                  queryKey: ["intraday-dispatch"],
-                }),
-              ]
-            : []),
-        ]),
+    const recoverAfterReconnect = createRealtimeRecoveryTracker((channels) =>
+      Promise.all([
+        ...(channels.has("requests") ? [invalidateRequestQueries()] : []),
+        ...(channels.has("intraday")
+          ? [
+              queryClient.invalidateQueries({
+                queryKey: ["intraday-dispatch"],
+              }),
+            ]
+          : []),
+      ]),
     );
 
     const channel = supabase

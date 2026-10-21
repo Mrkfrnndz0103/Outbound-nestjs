@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { canEditDockedRequest, displayRequestActor } from "./requestPresentation";
 import type { TruckRequest } from "../../types";
+import {
+  canEditDockedRequest,
+  displayRequestActor,
+} from "./requestPresentation";
 
 describe("workflow actor presentation", () => {
   it("prefers the recorded actor name and falls back to the recorded actor ID", () => {
@@ -23,6 +26,11 @@ describe("post-docked request edit eligibility", () => {
     expect(canEditDockedRequest("ops_pic", "pic-1", request)).toBe(true);
     expect(canEditDockedRequest("ops_pic", "pic-2", request)).toBe(false);
     expect(canEditDockedRequest("fte_ops", "pic-1", request)).toBe(false);
-    expect(canEditDockedRequest("ops_pic", "pic-1", { ...request, status: "DOCKING" })).toBe(false);
+    expect(
+      canEditDockedRequest("ops_pic", "pic-1", {
+        ...request,
+        status: "DOCKING",
+      }),
+    ).toBe(false);
   });
 });

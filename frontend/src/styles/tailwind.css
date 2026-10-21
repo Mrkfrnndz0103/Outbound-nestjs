@@ -127,9 +127,6 @@ body {
   --color-card-surface: #ffffff;
   --color-card-line: rgb(25 45 47 / 9%);
   --color-card-heading: #292a2d;
-  --color-skeleton-base: #e8efed;
-  --color-skeleton-highlight: #f6f9f8;
-  --animate-skeleton-shimmer: skeleton-shimmer 1.8s ease-in-out infinite;
   --animate-login-reveal: login-reveal 0.7s cubic-bezier(.22,1,.36,1) both;
   --animate-login-rise: login-rise 0.5s cubic-bezier(.22,1,.36,1) both;
   --animate-login-ping: login-ping 2.2s cubic-bezier(0,0,.2,1) infinite;
@@ -169,11 +166,6 @@ body {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-}
-
-@keyframes skeleton-shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: -120% 0; }
 }
 @keyframes login-reveal {
   from { opacity: 0; transform: translateY(1rem); }
@@ -283,8 +275,6 @@ body {
   --card-heading: var(--color-card-heading);
   --card-radius: var(--radius-card);
   --card-shadow: var(--shadow-card);
-  --skeleton-base: var(--color-skeleton-base);
-  --skeleton-highlight: var(--color-skeleton-highlight);
 
   --auth-page: var(--color-auth-page);
   --auth-deep: var(--color-auth-deep);
@@ -407,8 +397,6 @@ body {
   --color-status-warning-ink: #f6d477;
   --color-status-docking-ink: #ccbafa;
   --color-danger: #ffb4bd;
-  --color-skeleton-base: #2b353b;
-  --color-skeleton-highlight: #3b454b;
   --background: var(--color-soc5-page);
   --foreground: var(--color-soc5-ink);
   --card: var(--color-soc5-panel);

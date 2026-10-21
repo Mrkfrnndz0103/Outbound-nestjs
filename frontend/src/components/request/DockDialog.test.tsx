@@ -1,5 +1,5 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../Modal", () => ({
@@ -12,7 +12,14 @@ describe("DockDialog", () => {
   it("renders the driver assignment contract for document officers", () => {
     const markup = renderToStaticMarkup(
       <DockDialog
-        request={{ id: "request-1", cluster: "North Hub", status: "DOCKING", driver_id: null } as never}
+        request={
+          {
+            id: "request-1",
+            cluster: "North Hub",
+            status: "DOCKING",
+            driver_id: null,
+          } as never
+        }
         actorRole="doc_officer"
         action="mark-docked"
         busy={false}

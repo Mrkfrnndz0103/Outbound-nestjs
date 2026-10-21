@@ -1,4 +1,3 @@
-import { displayRequestActor } from "./request/requestPresentation";
 import {
   ArrowDown,
   ArrowUp,
@@ -15,10 +14,6 @@ import {
   UserRound,
 } from "lucide-react";
 import { Fragment, type ReactNode, useEffect, useState } from "react";
-import type { RequestSort, SortDirection, TruckRequest } from "../types";
-import { StatusText } from "./StatusBadge";
-import { NextActionText } from "./NextActionText";
-import { Skiper87 } from "./ui/skiper-ui/skiper87";
 import {
   genericRequestDetailCardClass,
   genericRequestDetailGridClass,
@@ -33,6 +28,11 @@ import {
   genericTableScrollClass,
   genericTableWrapClass,
 } from "../lib/uiClasses";
+import type { RequestSort, SortDirection, TruckRequest } from "../types";
+import { NextActionText } from "./NextActionText";
+import { displayRequestActor } from "./request/requestPresentation";
+import { StatusText } from "./StatusBadge";
+import { Skiper87 } from "./ui/skiper-ui/skiper87";
 
 type Props = {
   rows: TruckRequest[];
@@ -129,7 +129,8 @@ const columns: Column[] = [
     key: "mm_fte",
     label: "FTE MM",
     icon: UserRound,
-    render: (request) => displayRequestActor(request.mm_fte_name, request.mm_fte_id),
+    render: (request) =>
+      displayRequestActor(request.mm_fte_name, request.mm_fte_id),
   },
   {
     key: "truck_size",
@@ -159,7 +160,8 @@ const columns: Column[] = [
     key: "doc_officer",
     label: "DOC Officer",
     icon: UserRound,
-    render: (request) => displayRequestActor(request.doc_officer_name, request.doc_officer_id),
+    render: (request) =>
+      displayRequestActor(request.doc_officer_name, request.doc_officer_id),
   },
 ];
 
@@ -221,7 +223,10 @@ export function RequestTable({
   return (
     <div className={`${genericTableWrapClass} ${tableWrapperClassName}`.trim()}>
       <Skiper87 className={genericTableScrollClass}>
-        <table className={genericRequestTableClass} aria-label="Request records">
+        <table
+          className={genericRequestTableClass}
+          aria-label="Request records"
+        >
           <thead>
             <tr>
               <th scope="col" className={genericRequestTableHeadCellClass}>
@@ -231,7 +236,15 @@ export function RequestTable({
                 <th
                   key={column.key}
                   scope="col"
-                  aria-sort={onSort && column.sortKey ? sort === column.sortKey ? direction === "asc" ? "ascending" : "descending" : "none" : undefined}
+                  aria-sort={
+                    onSort && column.sortKey
+                      ? sort === column.sortKey
+                        ? direction === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                      : undefined
+                  }
                   className={`${genericRequestTableHeadCellClass} request-column request-column--${column.key}`}
                 >
                   {heading(column)}
@@ -250,7 +263,9 @@ export function RequestTable({
               const detailId = `request-detail-${request.id}`;
               return (
                 <Fragment key={request.id}>
-                  <tr className={`request-row ${genericRequestTableRowClass}${alertedIds?.has(request.id) ? " request-alert-blink" : ""}`}>
+                  <tr
+                    className={`request-row ${genericRequestTableRowClass}${alertedIds?.has(request.id) ? " request-alert-blink" : ""}`}
+                  >
                     <td
                       className={`${genericRequestTableCellClass} request-column request-column--expand`}
                       data-label="Expand"
@@ -267,13 +282,17 @@ export function RequestTable({
                           )
                         }
                       >
-                        <ChevronDown size={15} aria-hidden="true" className={expanded ? "rotate-180" : undefined} />
+                        <ChevronDown
+                          size={15}
+                          aria-hidden="true"
+                          className={expanded ? "rotate-180" : undefined}
+                        />
                       </button>
                     </td>
                     {renderedColumns.map((column) => (
                       <td
                         key={column.key}
-                         className={`${genericRequestTableCellClass} request-column request-column--${column.key} max-w-[9rem] text-ellipsis whitespace-nowrap`}
+                        className={`${genericRequestTableCellClass} request-column request-column--${column.key} max-w-[9rem] text-ellipsis whitespace-nowrap`}
                         title={cellValue(request, column)}
                         data-label={column.label}
                       >
@@ -291,7 +310,10 @@ export function RequestTable({
                   </tr>
                   {expanded && (
                     <tr className="request-detail-row" id={detailId}>
-                      <td className="w-full max-w-0 overflow-hidden p-0" colSpan={renderedColumns.length + (actions ? 2 : 1)}>
+                      <td
+                        className="w-full max-w-0 overflow-hidden p-0"
+                        colSpan={renderedColumns.length + (actions ? 2 : 1)}
+                      >
                         <RequestDetails request={request} />
                       </td>
                     </tr>
@@ -333,7 +355,11 @@ export function RequestElapsedTime({ request }: { request: TruckRequest }) {
   }, [request.driver_assigned_at]);
   return (
     <span title="Request to Driver ID assignment">
-      {formatElapsed(request.request_timestamp, request.driver_assigned_at, now)}
+      {formatElapsed(
+        request.request_timestamp,
+        request.driver_assigned_at,
+        now,
+      )}
     </span>
   );
 }
@@ -350,9 +376,12 @@ function formatDateTime(value: string | null | undefined) {
 
 function cellValue(request: TruckRequest, column: Column) {
   if (column.key === "cluster") return request.cluster;
-  if (column.key === "linehaul_trip_no") return request.linehaul_trip_no ?? undefined;
+  if (column.key === "linehaul_trip_no")
+    return request.linehaul_trip_no ?? undefined;
   const value = column.render(request);
-  return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+  return typeof value === "string" || typeof value === "number"
+    ? String(value)
+    : undefined;
 }
 
 function ClusterCell({ request }: { request: TruckRequest }) {
@@ -402,9 +431,14 @@ function TripCopyCell({ request }: { request: TruckRequest }) {
 
 function RequestDetails({ request }: { request: TruckRequest }) {
   const fields: Array<[string, ReactNode]> = [
-    ...columns.filter(({ key }) => key !== "running_time").map((column): [string, ReactNode] => [column.label, column.render(request)]),
+    ...columns
+      .filter(({ key }) => key !== "running_time")
+      .map((column): [string, ReactNode] => [
+        column.label,
+        column.render(request),
+      ]),
     ["Assigned time", formatDateTime(request.driver_assigned_at)],
-        ["Created By", request.created_by_name ?? request.created_by],
+    ["Created By", request.created_by_name ?? request.created_by],
     ["Created At", formatDateTime(request.created_at)],
     ["Updated At", formatDateTime(request.updated_at)],
     ["Driver", empty(request.driver_id)],

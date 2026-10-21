@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { TruckRequest } from "../types";
 import {
   actionableQueueRows,
   isQueueQueryEnabled,
   queueStatusesForRole,
   unacknowledgedQueueRows,
 } from "./useQueueNotifications";
-import type { TruckRequest } from "../types";
 
 function request(overrides: Partial<TruckRequest> = {}): TruckRequest {
   return {
@@ -30,26 +30,40 @@ describe("role request notification queues", () => {
   });
 
   it("loads REQUESTED work for FTE MM and only unassigned DOCKING work for DOC", () => {
-    expect(queueStatusesForRole("fte_ops")).toEqual(["PENDING", "REROUTED", "REJECTED"]);
+    expect(queueStatusesForRole("fte_ops")).toEqual([
+      "PENDING",
+      "REROUTED",
+      "REJECTED",
+    ]);
     expect(queueStatusesForRole("fte_mm")).toEqual(["REQUESTED"]);
     expect(queueStatusesForRole("doc_officer")).toEqual(["DOCKING"]);
-    expect(actionableQueueRows("doc_officer", [
-      request({ status: "DOCKING", driver_id: null }),
-      request({ id: "assigned", status: "DOCKING", driver_id: "123" }),
-    ]).map(({ id }) => id)).toEqual(["request-1"]);
+    expect(
+      actionableQueueRows("doc_officer", [
+        request({ status: "DOCKING", driver_id: null }),
+        request({ id: "assigned", status: "DOCKING", driver_id: "123" }),
+      ]).map(({ id }) => id),
+    ).toEqual(["request-1"]);
   });
 
   it("routes rejected work to the recorded next role", () => {
-    const rejected = request({ status: "REJECTED", next_action_role: "fte_ops" });
+    const rejected = request({
+      status: "REJECTED",
+      next_action_role: "fte_ops",
+    });
     expect(actionableQueueRows("fte_ops", [rejected])).toEqual([rejected]);
     expect(actionableQueueRows("ops_pic", [rejected])).toEqual([]);
-    expect(actionableQueueRows("ops_pic", [
-      { ...rejected, next_action_role: "ops_pic" },
-    ])).toHaveLength(1);
+    expect(
+      actionableQueueRows("ops_pic", [
+        { ...rejected, next_action_role: "ops_pic" },
+      ]),
+    ).toHaveLength(1);
   });
 
   it("keeps an acknowledgment for the current version and re-alerts after an update", () => {
-    const first = request({ status: "DOCKED", updated_at: "2026-10-12T08:00:00Z" });
+    const first = request({
+      status: "DOCKED",
+      updated_at: "2026-10-12T08:00:00Z",
+    });
     const acknowledged = new Map([[first.id, "2026-10-12T08:00:00Z|DOCKED|"]]);
     expect(unacknowledgedQueueRows([first], acknowledged)).toEqual([]);
 

@@ -1,4 +1,11 @@
-import { ArrowRight, Eye, EyeOff, IdCard, KeyRound, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  IdCard,
+  KeyRound,
+  Loader2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { loginShineButtonClass } from "../../lib/uiClasses";
@@ -67,7 +74,10 @@ export function BackroomLoginForm({
 
   if (requestOpen) {
     return (
-      <form className="w-full animate-login-rise motion-reduce:animate-none" onSubmit={submitAccessRequest}>
+      <form
+        className="w-full animate-login-rise motion-reduce:animate-none"
+        onSubmit={submitAccessRequest}
+      >
         <h2 className="font-display text-base font-semibold text-auth-ink leading-snug tracking-tight">
           Request Backroom access
         </h2>
@@ -138,7 +148,11 @@ export function BackroomLoginForm({
   }
 
   return (
-    <form noValidate onSubmit={onSubmit} className="w-full animate-login-rise motion-reduce:animate-none">
+    <form
+      noValidate
+      onSubmit={onSubmit}
+      className="w-full animate-login-rise motion-reduce:animate-none"
+    >
       <h2 className="font-display text-base font-semibold text-auth-ink leading-snug tracking-tight">
         Backroom sign in
       </h2>
@@ -207,12 +221,20 @@ export function BackroomLoginForm({
           onClick={() => setShowPassword((visible) => !visible)}
           className="grid w-10 shrink-0 place-items-center text-auth-faint transition-colors hover:text-auth-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-auth-accent/60"
         >
-          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {showPassword ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
         </button>
       </div>
 
       {error && (
-        <p id="backroom-login-error" role="alert" className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug">
+        <p
+          id="backroom-login-error"
+          role="alert"
+          className="mt-2.5 rounded-lg border border-auth-danger/25 bg-auth-danger/10 px-3 py-2 text-xs font-medium text-auth-danger leading-snug"
+        >
           {error}
         </p>
       )}

@@ -4,13 +4,13 @@ import { api } from "../lib/api";
 import { buildIdempotencyHeaders } from "../lib/idempotency";
 import {
   REQUEST_REALTIME_REFRESH_EVENT,
-  requestQueryKey,
   type RequestRefreshReason,
+  requestQueryKey,
 } from "../lib/requestRefresh";
+import { type RequestPayload, requestQueryString } from "../lib/requests";
 import { workflowActionPath } from "../lib/workflow";
-import { requestQueryString, type RequestPayload } from "../lib/requests";
-import { useRequestFilters } from "./useRequestFilters";
 import type { Page, RequestSort, TruckRequest } from "../types";
+import { useRequestFilters } from "./useRequestFilters";
 
 export function useOutboundRequests() {
   const queryClient = useQueryClient();
@@ -43,7 +43,10 @@ export function useOutboundRequests() {
     const markRealtimeRefresh = () => {
       pendingRefreshReason.current = "realtime";
     };
-    window.addEventListener(REQUEST_REALTIME_REFRESH_EVENT, markRealtimeRefresh);
+    window.addEventListener(
+      REQUEST_REALTIME_REFRESH_EVENT,
+      markRealtimeRefresh,
+    );
 
     return () =>
       window.removeEventListener(
@@ -60,7 +63,9 @@ export function useOutboundRequests() {
   async function refreshData(message: string) {
     showToast(message);
     pendingRefreshReason.current = "mutation";
-    await queryClient.invalidateQueries({ queryKey: requestQueryKey("outbound-all") });
+    await queryClient.invalidateQueries({
+      queryKey: requestQueryKey("outbound-all"),
+    });
   }
 
   function refreshManually() {
@@ -93,12 +98,21 @@ export function useOutboundRequests() {
     },
   });
   const approveRequests = useMutation({
-    mutationFn: async ({ ids, operationId }: { ids: string[]; operationId: string }) => {
+    mutationFn: async ({
+      ids,
+      operationId,
+    }: {
+      ids: string[];
+      operationId: string;
+    }) => {
       if (ids.length > 2) {
         return api<{ data: TruckRequest[] }>("/requests/bulk-approve", {
           method: "POST",
           body: JSON.stringify({ ids }),
-          headers: buildIdempotencyHeaders("outbound-bulk-approve", { ids, operationId }),
+          headers: buildIdempotencyHeaders("outbound-bulk-approve", {
+            ids,
+            operationId,
+          }),
         });
       }
 
@@ -121,11 +135,20 @@ export function useOutboundRequests() {
     },
   });
   const rejectRequest = useMutation({
-    mutationFn: ({ id, rejection_remarks }: { id: string; rejection_remarks: string }) =>
+    mutationFn: ({
+      id,
+      rejection_remarks,
+    }: {
+      id: string;
+      rejection_remarks: string;
+    }) =>
       api<TruckRequest>(workflowActionPath(id, "reject-ops"), {
         method: "POST",
         body: JSON.stringify({ rejection_remarks }),
-        headers: buildIdempotencyHeaders("outbound-reject", { id, rejection_remarks }),
+        headers: buildIdempotencyHeaders("outbound-reject", {
+          id,
+          rejection_remarks,
+        }),
       }),
     onSuccess: async () => {
       await refreshData("LH request rejected.");

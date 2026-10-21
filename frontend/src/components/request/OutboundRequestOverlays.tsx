@@ -1,7 +1,5 @@
-import type { FormEvent } from "react";
 import { X } from "lucide-react";
-import { AccessibleDialog } from "../AccessibleDialog";
-import { Modal } from "../Modal";
+import type { FormEvent } from "react";
 import {
   compactFormDialogClass,
   dialogActionsClass,
@@ -13,20 +11,22 @@ import {
   requestDrawerAvatarClass,
   requestDrawerBackdropClass,
   requestDrawerClass,
+  requestDrawerCloseClass,
   requestDrawerFieldsClass,
   requestDrawerHeaderClass,
   requestDrawerProfileClass,
-  requestDrawerCloseClass,
   requestRejectClass,
   secondaryButtonClass,
 } from "../../lib/uiClasses";
+import type { TruckRequest } from "../../types";
+import { AccessibleDialog } from "../AccessibleDialog";
+import { Modal } from "../Modal";
+import { StatusBadge } from "../StatusBadge";
+import { RequestCancellationRemarks } from "./RequestCancellationRemarks";
 import {
   displayRequestValue,
   formatRequestDetailDateTime,
 } from "./requestPresentation";
-import { StatusBadge } from "../StatusBadge";
-import { RequestCancellationRemarks } from "./RequestCancellationRemarks";
-import type { TruckRequest } from "../../types";
 
 export function OutboundRequestDrawer({
   request,

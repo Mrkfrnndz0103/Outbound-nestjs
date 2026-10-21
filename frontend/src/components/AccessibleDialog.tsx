@@ -40,7 +40,10 @@ export function AccessibleDialog({
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         onOpenAutoFocus={() => {
-          opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          opener.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
@@ -63,9 +66,12 @@ export function AccessibleDialog({
   );
 
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => {
-      if (!next && dismissible) onClose?.();
-    }}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && dismissible) onClose?.();
+      }}
+    >
       {portal ? <Dialog.Portal>{content}</Dialog.Portal> : content}
     </Dialog.Root>
   );

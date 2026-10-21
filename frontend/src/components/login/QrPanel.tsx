@@ -1,8 +1,8 @@
 import { Loader2, MapPin, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import trucksImage from "../../assets/trucks.jpg";
-import { createSingleFlight } from "../../lib/singleFlight";
 import { isAllowedSeaTalkSdkUrl } from "../../lib/seatalkSecurity";
+import { createSingleFlight } from "../../lib/singleFlight";
 import { Reveal } from "./Reveal";
 
 declare global {
@@ -99,7 +99,9 @@ export function QrPanel({
   }, [_enabled]);
 
   return (
-    <section className={`relative ${compact ? "flex lg:justify-center" : "hidden lg:flex"} min-w-0 flex-col overflow-hidden ${compact ? "px-4 pb-4 pt-4 sm:px-6" : "px-5 pb-24 pt-6 sm:px-7"}`}>
+    <section
+      className={`relative ${compact ? "flex lg:justify-center" : "hidden lg:flex"} min-w-0 flex-col overflow-hidden ${compact ? "px-4 pb-4 pt-4 sm:px-6" : "px-5 pb-24 pt-6 sm:px-7"}`}
+    >
       <div
         aria-hidden
         className="absolute right-2 top-28 h-48 w-36 bg-[radial-gradient(rgb(214_228_255_/_34%)_.055rem,transparent_.055rem)] bg-[length:.75rem_.75rem] opacity-60 [mask-image:radial-gradient(closest-side,black,transparent)]"
@@ -118,7 +120,9 @@ export function QrPanel({
             className={`${compact ? "h-9 w-9 rounded-lg" : "h-[52px] w-[52px] rounded-xl"} shrink-0 object-cover shadow-lg shadow-auth-accent/30`}
           />
           <div>
-            <p className={`font-display ${compact ? "text-[.8rem]" : "text-base"} font-semibold tracking-tight leading-snug text-auth-ink`}>
+            <p
+              className={`font-display ${compact ? "text-[.8rem]" : "text-base"} font-semibold tracking-tight leading-snug text-auth-ink`}
+            >
               SOC 5 OUTBOUND
             </p>
             <p className="text-xs font-medium text-auth-faint leading-snug">
@@ -130,16 +134,22 @@ export function QrPanel({
 
       {/* heading */}
       <Reveal delay={90} className={compact ? "mt-2" : "mt-5"}>
-        <h1 className={`font-display ${compact ? "text-base" : "text-xl"} font-semibold leading-tight tracking-tight text-auth-ink`}>
+        <h1
+          className={`font-display ${compact ? "text-base" : "text-xl"} font-semibold leading-tight tracking-tight text-auth-ink`}
+        >
           Login to continue
         </h1>
-        <p className={`${compact ? "mt-0.5" : "mt-2"} text-[.7rem] text-auth-muted leading-relaxed`}>
+        <p
+          className={`${compact ? "mt-0.5" : "mt-2"} text-[.7rem] text-auth-muted leading-relaxed`}
+        >
           Use your work email or Ops ID to sign in below.
         </p>
       </Reveal>
 
       <Reveal delay={180} className={compact ? "mt-2" : "mt-6"}>
-        <div className={`${compact ? "space-y-2" : "rounded-2xl border border-auth-line bg-white/[0.03] p-4"} text-center`}>
+        <div
+          className={`${compact ? "space-y-2" : "rounded-2xl border border-auth-line bg-white/[0.03] p-4"} text-center`}
+        >
           <fieldset
             ref={widgetRef}
             aria-label="SeaTalk login"
@@ -166,7 +176,9 @@ export function QrPanel({
             </div>
           )}
           {status !== "error" && (
-              <p className={`${compact ? "mt-1.5" : "mt-3"} text-[.7rem] leading-relaxed text-auth-muted`}>
+            <p
+              className={`${compact ? "mt-1.5" : "mt-3"} text-[.7rem] leading-relaxed text-auth-muted`}
+            >
               Continue with SeaTalk to sign in.
             </p>
           )}

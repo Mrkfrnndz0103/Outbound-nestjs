@@ -56,8 +56,7 @@ export function buildRequestPayload(data: FormData): RequestPayload {
     backlogs: Number(data.get("backlogs")),
     backlogs_timestamp: data.get("backlogs_timestamp"),
     truck_size: data.get("truck_size"),
-    truck_type:
-      data.get("truck_type") === "DRYLEASE" ? "DRYLEASE" : "WETLEASE",
+    truck_type: data.get("truck_type") === "DRYLEASE" ? "DRYLEASE" : "WETLEASE",
   };
 }
 

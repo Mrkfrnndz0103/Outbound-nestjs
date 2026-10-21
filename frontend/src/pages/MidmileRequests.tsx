@@ -1,9 +1,3 @@
-import {
-  RequestDetailRow,
-  RequestRecordHead,
-  RequestRecordRow,
-} from "../components/request/RequestRecordTable";
-import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
@@ -18,7 +12,39 @@ import {
   Truck,
 } from "lucide-react";
 import { Fragment, useRef, useState } from "react";
-import { textButtonClass } from "../lib/uiClasses";
+import {
+  linehaulColumnOptions,
+  linehaulPrimaryColumnKeysForRole,
+} from "../components/ColumnVisibilityMenu";
+import { LhRowActionMenu } from "../components/LhRowActionMenu";
+import { LhTableToolbar } from "../components/LhTableToolbar";
+import { Pagination } from "../components/Pagination";
+import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
+import { RequestElapsedTime } from "../components/RequestTable";
+import { MidmileActionDialog } from "../components/request/MidmileActionDialog";
+import { RequestExpandButton } from "../components/request/RequestExpandButton";
+import { RequestExpandedDetails } from "../components/request/RequestExpandedDetails";
+import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
+import {
+  RequestDetailRow,
+  RequestRecordHead,
+  RequestRecordRow,
+} from "../components/request/RequestRecordTable";
+import {
+  displayRequestActor,
+  displayRequestValue as displayValue,
+  formatRequestDateTime as formatDateTime,
+  formatRequestDetailDateTime as formatDetailDateTime,
+} from "../components/request/requestPresentation";
+import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
+import { StatusBadge, StatusText } from "../components/StatusBadge";
+import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
+import type { QueueSnapshot } from "../hooks/useQueueNotifications";
+import { useRequestFilters } from "../hooks/useRequestFilters";
+import { api, apiErrorMessage } from "../lib/api";
+import { buildIdempotencyHeaders } from "../lib/idempotency";
+import { requestQueryKey } from "../lib/requestRefresh";
+import { openRequestsSheet, requestQueryString } from "../lib/requests";
 import {
   compactRequestRowClass,
   recordsScrollClass,
@@ -37,38 +63,9 @@ import {
   selectedRequestActionsClass,
   selectedRequestLabelClass,
   tableShellClass,
+  textButtonClass,
 } from "../lib/uiClasses";
-import {
-  linehaulColumnOptions,
-  linehaulPrimaryColumnKeysForRole,
-} from "../components/ColumnVisibilityMenu";
-import { LhTableToolbar } from "../components/LhTableToolbar";
-import { LhRowActionMenu } from "../components/LhRowActionMenu";
-import { MidmileActionDialog } from "../components/request/MidmileActionDialog";
-import { Pagination } from "../components/Pagination";
-import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
-import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
-import { StatusBadge, StatusText } from "../components/StatusBadge";
-import { RequestElapsedTime } from "../components/RequestTable";
-import { RequestExpandButton } from "../components/request/RequestExpandButton";
-import { RequestExpandedDetails } from "../components/request/RequestExpandedDetails";
-import {
-  displayRequestValue as displayValue,
-  displayRequestActor,
-  formatRequestDateTime as formatDateTime,
-  formatRequestDetailDateTime as formatDetailDateTime,
-} from "../components/request/requestPresentation";
-import { useRequestFilters } from "../hooks/useRequestFilters";
-import type { QueueSnapshot } from "../hooks/useQueueNotifications";
-import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
-import { api, apiErrorMessage } from "../lib/api";
-import { buildIdempotencyHeaders } from "../lib/idempotency";
-import { requestQueryKey } from "../lib/requestRefresh";
-import { workflowActionPath, type WorkflowAction } from "../lib/workflow";
-import {
-  openRequestsSheet,
-  requestQueryString,
-} from "../lib/requests";
+import { type WorkflowAction, workflowActionPath } from "../lib/workflow";
 import type { Page, RequestSort, TruckRequest, User } from "../types";
 
 type MmAction = Extract<WorkflowAction, "assign-truck" | "reject-mm">;
@@ -165,7 +162,13 @@ function _expandedRequestGroups(
     .filter((group) => group.fields.length > 0);
 }
 
-export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnapshot }) {
+export function MidmileRequests({
+  user,
+  queue,
+}: {
+  user: User;
+  queue: QueueSnapshot;
+}) {
   const queryClient = useQueryClient();
   const { filters, appliedFilters, setFilters, changeFilters } =
     useRequestFilters();
@@ -267,9 +270,10 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
     openRequestsSheet();
     window.setTimeout(() => setExporting(false), 700);
   }
-  const emptyMessage = requests.isFetching || requests.error || requests.isPlaceholderData
-    ? "No requests in the last successful results."
-    : "No live requests match the current filters.";
+  const emptyMessage =
+    requests.isFetching || requests.error || requests.isPlaceholderData
+      ? "No requests in the last successful results."
+      : "No live requests match the current filters.";
 
   return (
     <div className={`${requestPageClass}${selected ? " lh-drawer-open" : ""}`}>
@@ -520,172 +524,184 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
                     </RequestDetailRow>
                   )}
                   {(requests.data?.data ?? []).map((row, index) => (
-                      <Fragment key={row.id}>
-                        <RequestRecordRow
-                          className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${expandedRow === row.id ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
-                          key={row.id}
-                          style={
-                            { "--row-index": index } as React.CSSProperties
-                          }
-                        >
-                          <span className="flex items-center gap-2">
-                            <RequestExpandButton
-                              requestId={row.id}
-                              expanded={expandedRow === row.id}
-                              onToggle={() => {
-                                setExpandedRow((current) =>
-                                  current === row.id ? null : row.id,
-                                );
-                                queue.acknowledge(row.id);
-                              }}
+                    <Fragment key={row.id}>
+                      <RequestRecordRow
+                        className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${expandedRow === row.id ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
+                        key={row.id}
+                        style={{ "--row-index": index } as React.CSSProperties}
+                      >
+                        <span className="flex items-center gap-2">
+                          <RequestExpandButton
+                            requestId={row.id}
+                            expanded={expandedRow === row.id}
+                            onToggle={() => {
+                              setExpandedRow((current) =>
+                                current === row.id ? null : row.id,
+                              );
+                              queue.acknowledge(row.id);
+                            }}
+                          />
+                          {row.status === "REQUESTED" && (
+                            <input
+                              type="checkbox"
+                              className={requestCheckboxClass}
+                              aria-label={`Select request ${row.id}`}
+                              checked={selectedIds.has(row.id)}
+                              onChange={() => toggleSelected(row.id)}
+                              onClick={(event) => event.stopPropagation()}
                             />
-                            {row.status === "REQUESTED" && (
-                              <input
-                                type="checkbox"
-                                className={requestCheckboxClass}
-                                aria-label={`Select request ${row.id}`}
-                                checked={selectedIds.has(row.id)}
-                                onChange={() => toggleSelected(row.id)}
-                                onClick={(event) => event.stopPropagation()}
-                              />
+                          )}
+                        </span>
+                        {hasColumn("status") && (
+                          <span className="flex items-center gap-2">
+                            <StatusText
+                              status={row.display_status ?? row.status}
+                            />
+                          </span>
+                        )}
+                        {hasColumn("runningTime") && (
+                          <RequestElapsedTime request={row} />
+                        )}
+                        {hasColumn("requestTime") && (
+                          <span>{formatDateTime(row.request_timestamp)}</span>
+                        )}
+                        {hasColumn("cluster") && (
+                          <span title={row.cluster}>{row.cluster}</span>
+                        )}
+                        {hasColumn("region") && <span>{row.region}</span>}
+                        {hasColumn("dock") && <span>{row.dock_no}</span>}
+                        {hasColumn("backlogs") && (
+                          <span>{row.backlogs.toLocaleString()}</span>
+                        )}
+                        {hasColumn("backlogsTime") && (
+                          <span>{formatDateTime(row.backlogs_timestamp)}</span>
+                        )}
+                        {hasColumn("lhTypeRequest") && (
+                          <span>{displayValue(row.truck_type)}</span>
+                        )}
+                        {hasColumn("opsFte") && (
+                          <span>
+                            {displayValue(row.ob_fte_name ?? row.ob_fte)}
+                          </span>
+                        )}
+                        {hasColumn("plateNumber") && (
+                          <span>{displayValue(row.plate_number)}</span>
+                        )}
+                        {hasColumn("mmFte") && (
+                          <span>
+                            {displayRequestActor(
+                              row.mm_fte_name,
+                              row.mm_fte_id,
                             )}
                           </span>
-                          {hasColumn("status") && (
-                              <span className="flex items-center gap-2">
-                              <StatusText status={row.display_status ?? row.status} />
-                            </span>
-                          )}
-                          {hasColumn("runningTime") && (
-                            <RequestElapsedTime request={row} />
-                          )}
-                          {hasColumn("requestTime") && (
-                            <span>{formatDateTime(row.request_timestamp)}</span>
-                          )}
-                          {hasColumn("cluster") && (
-                            <span title={row.cluster}>{row.cluster}</span>
-                          )}
-                          {hasColumn("region") && <span>{row.region}</span>}
-                          {hasColumn("dock") && <span>{row.dock_no}</span>}
-                          {hasColumn("backlogs") && (
-                            <span>{row.backlogs.toLocaleString()}</span>
-                          )}
-                          {hasColumn("backlogsTime") && (
-                            <span>
-                              {formatDateTime(row.backlogs_timestamp)}
-                            </span>
-                          )}
-                          {hasColumn("lhTypeRequest") && (
-                            <span>{displayValue(row.truck_type)}</span>
-                          )}
-                          {hasColumn("opsFte") && (
-                            <span>
-                              {displayValue(row.ob_fte_name ?? row.ob_fte)}
-                            </span>
-                          )}
-                          {hasColumn("plateNumber") && (
-                            <span>{displayValue(row.plate_number)}</span>
-                          )}
-                          {hasColumn("mmFte") && (
-                            <span>
-                              {displayRequestActor(row.mm_fte_name, row.mm_fte_id)}
-                            </span>
-                          )}
-                          {hasColumn("truckSize") && (
-                            <span>{row.truck_size}</span>
-                          )}
-                          {hasColumn("lhTypeInput") && (
-                            <span>{displayValue(row.truck_type)}</span>
-                          )}
-                          {hasColumn("provideTime") && (
-                            <span>{formatDateTime(row.provide_time)}</span>
-                          )}
-                          {hasColumn("linehaulTrip") && (
-                            <span>{displayValue(row.linehaul_trip_no)}</span>
-                          )}
-                          {hasColumn("assignedTime") && <span>{formatDateTime(row.driver_assigned_at)}</span>}
-                          {hasColumn("dockedTime") && (
-                            <span>{formatDateTime(row.docked_time)}</span>
-                          )}
-                          {hasColumn("docOfficer") && (
-                            <span>
-                              {displayRequestActor(row.doc_officer_name, row.doc_officer_id)}
-                            </span>
-                          )}
-                          {hasColumn("opsPic") && (
-                            <span>
-                              {displayValue(row.ob_fte_name ?? row.ob_fte)}
-                            </span>
-                          )}
-                          <LhRowActionMenu
-                            open={openRow === row.id}
-                            ariaLabel={`Actions for request ${row.id}`}
-                            onToggle={() => {
-                              modalTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-                              setOpenRow(openRow === row.id ? null : row.id);
+                        )}
+                        {hasColumn("truckSize") && (
+                          <span>{row.truck_size}</span>
+                        )}
+                        {hasColumn("lhTypeInput") && (
+                          <span>{displayValue(row.truck_type)}</span>
+                        )}
+                        {hasColumn("provideTime") && (
+                          <span>{formatDateTime(row.provide_time)}</span>
+                        )}
+                        {hasColumn("linehaulTrip") && (
+                          <span>{displayValue(row.linehaul_trip_no)}</span>
+                        )}
+                        {hasColumn("assignedTime") && (
+                          <span>{formatDateTime(row.driver_assigned_at)}</span>
+                        )}
+                        {hasColumn("dockedTime") && (
+                          <span>{formatDateTime(row.docked_time)}</span>
+                        )}
+                        {hasColumn("docOfficer") && (
+                          <span>
+                            {displayRequestActor(
+                              row.doc_officer_name,
+                              row.doc_officer_id,
+                            )}
+                          </span>
+                        )}
+                        {hasColumn("opsPic") && (
+                          <span>
+                            {displayValue(row.ob_fte_name ?? row.ob_fte)}
+                          </span>
+                        )}
+                        <LhRowActionMenu
+                          open={openRow === row.id}
+                          ariaLabel={`Actions for request ${row.id}`}
+                          onToggle={() => {
+                            modalTrigger.current =
+                              document.activeElement instanceof HTMLElement
+                                ? document.activeElement
+                                : null;
+                            setOpenRow(openRow === row.id ? null : row.id);
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setPrintRequest(row);
+                              setOpenRow(null);
                             }}
                           >
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setPrintRequest(row);
-                                setOpenRow(null);
-                              }}
-                            >
-                              <Printer size={14} />
-                              Print
-                            </button>
-                            {row.status === "REQUESTED" && (
-                              <>
-                                <button
-                                  className={requestAssignClass}
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setSelected({
-                                      request: row,
-                                      action: "assign-truck",
-                                    });
-                                    setOpenRow(null);
-                                  }}
-                                >
-                                  Assign
-                                </button>
-                                <button
-                                  className={requestRejectClass}
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setSelected({
-                                      request: row,
-                                      action: "reject-mm",
-                                    });
-                                    setOpenRow(null);
-                                  }}
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                          </LhRowActionMenu>
-                        </RequestRecordRow>
-                        {expandedRow === row.id && (
-                          <RequestDetailRow id={`request-detail-${row.id}`} columns={visibleColumns.length + 2}>
-                            <RequestExpandedDetails
-                              request={row}
-                              visibleColumns={visibleColumns}
-                            />
-                          </RequestDetailRow>
-                        )}
-                      </Fragment>
-                    ))}
+                            <Printer size={14} />
+                            Print
+                          </button>
+                          {row.status === "REQUESTED" && (
+                            <>
+                              <button
+                                className={requestAssignClass}
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelected({
+                                    request: row,
+                                    action: "assign-truck",
+                                  });
+                                  setOpenRow(null);
+                                }}
+                              >
+                                Assign
+                              </button>
+                              <button
+                                className={requestRejectClass}
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelected({
+                                    request: row,
+                                    action: "reject-mm",
+                                  });
+                                  setOpenRow(null);
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </LhRowActionMenu>
+                      </RequestRecordRow>
+                      {expandedRow === row.id && (
+                        <RequestDetailRow
+                          id={`request-detail-${row.id}`}
+                          columns={visibleColumns.length + 2}
+                        >
+                          <RequestExpandedDetails
+                            request={row}
+                            visibleColumns={visibleColumns}
+                          />
+                        </RequestDetailRow>
+                      )}
+                    </Fragment>
+                  ))}
                   {requests.data && requests.data.data.length === 0 && (
-                      <RequestDetailRow columns={visibleColumns.length + 2}>
+                    <RequestDetailRow columns={visibleColumns.length + 2}>
                       <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
                         {emptyMessage}
                       </div>
-                      </RequestDetailRow>
-                    )}
+                    </RequestDetailRow>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -715,11 +731,18 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
                         {row.truck_size}
                       </strong>
                       <span>{row.backlogs.toLocaleString()} backlogs</span>
-                      <StatusBadge status={row.display_status ?? row.status} uppercase />
+                      <StatusBadge
+                        status={row.display_status ?? row.status}
+                        uppercase
+                      />
                       <button
                         type="button"
                         className={textButtonClass}
-                        onClick={(event) => { modalTrigger.current = event.currentTarget; queue.acknowledge(row.id); setPrintRequest(row); }}
+                        onClick={(event) => {
+                          modalTrigger.current = event.currentTarget;
+                          queue.acknowledge(row.id);
+                          setPrintRequest(row);
+                        }}
                       >
                         <Printer size={14} />
                         Print label
@@ -729,7 +752,9 @@ export function MidmileRequests({ user, queue }: { user: User; queue: QueueSnaps
                 ))
               )}
               {requests.data && requests.data.data.length === 0 && (
-                <p className="col-span-full p-8 text-center text-sm text-soc5-muted">{emptyMessage}</p>
+                <p className="col-span-full p-8 text-center text-sm text-soc5-muted">
+                  {emptyMessage}
+                </p>
               )}
             </div>
           )}

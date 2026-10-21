@@ -13,6 +13,8 @@ describe("request cancellation remarks", () => {
   });
 
   it("does not render an empty cancellation note", () => {
-    expect(renderToStaticMarkup(<RequestCancellationRemarks remarks="  " />)).toBe("");
+    expect(
+      renderToStaticMarkup(<RequestCancellationRemarks remarks="  " />),
+    ).toBe("");
   });
 });

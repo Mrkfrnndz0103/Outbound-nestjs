@@ -1,8 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import type { TruckRequest } from "../types";
-import { RequestTable } from "./RequestTable";
 import { describe, expect, it } from "vitest";
-import { formatElapsed } from "./RequestTable";
+import type { TruckRequest } from "../types";
+import { formatElapsed, RequestTable } from "./RequestTable";
 
 describe("request elapsed time", () => {
   it("runs until Driver ID assignment and then stops at its timestamp", () => {

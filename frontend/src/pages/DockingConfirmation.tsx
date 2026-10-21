@@ -5,12 +5,24 @@ import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
 import { RequestTable } from "../components/RequestTable";
 import { DockDialog } from "../components/request/DockDialog";
 import { SkeletonTable } from "../components/SkeletonTable";
-import { api } from "../lib/api";
-import { requestQueryKey } from "../lib/requestRefresh";
-import { workflowActionPath, type WorkflowAction } from "../lib/workflow";
-import { loadingChipClass, loadingShellClass, loadingToolbarClass, operationalPanelClass, operationalPanelCopyClass, operationalPanelHeadClass, operationalPanelTitleClass, primaryTableActionClass, secondaryButtonClass, tableActionClass, workspaceViewClass } from "../lib/uiClasses";
-import { buildIdempotencyHeaders } from "../lib/idempotency";
 import type { QueueSnapshot } from "../hooks/useQueueNotifications";
+import { api } from "../lib/api";
+import { buildIdempotencyHeaders } from "../lib/idempotency";
+import { requestQueryKey } from "../lib/requestRefresh";
+import {
+  loadingChipClass,
+  loadingShellClass,
+  loadingToolbarClass,
+  operationalPanelClass,
+  operationalPanelCopyClass,
+  operationalPanelHeadClass,
+  operationalPanelTitleClass,
+  primaryTableActionClass,
+  secondaryButtonClass,
+  tableActionClass,
+  workspaceViewClass,
+} from "../lib/uiClasses";
+import { type WorkflowAction, workflowActionPath } from "../lib/workflow";
 import type { TruckRequest, User } from "../types";
 
 type DockAction = Extract<WorkflowAction, "mark-docked" | "reassign-driver">;
@@ -25,14 +37,27 @@ export function canShowTripAssignment(
   request: Pick<TruckRequest, "status" | "driver_id">,
   role: User["role"],
 ) {
-  return role === "ops_pic" && request.status === "DOCKING" && Boolean(request.driver_id);
+  return (
+    role === "ops_pic" &&
+    request.status === "DOCKING" &&
+    Boolean(request.driver_id)
+  );
 }
 
-export function DockingConfirmation({ user, queue }: { user: User; queue: QueueSnapshot }) {
+export function DockingConfirmation({
+  user,
+  queue,
+}: {
+  user: User;
+  queue: QueueSnapshot;
+}) {
   const client = useQueryClient();
   const [selected, setSelected] = useState<TruckRequest | null>(null);
-  const [selectedAction, setSelectedAction] = useState<DockAction>("mark-docked");
-  const [dockingChecked, setDockingChecked] = useState<Set<string>>(() => new Set());
+  const [selectedAction, setSelectedAction] =
+    useState<DockAction>("mark-docked");
+  const [dockingChecked, setDockingChecked] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [printable, setPrintable] = useState<TruckRequest | null>(null);
   const [operationId, setOperationId] = useState("");
   function openDockDialog(request: TruckRequest, action: DockAction) {
@@ -76,10 +101,15 @@ export function DockingConfirmation({ user, queue }: { user: User; queue: QueueS
       setSelected(null);
       setSelectedAction("mark-docked");
       if (user.role === "doc_officer") setPrintable(updated);
-      if (variables.action === "mark-docked" && user.role === "ops_pic") setPrintable(updated);
+      if (variables.action === "mark-docked" && user.role === "ops_pic")
+        setPrintable(updated);
       await client.invalidateQueries({ queryKey: requestQueryKey("docking") });
-      await client.invalidateQueries({ queryKey: requestQueryKey("dashboard") });
-      await client.invalidateQueries({ queryKey: requestQueryKey("notification-queue") });
+      await client.invalidateQueries({
+        queryKey: requestQueryKey("dashboard"),
+      });
+      await client.invalidateQueries({
+        queryKey: requestQueryKey("notification-queue"),
+      });
     },
   });
   const rows = requestQueue.data?.data ?? [];
@@ -94,46 +124,54 @@ export function DockingConfirmation({ user, queue }: { user: User; queue: QueueS
         <Printer size={15} />
         Print
       </button>
-      {request.status === "DOCKING" && user.role === "doc_officer" && !request.driver_id && (
-        <label className="inline-flex items-center gap-2 text-xs font-semibold text-soc5-muted">
-          <input
-            type="checkbox"
-            checked={dockingChecked.has(request.id)}
-            onChange={(event) => {
-              if (event.target.checked) queue.acknowledge(request.id);
-              setDockingChecked((current) => {
-              const next = new Set(current);
-              if (event.target.checked) next.add(request.id);
-              else next.delete(request.id);
-              return next;
-              });
+      {request.status === "DOCKING" &&
+        user.role === "doc_officer" &&
+        !request.driver_id && (
+          <label className="inline-flex items-center gap-2 text-xs font-semibold text-soc5-muted">
+            <input
+              type="checkbox"
+              checked={dockingChecked.has(request.id)}
+              onChange={(event) => {
+                if (event.target.checked) queue.acknowledge(request.id);
+                setDockingChecked((current) => {
+                  const next = new Set(current);
+                  if (event.target.checked) next.add(request.id);
+                  else next.delete(request.id);
+                  return next;
+                });
+              }}
+              aria-label={`Confirm docking for ${request.id}`}
+            />
+            Docking
+          </label>
+        )}
+      {user.role === "doc_officer" &&
+        canShowDriverAssignment(request, dockingChecked.has(request.id)) && (
+          <button
+            type="button"
+            className={primaryTableActionClass}
+            disabled={action.isPending}
+            onClick={() => {
+              queue.acknowledge(request.id);
+              openDockDialog(request, "mark-docked");
             }}
-            aria-label={`Confirm docking for ${request.id}`}
-          />
-          Docking
-        </label>
-      )}
-      {user.role === "doc_officer" && canShowDriverAssignment(request, dockingChecked.has(request.id)) && (
-        <button
-          type="button"
-          className={primaryTableActionClass}
-          disabled={action.isPending}
-          onClick={() => { queue.acknowledge(request.id); openDockDialog(request, "mark-docked"); }}
-        >
-          <ShipWheel size={15} />
-          Assign Driver ID
-        </button>
-      )}
-      {user.role === "doc_officer" && request.status === "DOCKING" && Boolean(request.driver_id) && (
-        <button
-          type="button"
-          className={tableActionClass}
-          disabled={action.isPending}
-          onClick={() => openDockDialog(request, "reassign-driver")}
-        >
-          Reassign Driver ID
-        </button>
-      )}
+          >
+            <ShipWheel size={15} />
+            Assign Driver ID
+          </button>
+        )}
+      {user.role === "doc_officer" &&
+        request.status === "DOCKING" &&
+        Boolean(request.driver_id) && (
+          <button
+            type="button"
+            className={tableActionClass}
+            disabled={action.isPending}
+            onClick={() => openDockDialog(request, "reassign-driver")}
+          >
+            Reassign Driver ID
+          </button>
+        )}
       {canShowTripAssignment(request, user.role) && (
         <button
           type="button"
@@ -159,7 +197,9 @@ export function DockingConfirmation({ user, queue }: { user: User; queue: QueueS
         <div className={operationalPanelHeadClass}>
           <div>
             <h2 className={operationalPanelTitleClass}>Docking queue</h2>
-            <p className={operationalPanelCopyClass}>Assigned trucks requiring dock action or final confirmation</p>
+            <p className={operationalPanelCopyClass}>
+              Assigned trucks requiring dock action or final confirmation
+            </p>
           </div>
         </div>
         {requestQueue.error && (
@@ -203,9 +243,11 @@ export function DockingConfirmation({ user, queue }: { user: User; queue: QueueS
             rows={rows}
             actions={actions}
             alertedIds={new Set(queue.alerts.map((alert) => alert.id))}
-            emptyMessage={requestQueue.error
-              ? "No docking records in the last successful update."
-              : "No trucks are waiting for docking."}
+            emptyMessage={
+              requestQueue.error
+                ? "No docking records in the last successful update."
+                : "No trucks are waiting for docking."
+            }
           />
         ) : null}
       </section>
@@ -215,9 +257,17 @@ export function DockingConfirmation({ user, queue }: { user: User; queue: QueueS
           actorRole={user.role}
           action={selectedAction}
           busy={action.isPending}
-          onClose={() => { setSelected(null); setSelectedAction("mark-docked"); }}
+          onClose={() => {
+            setSelected(null);
+            setSelectedAction("mark-docked");
+          }}
           onSubmit={(payload) =>
-            action.mutate({ request: selected, action: selectedAction, operationId, payload })
+            action.mutate({
+              request: selected,
+              action: selectedAction,
+              operationId,
+              payload,
+            })
           }
         />
       )}

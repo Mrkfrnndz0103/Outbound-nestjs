@@ -1,22 +1,22 @@
 import {
   ArrowUpDown,
   ChevronDown,
-  Filter,
   Download,
+  Filter,
   Plus,
   Rows3,
   Search,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-  ColumnVisibilityMenu,
-  linehaulColumnOptions,
-} from "./ColumnVisibilityMenu";
 import type { TableDensity } from "../hooks/useLinehaulTablePreferences";
 import type { RequestRefreshReason } from "../lib/requestRefresh";
 import { defaultRequestFilters } from "../lib/requests";
 import type { RequestFilters, RequestSort } from "../types";
+import {
+  ColumnVisibilityMenu,
+  linehaulColumnOptions,
+} from "./ColumnVisibilityMenu";
 import { statuses } from "./RequestFilters";
 
 const menuButtonClass =
@@ -141,7 +141,9 @@ export function LhTableToolbar({
         )
       : null,
     filters.search.trim()
-      ? filterChip(`Search: ${filters.search.trim()}`, () => set({ search: "" }))
+      ? filterChip(`Search: ${filters.search.trim()}`, () =>
+          set({ search: "" }),
+        )
       : null,
   ].filter(Boolean);
 
@@ -188,7 +190,10 @@ export function LhTableToolbar({
   }
 
   return (
-    <div ref={rootRef} className="flex min-h-0 min-w-0 flex-1 flex-wrap flex-col items-center gap-3 min-[481px]:flex-row max-[1120px]:gap-[.35rem] max-[760px]:gap-2.5 max-[680px]:p-[.45rem] max-[480px]:grid max-[480px]:grid-cols-2 lg:flex-row">
+    <div
+      ref={rootRef}
+      className="flex min-h-0 min-w-0 flex-1 flex-wrap flex-col items-center gap-3 min-[481px]:flex-row max-[1120px]:gap-[.35rem] max-[760px]:gap-2.5 max-[680px]:p-[.45rem] max-[480px]:grid max-[480px]:grid-cols-2 lg:flex-row"
+    >
       <div className="relative inline-flex max-[760px]:order-none max-[760px]:flex-none">
         <button
           className={`${menuButtonClass} ${filters.status !== "ALL" ? "border-soc5-line bg-linehaul-teal-soft text-soc5-ink" : ""}`}
@@ -218,7 +223,9 @@ export function LhTableToolbar({
           onClick={() => setOpenMenu(openMenu === "filters" ? null : "filters")}
         >
           <Filter size={15} aria-hidden="true" />
-          <span>All filter{activeFilterCount ? ` (${activeFilterCount})` : ""}</span>
+          <span>
+            All filter{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </span>
           <ChevronDown size={14} aria-hidden="true" />
         </button>
         {openMenu === "filters" && (
@@ -274,12 +281,20 @@ export function LhTableToolbar({
           }
         >
           <Filter size={15} aria-hidden="true" />
-          <span>Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}</span>
+          <span>
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </span>
           <ChevronDown size={14} aria-hidden="true" />
         </button>
         {openMenu === "mobileFilters" && (
-          <div className={`${popoverClass} min-w-[220px]`} role="menu" aria-label="Filters and sorting">
-            <strong className="px-2 text-xs font-semibold text-soc5-muted">Status</strong>
+          <div
+            className={`${popoverClass} min-w-[220px]`}
+            role="menu"
+            aria-label="Filters and sorting"
+          >
+            <strong className="px-2 text-xs font-semibold text-soc5-muted">
+              Status
+            </strong>
             {renderStatusOptions()}
             <label className="grid gap-1.5 px-2 pt-2 text-sm font-medium text-soc5-muted">
               Date
@@ -287,10 +302,17 @@ export function LhTableToolbar({
                 className="min-h-[34px] rounded-[7px] border border-soc5-line bg-linehaul-surface px-2 text-xs text-soc5-ink"
                 type="date"
                 value={filters.dateFrom}
-                onChange={(event) => set({ dateFrom: event.target.value, dateTo: event.target.value })}
+                onChange={(event) =>
+                  set({
+                    dateFrom: event.target.value,
+                    dateTo: event.target.value,
+                  })
+                }
               />
             </label>
-            <strong className="px-2 pt-2 text-xs font-semibold text-soc5-muted">Sort by</strong>
+            <strong className="px-2 pt-2 text-xs font-semibold text-soc5-muted">
+              Sort by
+            </strong>
             {renderSortOptions()}
           </div>
         )}
@@ -324,7 +346,9 @@ export function LhTableToolbar({
         aria-label={`Use ${density === "compact" ? "comfortable" : "compact"} table density`}
         title={`Switch to ${density === "compact" ? "comfortable" : "compact"} density`}
         aria-pressed={density === "compact"}
-        onClick={() => onDensityChange(density === "compact" ? "comfortable" : "compact")}
+        onClick={() =>
+          onDensityChange(density === "compact" ? "comfortable" : "compact")
+        }
       >
         <Rows3 size={16} aria-hidden="true" />
         <span>{density === "compact" ? "Compact" : "Comfortable"}</span>
@@ -338,26 +362,39 @@ export function LhTableToolbar({
         <Download size={16} />
         {exporting ? "Exporting" : "Export"}
       </button>
-      {showCreateNew && <button
-        className={`${actionButtonClass} border-[#2563eb] bg-[#2563eb] text-white hover:bg-blue-700 max-[480px]:col-span-full max-[480px]:w-full`}
-        type="button"
-        aria-label="Add new linehaul request"
-        onClick={onAddNew ?? (() => onNotice?.("Add new request opened"))}
-      >
-        <Plus size={16} />
-        Add new
-      </button>}
+      {showCreateNew && (
+        <button
+          className={`${actionButtonClass} border-[#2563eb] bg-[#2563eb] text-white hover:bg-blue-700 max-[480px]:col-span-full max-[480px]:w-full`}
+          type="button"
+          aria-label="Add new linehaul request"
+          onClick={onAddNew ?? (() => onNotice?.("Add new request opened"))}
+        >
+          <Plus size={16} />
+          Add new
+        </button>
+      )}
       {filterChips.length > 0 && (
         <div className="flex min-w-0 basis-full flex-wrap items-center gap-1.5">
           {filterChips}
-          <button className={clearFiltersClass} type="button" onClick={clearAllFilters}>
+          <button
+            className={clearFiltersClass}
+            type="button"
+            onClick={clearAllFilters}
+          >
             Clear all
           </button>
         </div>
       )}
       {lastUpdated ? (
-        <span className="basis-full whitespace-nowrap text-right text-xs font-medium leading-none text-soc5-muted" aria-live="polite">
-          Updated {new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        <span
+          className="basis-full whitespace-nowrap text-right text-xs font-medium leading-none text-soc5-muted"
+          aria-live="polite"
+        >
+          Updated{" "}
+          {new Date(lastUpdated).toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          })}
           {refreshReason ? ` · ${refreshReason}` : ""}
         </span>
       ) : null}

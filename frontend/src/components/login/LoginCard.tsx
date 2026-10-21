@@ -45,7 +45,7 @@ export function LoginCard({
                 <p className="mb-4 font-display text-sm font-semibold text-auth-ink">
                   Sign in to your operations workspace
                 </p>
-              {children}
+                {children}
               </div>
             </Reveal>
           </section>

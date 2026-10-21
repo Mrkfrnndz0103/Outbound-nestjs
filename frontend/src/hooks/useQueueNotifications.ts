@@ -28,7 +28,10 @@ export function queueStatusesForRole(role: User["role"]): Status[] {
   }
 }
 
-export function isQueueQueryEnabled(preview: boolean, role: User["role"]): boolean {
+export function isQueueQueryEnabled(
+  preview: boolean,
+  role: User["role"],
+): boolean {
   return !preview && queueStatusesForRole(role).length > 0;
 }
 
@@ -36,14 +39,19 @@ export function actionableQueueRows(role: User["role"], rows: TruckRequest[]) {
   return rows.filter((request) => {
     if (role === "fte_ops") {
       return request.status === "PENDING" || request.status === "REROUTED"
-        ? request.next_action_role === undefined || request.next_action_role === "fte_ops"
-        : request.status === "REJECTED" && request.next_action_role === "fte_ops";
+        ? request.next_action_role === undefined ||
+            request.next_action_role === "fte_ops"
+        : request.status === "REJECTED" &&
+            request.next_action_role === "fte_ops";
     }
     if (role === "fte_mm") return request.status === "REQUESTED";
-    if (role === "doc_officer") return request.status === "DOCKING" && !request.driver_id?.trim();
+    if (role === "doc_officer")
+      return request.status === "DOCKING" && !request.driver_id?.trim();
     if (request.status === "DOCKING") return Boolean(request.driver_id?.trim());
-    return request.status === "DOCKED"
-      || (request.status === "REJECTED" && request.next_action_role === "ops_pic");
+    return (
+      request.status === "DOCKED" ||
+      (request.status === "REJECTED" && request.next_action_role === "ops_pic")
+    );
   });
 }
 
@@ -55,16 +63,24 @@ export function unacknowledgedQueueRows(
   rows: TruckRequest[],
   acknowledged: ReadonlyMap<string, string>,
 ) {
-  return rows.filter((request) => acknowledged.get(request.id) !== queueAlertVersion(request));
+  return rows.filter(
+    (request) => acknowledged.get(request.id) !== queueAlertVersion(request),
+  );
 }
 
-export function useQueueNotifications(user: User, preview = false): QueueSnapshot {
+export function useQueueNotifications(
+  user: User,
+  preview = false,
+): QueueSnapshot {
   const statuses = queueStatusesForRole(user.role);
   const status = statuses[0] ?? null;
-  const [acknowledged, setAcknowledged] = useState<Map<string, string>>(() => new Map());
+  const [acknowledged, setAcknowledged] = useState<Map<string, string>>(
+    () => new Map(),
+  );
   const query = useQuery({
     queryKey: [...requestQueryKey("notification-queue"), user.role, statuses],
-    queryFn: async () => api<{ data: TruckRequest[]; limit: number }>("/requests/queue?limit=100"),
+    queryFn: async () =>
+      api<{ data: TruckRequest[]; limit: number }>("/requests/queue?limit=100"),
     enabled: isQueueQueryEnabled(preview, user.role),
     refetchInterval: false,
     refetchOnWindowFocus: true,

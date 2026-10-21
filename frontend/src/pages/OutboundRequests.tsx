@@ -1,10 +1,4 @@
 import {
-  RequestDetailRow,
-  RequestRecordHead,
-  RequestRecordRow,
-} from "../components/request/RequestRecordTable";
-import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
-import {
   BadgeCheck,
   CircleCheck,
   Clock3,
@@ -17,7 +11,45 @@ import {
   Truck,
 } from "lucide-react";
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
-import { textButtonClass } from "../lib/uiClasses";
+import {
+  ApprovalStateBadge,
+  approvalStateFor,
+} from "../components/approval/ApprovalStateBadge";
+import {
+  linehaulColumnOptions,
+  linehaulPrimaryColumnKeysForRole,
+} from "../components/ColumnVisibilityMenu";
+import { LhRowActionMenu } from "../components/LhRowActionMenu";
+import { LhTableToolbar } from "../components/LhTableToolbar";
+import { Pagination } from "../components/Pagination";
+import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
+import { RequestElapsedTime } from "../components/RequestTable";
+import {
+  OutboundRejectDialog,
+  OutboundRequestDrawer,
+} from "../components/request/OutboundRequestOverlays";
+import { RequestExpandButton } from "../components/request/RequestExpandButton";
+import { RequestExpandedDetails } from "../components/request/RequestExpandedDetails";
+import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
+import {
+  RequestDetailRow,
+  RequestRecordHead,
+  RequestRecordRow,
+} from "../components/request/RequestRecordTable";
+import {
+  canEditDockedRequest,
+  displayRequestActor,
+  displayRequestValue as displayValue,
+  formatRequestDateTime as formatDateTime,
+  formatRequestDetailDateTime as formatDetailDateTime,
+} from "../components/request/requestPresentation";
+import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
+import { StatusBadge, StatusText } from "../components/StatusBadge";
+import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
+import { useOutboundRequests } from "../hooks/useOutboundRequests";
+import type { QueueSnapshot } from "../hooks/useQueueNotifications";
+import { apiErrorMessage, apiFieldErrors } from "../lib/api";
+import { openRequestsSheet } from "../lib/requests";
 import {
   compactRequestRowClass,
   inlineCreateShellClass,
@@ -35,40 +67,8 @@ import {
   requestViewToggleClass,
   requestWorkspaceClass,
   tableShellClass,
+  textButtonClass,
 } from "../lib/uiClasses";
-import {
-  ApprovalStateBadge,
-  approvalStateFor,
-} from "../components/approval/ApprovalStateBadge";
-import {
-  linehaulColumnOptions,
-  linehaulPrimaryColumnKeysForRole,
-} from "../components/ColumnVisibilityMenu";
-import { LhRowActionMenu } from "../components/LhRowActionMenu";
-import { LhTableToolbar } from "../components/LhTableToolbar";
-import {
-  OutboundRejectDialog,
-  OutboundRequestDrawer,
-} from "../components/request/OutboundRequestOverlays";
-import { Pagination } from "../components/Pagination";
-import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
-import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
-import { StatusBadge, StatusText } from "../components/StatusBadge";
-import { RequestElapsedTime } from "../components/RequestTable";
-import { RequestExpandButton } from "../components/request/RequestExpandButton";
-import { RequestExpandedDetails } from "../components/request/RequestExpandedDetails";
-import {
-  canEditDockedRequest,
-  displayRequestValue as displayValue,
-  displayRequestActor,
-  formatRequestDateTime as formatDateTime,
-  formatRequestDetailDateTime as formatDetailDateTime,
-} from "../components/request/requestPresentation";
-import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
-import { useOutboundRequests } from "../hooks/useOutboundRequests";
-import type { QueueSnapshot } from "../hooks/useQueueNotifications";
-import { apiErrorMessage, apiFieldErrors } from "../lib/api";
-import { openRequestsSheet } from "../lib/requests";
 import type { TruckRequest, User } from "../types";
 
 const InlineCreateRow = lazy(() =>
@@ -90,9 +90,11 @@ function _formatCluster(value: string) {
     .join(" · ");
 }
 function canApproveRequest(role: User["role"], row: TruckRequest) {
-  return role === "fte_ops"
-    && (row.status === "PENDING" || row.status === "REROUTED")
-    && approvalStateFor(row.status, row.approval_status) === "pending";
+  return (
+    role === "fte_ops" &&
+    (row.status === "PENDING" || row.status === "REROUTED") &&
+    approvalStateFor(row.status, row.approval_status) === "pending"
+  );
 }
 function shouldRenderExpandedField(
   fieldKey: string,
@@ -234,22 +236,33 @@ export function OutboundRequests({
   }
   const canApprove = _user.role === "fte_ops";
   const canEdit = _user.role === "fte_ops";
-  const eligibleApprovalRows = rows.filter((row) => canApproveRequest(_user.role, row));
-  const eligibleApprovalIds = new Set(eligibleApprovalRows.map((row) => row.id));
+  const eligibleApprovalRows = rows.filter((row) =>
+    canApproveRequest(_user.role, row),
+  );
+  const eligibleApprovalIds = new Set(
+    eligibleApprovalRows.map((row) => row.id),
+  );
   const selectedApprovalIds = eligibleApprovalRows
     .filter((row) => selectedIds.has(row.id))
     .map((row) => row.id);
   const selectedCount = selectedApprovalIds.length;
-  const allEligibleSelected = eligibleApprovalRows.length > 0 && selectedCount === eligibleApprovalRows.length;
+  const allEligibleSelected =
+    eligibleApprovalRows.length > 0 &&
+    selectedCount === eligibleApprovalRows.length;
   useEffect(() => {
     setSelectedIds((current) => {
-      const eligibleIds = new Set(rows.filter((row) => canApproveRequest(_user.role, row)).map((row) => row.id));
+      const eligibleIds = new Set(
+        rows
+          .filter((row) => canApproveRequest(_user.role, row))
+          .map((row) => row.id),
+      );
       const next = new Set([...current].filter((id) => eligibleIds.has(id)));
       return next.size === current.size ? current : next;
     });
   }, [rows, _user.role]);
   const approvalLabel = `Approve selected (${selectedCount})`;
-  const canActOnApproval = (row: TruckRequest) => canApproveRequest(_user.role, row);
+  const canActOnApproval = (row: TruckRequest) =>
+    canApproveRequest(_user.role, row);
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -268,9 +281,12 @@ export function OutboundRequests({
   function approveSelected() {
     const ids = selectedApprovalIds;
     if (!ids.length) return;
-    approveRequests.mutate({ ids, operationId: crypto.randomUUID() }, {
-      onSuccess: () => setSelectedIds(new Set()),
-    });
+    approveRequests.mutate(
+      { ids, operationId: crypto.randomUUID() },
+      {
+        onSuccess: () => setSelectedIds(new Set()),
+      },
+    );
   }
 
   function selectAllEligible(checked: boolean) {
@@ -280,13 +296,17 @@ export function OutboundRequests({
   function canEditRow(row: TruckRequest) {
     if (canEdit && canActOnApproval(row)) return true;
     if (canEditDockedRequest(_user.role, _user.id, row)) return true;
-    return row.status === "REJECTED" && row.next_action_role === _user.role
-      && (_user.role === "fte_ops" || _user.role === "ops_pic");
+    return (
+      row.status === "REJECTED" &&
+      row.next_action_role === _user.role &&
+      (_user.role === "fte_ops" || _user.role === "ops_pic")
+    );
   }
 
-  const emptyMessage = requests.isFetching || requests.error || requests.isPlaceholderData
-    ? "No requests in the last successful results."
-    : "No live requests match the current filters.";
+  const emptyMessage =
+    requests.isFetching || requests.error || requests.isPlaceholderData
+      ? "No requests in the last successful results."
+      : "No live requests match the current filters.";
 
   return (
     <div className={requestPageClass}>
@@ -381,10 +401,16 @@ export function OutboundRequests({
                     type="checkbox"
                     className={requestCheckboxClass}
                     aria-label="Select all eligible requests"
-                    aria-checked={selectedCount > 0 && !allEligibleSelected ? "mixed" : allEligibleSelected}
+                    aria-checked={
+                      selectedCount > 0 && !allEligibleSelected
+                        ? "mixed"
+                        : allEligibleSelected
+                    }
                     checked={allEligibleSelected}
                     disabled={approveRequests.isPending}
-                    onChange={(event) => selectAllEligible(event.target.checked)}
+                    onChange={(event) =>
+                      selectAllEligible(event.target.checked)
+                    }
                   />
                   Select all
                 </label>
@@ -541,7 +567,7 @@ export function OutboundRequests({
                   {hasColumn("docOfficer") && <span>DOC Officer</span>}
                   {hasColumn("opsPic") && <span>OPS/PIC</span>}
                   <span className="justify-center">
-<span className="sr-only">Actions</span>
+                    <span className="sr-only">Actions</span>
                   </span>
                 </RequestRecordHead>
                 <tbody className={requestTableBodyClass}>
@@ -554,198 +580,212 @@ export function OutboundRequests({
                     </RequestDetailRow>
                   )}
                   {rows.map((row, index) => {
-                      const isExpanded = expandedRow === row.id;
-                      const isAlerting = _queue.alerts.some((alert) => alert.id === row.id);
-                      return (
-                        <Fragment key={row.id}>
-                          <RequestRecordRow
-                            className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${isExpanded ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${isAlerting ? "request-alert-blink" : ""}`}
-                            style={
-                              { "--row-index": index } as React.CSSProperties
-                            }
-                          >
-                            <span className="flex min-w-max items-center gap-2 overflow-visible whitespace-nowrap">
-                              <RequestExpandButton
-                                requestId={row.id}
-                                expanded={isExpanded}
-                                onToggle={() => toggleExpanded(row)}
+                    const isExpanded = expandedRow === row.id;
+                    const isAlerting = _queue.alerts.some(
+                      (alert) => alert.id === row.id,
+                    );
+                    return (
+                      <Fragment key={row.id}>
+                        <RequestRecordRow
+                          className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${isExpanded ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${isAlerting ? "request-alert-blink" : ""}`}
+                          style={
+                            { "--row-index": index } as React.CSSProperties
+                          }
+                        >
+                          <span className="flex min-w-max items-center gap-2 overflow-visible whitespace-nowrap">
+                            <RequestExpandButton
+                              requestId={row.id}
+                              expanded={isExpanded}
+                              onToggle={() => toggleExpanded(row)}
+                            />
+                            {canApprove &&
+                              (row.status === "PENDING" ||
+                                row.status === "REROUTED") && (
+                                <input
+                                  type="checkbox"
+                                  className={requestCheckboxClass}
+                                  aria-label={`Select request ${row.id}`}
+                                  checked={
+                                    row.approval_status === "APPROVED" ||
+                                    selectedIds.has(row.id)
+                                  }
+                                  disabled={
+                                    approvalStateFor(
+                                      row.status,
+                                      row.approval_status,
+                                    ) !== "pending" || approveRequests.isPending
+                                  }
+                                  onChange={() => toggleSelected(row.id)}
+                                  onClick={(event) => event.stopPropagation()}
+                                />
+                              )}
+                          </span>
+                          {hasColumn("status") && (
+                            <div className="flex min-w-max items-center gap-2">
+                              <StatusText
+                                status={row.display_status ?? row.status}
                               />
-                              {canApprove &&
-                                (row.status === "PENDING" ||
-                                  row.status === "REROUTED") && (
-                                  <input
-                                    type="checkbox"
-                                    className={requestCheckboxClass}
-                                    aria-label={`Select request ${row.id}`}
-                                    checked={
-                                      row.approval_status === "APPROVED" ||
-                                      selectedIds.has(row.id)
-                                    }
-                                    disabled={
-                                      approvalStateFor(
-                                        row.status,
-                                        row.approval_status,
-                                      ) !== "pending" ||
-                                      approveRequests.isPending
-                                    }
-                                    onChange={() => toggleSelected(row.id)}
-                                    onClick={(event) =>
-                                      event.stopPropagation()
-                                    }
-                                  />
+                              <ApprovalStateBadge
+                                status={row.status}
+                                approvalStatus={row.approval_status}
+                              />
+                            </div>
+                          )}
+                          {hasColumn("runningTime") && (
+                            <RequestElapsedTime request={row} />
+                          )}
+                          {hasColumn("requestTime") && (
+                            <span>{formatDateTime(row.request_timestamp)}</span>
+                          )}
+                          {hasColumn("cluster") && (
+                            <span title={row.cluster}>{row.cluster}</span>
+                          )}
+                          {hasColumn("region") && <span>{row.region}</span>}
+                          {hasColumn("dock") && <span>{row.dock_no}</span>}
+                          {hasColumn("backlogs") && (
+                            <span>{row.backlogs.toLocaleString()}</span>
+                          )}
+                          {hasColumn("backlogsTime") && (
+                            <span>
+                              {formatDateTime(row.backlogs_timestamp)}
+                            </span>
+                          )}
+                          {hasColumn("lhTypeRequest") && (
+                            <span>{displayValue(row.truck_type)}</span>
+                          )}
+                          {hasColumn("opsFte") && (
+                            <span>
+                              {displayValue(row.ob_fte_name ?? row.ob_fte)}
+                            </span>
+                          )}
+                          {hasColumn("plateNumber") && (
+                            <span>{displayValue(row.plate_number)}</span>
+                          )}
+                          {hasColumn("mmFte") && (
+                            <span>
+                              {displayRequestActor(
+                                row.mm_fte_name,
+                                row.mm_fte_id,
                               )}
                             </span>
-                            {hasColumn("status") && (
-                              <div className="flex min-w-max items-center gap-2">
-                                <StatusText status={row.display_status ?? row.status} />
-                                <ApprovalStateBadge
-                                  status={row.status}
-                                  approvalStatus={row.approval_status}
-                                />
-                              </div>
-                            )}
-                            {hasColumn("runningTime") && (
-                              <RequestElapsedTime request={row} />
-                            )}
-                            {hasColumn("requestTime") && (
-                              <span>
-                                {formatDateTime(row.request_timestamp)}
-                              </span>
-                            )}
-                            {hasColumn("cluster") && (
-                              <span title={row.cluster}>{row.cluster}</span>
-                            )}
-                            {hasColumn("region") && <span>{row.region}</span>}
-                            {hasColumn("dock") && <span>{row.dock_no}</span>}
-                            {hasColumn("backlogs") && (
-                              <span>{row.backlogs.toLocaleString()}</span>
-                            )}
-                            {hasColumn("backlogsTime") && (
-                              <span>
-                                {formatDateTime(row.backlogs_timestamp)}
-                              </span>
-                            )}
-                            {hasColumn("lhTypeRequest") && (
-                              <span>{displayValue(row.truck_type)}</span>
-                            )}
-                            {hasColumn("opsFte") && (
-                              <span>
-                                {displayValue(row.ob_fte_name ?? row.ob_fte)}
-                              </span>
-                            )}
-                            {hasColumn("plateNumber") && (
-                              <span>{displayValue(row.plate_number)}</span>
-                            )}
-                            {hasColumn("mmFte") && (
-                              <span>
-                                {displayRequestActor(row.mm_fte_name, row.mm_fte_id)}
-                              </span>
-                            )}
-                            {hasColumn("truckSize") && (
-                              <span>{row.truck_size}</span>
-                            )}
-                            {hasColumn("lhTypeInput") && (
-                              <span>{displayValue(row.truck_type)}</span>
-                            )}
-                            {hasColumn("provideTime") && (
-                              <span>{formatDateTime(row.provide_time)}</span>
-                            )}
-                            {hasColumn("linehaulTrip") && (
-                              <span>{displayValue(row.linehaul_trip_no)}</span>
-                            )}
-                            {hasColumn("assignedTime") && <span>{formatDateTime(row.driver_assigned_at)}</span>}
-                            {hasColumn("dockedTime") && (
-                              <span>{formatDateTime(row.docked_time)}</span>
-                            )}
-                            {hasColumn("docOfficer") && (
-                              <span>
-                                {displayRequestActor(row.doc_officer_name, row.doc_officer_id)}
-                              </span>
-                            )}
-                            {hasColumn("opsPic") && (
-                              <span>
-                                {displayValue(row.ob_fte_name ?? row.ob_fte)}
-                              </span>
-                            )}
-                            <LhRowActionMenu
-                              open={openRow === row.id}
-                              ariaLabel={`Actions for request ${row.id}`}
-                              onToggle={() => {
-                                drawerTrigger.current = document.activeElement instanceof HTMLElement
-                                  ? document.activeElement : null;
-                                setOpenRow(openRow === row.id ? null : row.id);
+                          )}
+                          {hasColumn("truckSize") && (
+                            <span>{row.truck_size}</span>
+                          )}
+                          {hasColumn("lhTypeInput") && (
+                            <span>{displayValue(row.truck_type)}</span>
+                          )}
+                          {hasColumn("provideTime") && (
+                            <span>{formatDateTime(row.provide_time)}</span>
+                          )}
+                          {hasColumn("linehaulTrip") && (
+                            <span>{displayValue(row.linehaul_trip_no)}</span>
+                          )}
+                          {hasColumn("assignedTime") && (
+                            <span>
+                              {formatDateTime(row.driver_assigned_at)}
+                            </span>
+                          )}
+                          {hasColumn("dockedTime") && (
+                            <span>{formatDateTime(row.docked_time)}</span>
+                          )}
+                          {hasColumn("docOfficer") && (
+                            <span>
+                              {displayRequestActor(
+                                row.doc_officer_name,
+                                row.doc_officer_id,
+                              )}
+                            </span>
+                          )}
+                          {hasColumn("opsPic") && (
+                            <span>
+                              {displayValue(row.ob_fte_name ?? row.ob_fte)}
+                            </span>
+                          )}
+                          <LhRowActionMenu
+                            open={openRow === row.id}
+                            ariaLabel={`Actions for request ${row.id}`}
+                            onToggle={() => {
+                              drawerTrigger.current =
+                                document.activeElement instanceof HTMLElement
+                                  ? document.activeElement
+                                  : null;
+                              setOpenRow(openRow === row.id ? null : row.id);
+                            }}
+                          >
+                            <button
+                              role="menuitem"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedRequest(row);
+                                setOpenRow(null);
                               }}
                             >
+                              View
+                            </button>
+                            <button
+                              role="menuitem"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                printTrigger.current = drawerTrigger.current;
+                                setPrintRequest(row);
+                                setOpenRow(null);
+                              }}
+                            >
+                              <Printer size={14} />
+                              Print
+                            </button>
+                            {canActOnApproval(row) && (
                               <button
                                 role="menuitem"
+                                className={requestRejectClass}
                                 type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedRequest(row);
+                                onClick={() => {
+                                  setRejecting(row);
                                   setOpenRow(null);
                                 }}
                               >
-                                View
+                                Reject
                               </button>
+                            )}
+                            {canEditRow(row) && (
                               <button
                                 role="menuitem"
                                 type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  printTrigger.current = drawerTrigger.current;
-                                  setPrintRequest(row);
+                                onClick={() => {
+                                  updateRequest.reset();
+                                  setEditing(row);
                                   setOpenRow(null);
                                 }}
                               >
-                                <Printer size={14} />
-                                Print
+                                Edit
                               </button>
-                              {canActOnApproval(row) && (
-                                <button
-                                  role="menuitem"
-                                  className={requestRejectClass}
-                                  type="button"
-                                  onClick={() => {
-                                    setRejecting(row);
-                                    setOpenRow(null);
-                                  }}
-                                >
-                                  Reject
-                                </button>
-                              )}
-                              {canEditRow(row) && (
-                                <button
-                                  role="menuitem"
-                                  type="button"
-                                  onClick={() => {
-                                    updateRequest.reset();
-                                    setEditing(row);
-                                    setOpenRow(null);
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                              )}
-                            </LhRowActionMenu>
-                          </RequestRecordRow>
-                          {isExpanded && (
-                            <RequestDetailRow id={`request-detail-${row.id}`} columns={visibleColumns.length + 2}>
-                              <RequestExpandedDetails
-                                request={row}
-                                visibleColumns={visibleColumns}
-                              />
-                            </RequestDetailRow>
-                          )}
-                        </Fragment>
-                      );
-                    })}
+                            )}
+                          </LhRowActionMenu>
+                        </RequestRecordRow>
+                        {isExpanded && (
+                          <RequestDetailRow
+                            id={`request-detail-${row.id}`}
+                            columns={visibleColumns.length + 2}
+                          >
+                            <RequestExpandedDetails
+                              request={row}
+                              visibleColumns={visibleColumns}
+                            />
+                          </RequestDetailRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                   {requests.data && rows.length === 0 && (
-                      <RequestDetailRow columns={visibleColumns.length + 2}>
+                    <RequestDetailRow columns={visibleColumns.length + 2}>
                       <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
                         {emptyMessage}
                       </div>
-                      </RequestDetailRow>
-                    )}
+                    </RequestDetailRow>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -775,7 +815,10 @@ export function OutboundRequests({
                         {row.truck_size}
                       </strong>
                       <span>{row.backlogs.toLocaleString()} backlogs</span>
-                      <StatusBadge status={row.display_status ?? row.status} uppercase />
+                      <StatusBadge
+                        status={row.display_status ?? row.status}
+                        uppercase
+                      />
                       <button
                         type="button"
                         className={textButtonClass}
@@ -803,7 +846,10 @@ export function OutboundRequests({
                       <button
                         type="button"
                         className={textButtonClass}
-                        onClick={(event) => { printTrigger.current = event.currentTarget; setPrintRequest(row); }}
+                        onClick={(event) => {
+                          printTrigger.current = event.currentTarget;
+                          setPrintRequest(row);
+                        }}
                       >
                         <Printer size={14} />
                         Print label
@@ -813,7 +859,9 @@ export function OutboundRequests({
                 ))
               )}
               {requests.data && rows.length === 0 && (
-                <p className="col-span-full p-8 text-center text-sm text-soc5-muted">{emptyMessage}</p>
+                <p className="col-span-full p-8 text-center text-sm text-soc5-muted">
+                  {emptyMessage}
+                </p>
               )}
             </div>
           )}

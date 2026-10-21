@@ -1,5 +1,5 @@
-import React from "react";
 import { X } from "lucide-react";
+import React from "react";
 import { cn } from "../../lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
 import { Badge } from "./badge";
@@ -140,9 +140,7 @@ export default function Notification4({
             <h2 className="text-xs font-semibold tracking-tight text-[#393a3c]">
               {title}
             </h2>
-            <Badge
-              className="rounded-full text-xs font-medium tabular-nums text-[#6b7a00] hover:text-[#536500]"
-            >
+            <Badge className="rounded-full text-xs font-medium tabular-nums text-[#6b7a00] hover:text-[#536500]">
               {countLabel ?? String(unreadCount)}
             </Badge>
           </div>
@@ -174,7 +172,11 @@ export default function Notification4({
         <CardContent className="max-h-[min(19rem,calc(100dvh-7rem))] space-y-2 overflow-y-auto overscroll-contain px-2 py-[.4rem]">
           {groups.length ? (
             groups.map((group) => (
-              <NotificationGroupCard key={group.id} group={group} onSelect={onSelect} />
+              <NotificationGroupCard
+                key={group.id}
+                group={group}
+                onSelect={onSelect}
+              />
             ))
           ) : (
             <p className="px-3 py-6 text-center text-sm text-[#696c70]">
@@ -197,9 +199,7 @@ function NotificationGroupCard({
   return (
     <section className="overflow-hidden rounded-lh-2026-md bg-white">
       <div className="px-5 pt-4">
-        <p className="text-sm font-medium text-[#696c70]">
-          {group.label}
-        </p>
+        <p className="text-sm font-medium text-[#696c70]">{group.label}</p>
       </div>
 
       <div className="px-4 pt-2 pb-2">

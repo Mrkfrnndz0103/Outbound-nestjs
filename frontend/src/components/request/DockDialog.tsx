@@ -1,7 +1,5 @@
 import { X } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { Modal } from "../Modal";
-import type { WorkflowAction } from "../../lib/workflow";
 import {
   compactFormDialogClass,
   dialogActionsClass,
@@ -12,7 +10,9 @@ import {
   iconButtonClass,
   secondaryButtonClass,
 } from "../../lib/uiClasses";
+import type { WorkflowAction } from "../../lib/workflow";
 import type { TruckRequest, User } from "../../types";
+import { Modal } from "../Modal";
 
 type DockAction = Extract<WorkflowAction, "mark-docked" | "reassign-driver">;
 
@@ -54,7 +54,11 @@ export function DockDialog({
       open
       onClose={onClose}
       className={compactFormDialogClass}
-      ariaLabel={isDriverAction ? `${title} for ${request.cluster}` : `Dock truck for ${request.cluster}`}
+      ariaLabel={
+        isDriverAction
+          ? `${title} for ${request.cluster}`
+          : `Dock truck for ${request.cluster}`
+      }
     >
       <div className={dialogHeadClass}>
         <div>
@@ -63,7 +67,12 @@ export function DockDialog({
           </p>
           <h2>{title}</h2>
         </div>
-        <button className={iconButtonClass} type="button" aria-label="Close" onClick={onClose}>
+        <button
+          className={iconButtonClass}
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+        >
           <X size={18} />
         </button>
       </div>
@@ -71,7 +80,10 @@ export function DockDialog({
         {isDriverAction ? (
           <>
             {isReassignment && (
-              <p className="text-sm text-soc5-muted">Current Driver ID: {request.driver_id}. Enter the replacement Driver ID.</p>
+              <p className="text-sm text-soc5-muted">
+                Current Driver ID: {request.driver_id}. Enter the replacement
+                Driver ID.
+              </p>
             )}
             <label className={dialogLabelClass}>
               Driver ID
@@ -90,13 +102,33 @@ export function DockDialog({
         ) : (
           <label className={dialogLabelClass}>
             LH Trip Number
-            <input name="linehaul_trip_no" required className={dialogInputClass} defaultValue={request.linehaul_trip_no ?? ""} />
+            <input
+              name="linehaul_trip_no"
+              required
+              className={dialogInputClass}
+              defaultValue={request.linehaul_trip_no ?? ""}
+            />
           </label>
         )}
         <div className={dialogActionsClass}>
-          <button type="button" className={secondaryButtonClass} onClick={onClose}>Cancel</button>
-          <button type="submit" disabled={busy || (isDriverAction && !validDriverId)}>
-            {busy ? "Saving..." : isDriverAction ? isReassignment ? "Reassigned" : "Assigned" : "Docked"}
+          <button
+            type="button"
+            className={secondaryButtonClass}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy || (isDriverAction && !validDriverId)}
+          >
+            {busy
+              ? "Saving..."
+              : isDriverAction
+                ? isReassignment
+                  ? "Reassigned"
+                  : "Assigned"
+                : "Docked"}
           </button>
         </div>
       </form>

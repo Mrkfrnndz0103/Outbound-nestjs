@@ -44,14 +44,31 @@ export const linehaulPrimaryColumnKeys = [
 export function linehaulPrimaryColumnKeysForRole(role: Role) {
   if (role === "fte_mm") {
     return [
-      "status", "requestTime", "cluster", "region", "dock", "backlogs",
-      "lhTypeRequest", "lhTypeInput", "truckSize", "plateNumber", "provideTime",
+      "status",
+      "requestTime",
+      "cluster",
+      "region",
+      "dock",
+      "backlogs",
+      "lhTypeRequest",
+      "lhTypeInput",
+      "truckSize",
+      "plateNumber",
+      "provideTime",
     ] as const;
   }
   if (role === "doc_officer") {
     return [
-      "status", "requestTime", "cluster", "region", "dock", "plateNumber",
-      "truckSize", "provideTime", "assignedTime", "linehaulTrip",
+      "status",
+      "requestTime",
+      "cluster",
+      "region",
+      "dock",
+      "plateNumber",
+      "truckSize",
+      "provideTime",
+      "assignedTime",
+      "linehaulTrip",
     ] as const;
   }
   return linehaulPrimaryColumnKeys;
@@ -126,7 +143,10 @@ export function ColumnVisibilityMenu({
           aria-label={label}
         >
           {options.map((option) => (
-            <label key={option.key} className="flex min-h-[1.6rem] cursor-pointer items-center gap-[.4rem] rounded-[.2rem] px-[.3rem] py-[.2rem] text-xs text-soc5-ink hover:bg-linehaul-surface-soft">
+            <label
+              key={option.key}
+              className="flex min-h-[1.6rem] cursor-pointer items-center gap-[.4rem] rounded-[.2rem] px-[.3rem] py-[.2rem] text-xs text-soc5-ink hover:bg-linehaul-surface-soft"
+            >
               <input
                 type="checkbox"
                 checked={visible.includes(option.key)}

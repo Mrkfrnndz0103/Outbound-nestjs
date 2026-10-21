@@ -2,12 +2,12 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import {
   Children,
   cloneElement,
-  isValidElement,
   type HTMLAttributes,
+  isValidElement,
   type ReactNode,
 } from "react";
-import type { RequestSort, SortDirection } from "../../types";
 import { requestTableHeadClass } from "../../lib/uiClasses";
+import type { RequestSort, SortDirection } from "../../types";
 
 type CellProps = HTMLAttributes<HTMLElement> & {
   children?: ReactNode;

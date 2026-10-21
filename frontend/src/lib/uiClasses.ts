@@ -43,11 +43,13 @@ export const genericTableWrapClass =
   "table-wrap request-table-wrap min-w-0 w-full max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]";
 export const genericTableScrollClass =
   "request-table-scroll min-h-0 min-w-0 w-full max-w-full max-h-[min(68vh,36rem)] overflow-hidden [&_[data-radix-scroll-area-viewport]]:h-full";
-export const requestDetailDialogClass = "request-detail-dialog w-[min(59rem,100%)]";
+export const requestDetailDialogClass =
+  "request-detail-dialog w-[min(59rem,100%)]";
 export const requestDetailContentClass =
   "mx-[.7rem] mb-[.7rem] grid min-h-[11rem] place-content-center justify-items-center rounded-[.7rem] border border-dashed border-soc5-line bg-linehaul-surface-soft px-6 py-10 text-center max-[640px]:min-h-[8.5rem] max-[640px]:px-4 max-[640px]:py-8";
 export const requestDetailTitleClass = "text-sm font-semibold text-soc5-ink";
-export const requestDetailCopyClass = "mt-1 max-w-sm text-xs leading-5 text-soc5-muted";
+export const requestDetailCopyClass =
+  "mt-1 max-w-sm text-xs leading-5 text-soc5-muted";
 
 export const recordsTableClass =
   "lh-records-table grid min-h-0 w-full min-w-full grid-rows-[auto_minmax(0,1fr)] overflow-visible rounded-[.6rem] border border-soc5-line bg-soc5-panel tabular-nums";
@@ -105,7 +107,8 @@ export const usersSearchClass =
 export const usersPrimaryActionClass =
   "inline-flex min-h-[2.1rem] cursor-pointer items-center gap-[.35rem] whitespace-nowrap rounded-[.5rem] border border-[#087f7c] bg-[#087f7c] px-[.8rem] text-sm font-semibold text-white shadow-[0_.4rem_.9rem_rgb(8_127_124_/_16%)] transition-[background,transform] duration-180 hover:-translate-y-px hover:bg-[#066965] active:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087f7c] max-[760px]:justify-center motion-reduce:transition-none";
 export const usersTableClass = "request-table min-w-[41rem] max-w-none";
-export const usersIdentityClass = "flex min-w-[10.5rem] items-center gap-[.55rem]";
+export const usersIdentityClass =
+  "flex min-w-[10.5rem] items-center gap-[.55rem]";
 export const usersAvatarClass =
   "grid size-[1.8rem] shrink-0 place-items-center rounded-[.6rem] border border-soc5-line bg-[linear-gradient(145deg,#effbf9,#e2f5f2)] text-xs font-semibold text-linehaul-teal-ink dark:bg-none dark:bg-soc5-panel";
 export const usersRoleSelectClass =
@@ -142,7 +145,8 @@ export const requestRowClass =
   "lh-table-row col-span-full relative grid min-h-[2.5rem] grid-cols-subgrid items-center border-b border-soc5-line bg-soc5-panel text-sm font-medium text-soc5-ink transition-[background,box-shadow,transform] duration-120 hover:z-[1] hover:-translate-y-px hover:bg-linehaul-lime-surface hover:shadow-[inset_.15rem_0_0_#a2c500] focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(162_197_0_/_15%)] [&>*]:min-w-0 [&>*]:overflow-hidden [&>*]:whitespace-nowrap [&>*]:px-[.6rem] [&>*]:py-[.3rem] [&>*]:text-ellipsis [&>td]:flex [&>td]:min-h-full [&>td]:items-center [&>td]:text-sm [&>*+*]:border-l [&>*+*]:border-l-soc5-line [&>:first-child]:sticky [&>:first-child]:left-0 [&>:first-child]:z-[6] [&>:first-child]:bg-soc5-panel [&>:first-child]:shadow-[.3rem_0_.5rem_-.5rem_rgb(15_42_43_/_65%)] [&>:last-child]:sticky [&>:last-child]:right-0 [&>:last-child]:z-[6] [&>:last-child]:bg-soc5-panel [&>:last-child]:shadow-[-.3rem_0_.5rem_-.5rem_rgb(15_42_43_/_65%)] max-[680px]:min-h-[2.3rem]";
 export const requestExpandedRowClass =
   "bg-linehaul-surface-soft shadow-[inset_.15rem_0_0_#a2c500] hover:bg-linehaul-surface-soft";
-export const requestSelectedRowClass = "bg-linehaul-teal-soft shadow-[inset_.15rem_0_0_#0b7f78] hover:bg-linehaul-teal-soft focus-visible:bg-linehaul-teal-soft";
+export const requestSelectedRowClass =
+  "bg-linehaul-teal-soft shadow-[inset_.15rem_0_0_#0b7f78] hover:bg-linehaul-teal-soft focus-visible:bg-linehaul-teal-soft";
 export const compactRequestRowClass = "min-h-[2.1rem] [&>td]:py-[.2rem]";
 export const requestDrawerBackdropClass =
   "fixed inset-0 z-[100000] bg-[rgb(12_25_25_/_18%)] backdrop-blur-[2px]";
@@ -163,7 +167,8 @@ export const requestSkeletonRowClass =
   "lh-table-row lh-table-grid grid min-w-0 min-h-[2.5rem] grid-cols-subgrid items-center border-b border-soc5-line bg-soc5-panel pointer-events-none";
 export const requestSkeletonCellClass =
   "lh-skeleton-cell flex min-w-0 min-h-full items-center gap-[.4rem] overflow-hidden [&:last-child]:justify-center";
-export const rowMenuWrapClass = "relative flex h-full items-center justify-center overflow-visible";
+export const rowMenuWrapClass =
+  "relative flex h-full items-center justify-center overflow-visible";
 export const rowMenuClass =
   "lh-row-menu fixed z-[100002] flex w-[7.4rem] flex-col gap-[.1rem] rounded-[.5rem] border border-soc5-line bg-soc5-panel p-[.3rem] shadow-[0_.7rem_1.4rem_rgb(15_42_43_/_16%),0_.1rem_.3rem_rgb(15_42_43_/_8%)] [&>button]:flex [&>button]:min-h-[1.8rem] [&>button]:cursor-pointer [&>button]:items-center [&>button]:gap-[.4rem] [&>button]:rounded-[.35rem] [&>button]:border-0 [&>button]:bg-transparent [&>button]:px-2 [&>button]:text-left [&>button]:text-xs [&>button]:font-medium [&>button]:leading-tight [&>button]:text-soc5-ink [&>button:hover]:bg-linehaul-lime-surface [&>button:hover]:text-linehaul-lime-ink [&>button:focus-visible]:bg-linehaul-lime-surface [&>button:focus-visible]:text-linehaul-lime-ink [&>button:focus-visible]:outline [&>button:focus-visible]:outline-2 [&>button:focus-visible]:outline-[#a2c500]";
 export const rowMenuItemClass =
@@ -181,7 +186,7 @@ export const loadingShellClass =
 export const loadingToolbarClass =
   "mb-3 flex min-h-6 items-center justify-between gap-2 border-b border-soc5-line pb-2";
 export const loadingChipClass =
-  "block h-2.5 w-16 rounded-full bg-[linear-gradient(90deg,var(--color-skeleton-base)_0%,var(--color-skeleton-highlight)_48%,var(--color-skeleton-base)_100%)] bg-[length:220%_100%] animate-skeleton-shimmer motion-reduce:animate-none";
+  "block h-2.5 w-16 rounded-full bg-accent animate-pulse motion-reduce:animate-none";
 export const usersLoadingClass = "grid gap-0 px-3";
 export const usersLoadingRowClass =
   "grid min-h-[2.9rem] grid-cols-[1.6fr_1.2fr_1fr_.8fr] items-center gap-3 border-b border-soc5-line";
@@ -194,9 +199,9 @@ export const usersResetIdentityClass =
   "mx-[1.1rem] mt-4 flex items-center gap-[.55rem] rounded-[.6rem] border border-soc5-line bg-linehaul-surface-soft px-[.7rem] py-[.6rem]";
 export const usersResetIconClass =
   "grid size-[1.9rem] shrink-0 place-items-center rounded-[.55rem] bg-linehaul-teal-soft text-linehaul-teal-ink";
-export const usersResetLabelClass =
-  "text-xs font-semibold text-soc5-muted";
-export const usersResetCopyClass = "mt-[.7rem] text-xs leading-relaxed text-soc5-muted";
+export const usersResetLabelClass = "text-xs font-semibold text-soc5-muted";
+export const usersResetCopyClass =
+  "mt-[.7rem] text-xs leading-relaxed text-soc5-muted";
 export const usersResetConfirmClass =
   "inline-flex min-h-[1.8rem] cursor-pointer items-center justify-center rounded-[.4rem] border border-[#087f7c] bg-[#087f7c] px-3 text-sm font-semibold text-white shadow-[0_.3rem_.7rem_rgb(8_127_124_/_16%)] transition-colors hover:bg-[#066965] disabled:cursor-not-allowed disabled:opacity-60";
 export const usersTableHeadCellClass =
@@ -233,19 +238,30 @@ export const requestSearchClass =
   "flex min-w-0 flex-[1_1_11rem] h-[1.9rem] items-center gap-[.35rem] rounded-[.45rem] border border-soc5-line bg-soc5-panel px-2 text-xs text-soc5-muted focus-within:border-[#b6d41b] focus-within:ring-2 focus-within:ring-[rgb(182_212_27_/_18%)] max-[720px]:col-span-full max-[480px]:col-auto";
 export const requestFilterClass =
   "flex min-w-0 h-[1.9rem] flex-[0_1_8.5rem] items-center gap-[.35rem] rounded-[.45rem] border border-soc5-line bg-soc5-panel px-2 text-xs text-soc5-muted focus-within:border-[#b6d41b] focus-within:ring-2 focus-within:ring-[rgb(182_212_27_/_18%)] max-[720px]:w-full";
-export const requestControlActionsClass = "flex shrink-0 gap-[.35rem] max-[720px]:w-full max-[720px]:justify-end max-[480px]:[&>*]:flex-1";
+export const requestControlActionsClass =
+  "flex shrink-0 gap-[.35rem] max-[720px]:w-full max-[720px]:justify-end max-[480px]:[&>*]:flex-1";
 export const requestExportButtonClass =
   "inline-flex min-h-[1.9rem] cursor-pointer items-center gap-[.3rem] rounded-[.45rem] border border-[#252527] bg-[#252527] px-[.55rem] text-xs font-bold text-white hover:bg-[#4a4a4c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-soc5-lime-deep disabled:cursor-wait disabled:opacity-60";
-export const genericRequestTableClass = "w-full min-w-[49rem] border-collapse table-auto tabular-nums";
-export const genericRequestTableHeadCellClass = "min-w-0 border-b border-soc5-line bg-linehaul-surface-soft px-[.45rem] py-2 text-left text-xs font-semibold text-soc5-muted align-middle whitespace-nowrap";
-export const genericRequestTableCellClass = "min-w-0 overflow-hidden border-b border-soc5-line px-[.45rem] py-2 text-sm text-left text-soc5-ink align-middle break-normal";
-export const genericRequestTableRowClass = "hover:bg-linehaul-surface-soft last:[&>td]:border-b-0";
-export const genericRequestSortButtonClass = "inline-flex items-center gap-[.3rem] whitespace-nowrap bg-transparent p-0 font-inherit text-inherit hover:text-soc5-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-soc5-lime-deep";
-export const genericRequestHeaderLabelClass = "inline-flex items-center gap-[.3rem]";
-export const genericRequestDetailGridClass = "grid w-full min-w-0 max-w-full grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))] gap-3 overflow-x-hidden bg-linehaul-surface-soft p-3 max-[720px]:grid-cols-2 max-[480px]:grid-cols-1";
-export const genericRequestDetailCardClass = "min-w-0 rounded-[.45rem] border border-soc5-line bg-soc5-panel px-[.6rem] py-2 shadow-[0_.1rem_.3rem_rgb(43_61_47_/_5%)]";
-export const genericRequestDetailLabelClass = "block overflow-hidden text-xs font-bold uppercase tracking-wider text-soc5-muted text-ellipsis";
-export const genericRequestDetailValueClass = "block min-w-0 break-words text-xs font-semibold text-soc5-ink";
+export const genericRequestTableClass =
+  "w-full min-w-[49rem] border-collapse table-auto tabular-nums";
+export const genericRequestTableHeadCellClass =
+  "min-w-0 border-b border-soc5-line bg-linehaul-surface-soft px-[.45rem] py-2 text-left text-xs font-semibold text-soc5-muted align-middle whitespace-nowrap";
+export const genericRequestTableCellClass =
+  "min-w-0 overflow-hidden border-b border-soc5-line px-[.45rem] py-2 text-sm text-left text-soc5-ink align-middle break-normal";
+export const genericRequestTableRowClass =
+  "hover:bg-linehaul-surface-soft last:[&>td]:border-b-0";
+export const genericRequestSortButtonClass =
+  "inline-flex items-center gap-[.3rem] whitespace-nowrap bg-transparent p-0 font-inherit text-inherit hover:text-soc5-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-soc5-lime-deep";
+export const genericRequestHeaderLabelClass =
+  "inline-flex items-center gap-[.3rem]";
+export const genericRequestDetailGridClass =
+  "grid w-full min-w-0 max-w-full grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))] gap-3 overflow-x-hidden bg-linehaul-surface-soft p-3 max-[720px]:grid-cols-2 max-[480px]:grid-cols-1";
+export const genericRequestDetailCardClass =
+  "min-w-0 rounded-[.45rem] border border-soc5-line bg-soc5-panel px-[.6rem] py-2 shadow-[0_.1rem_.3rem_rgb(43_61_47_/_5%)]";
+export const genericRequestDetailLabelClass =
+  "block overflow-hidden text-xs font-bold uppercase tracking-wider text-soc5-muted text-ellipsis";
+export const genericRequestDetailValueClass =
+  "block min-w-0 break-words text-xs font-semibold text-soc5-ink";
 
 export const changePasswordPageClass =
   "grid min-h-dvh place-items-center bg-[radial-gradient(circle_at_10%_0,rgb(214_250_45_/_14%),transparent_28rem),linear-gradient(180deg,#f6faf8_0%,var(--soc5-page)_100%)] px-4 py-8 text-soc5-ink dark:bg-none dark:bg-soc5-page";
@@ -304,14 +320,17 @@ export const lineChartClass =
   "block h-[clamp(8.5rem,18vw,10.5rem)] min-h-[8.5rem] w-full min-w-0 overflow-hidden";
 export const lineChartSvgClass =
   "block h-full min-w-0 w-full overflow-visible [shape-rendering:geometricPrecision]";
-export const chartGridLineClass = "stroke-soc5-line [stroke-dasharray:7_7] [stroke-width:1]";
-export const chartYLabelClass = "fill-soc5-muted text-xs font-semibold [text-anchor:end]";
+export const chartGridLineClass =
+  "stroke-soc5-line [stroke-dasharray:7_7] [stroke-width:1]";
+export const chartYLabelClass =
+  "fill-soc5-muted text-xs font-semibold [text-anchor:end]";
 export const lineAreaClass = "fill-[url(#lineAreaTop)] stroke-none";
 export const lineStrokeClass =
   "fill-none stroke-[#b5d93f] [stroke-width:2.8] [stroke-linecap:round] [stroke-linejoin:round]";
 export const chartPointGroupClass =
   "cursor-crosshair outline-none [&>circle]:fill-linehaul-lime-ink [&>circle]:stroke-[#b5d93f] [&>circle]:[stroke-width:2.2] [&>circle]:transition-[r,fill,stroke-width] [&>circle]:duration-150 hover:[&>circle]:fill-linehaul-lime-ink hover:[&>circle]:stroke-soc5-line hover:[&>circle]:[stroke-width:2.8] focus-visible:outline focus-visible:outline-[.1rem] focus-visible:outline-[#0ea69b] focus-visible:outline-offset-[.15rem] data-[active=true]:[&>circle]:fill-linehaul-lime-ink data-[active=true]:[&>circle]:stroke-soc5-line";
-export const chartXLabelClass = "fill-soc5-muted text-xs font-semibold [text-anchor:middle]";
+export const chartXLabelClass =
+  "fill-soc5-muted text-xs font-semibold [text-anchor:middle]";
 export const chartHoverStateClass =
   "pointer-events-none [&>line]:stroke-[#72c9c4] [&>line]:[stroke-dasharray:3_3] [&>line]:[stroke-width:1.2] [&>circle]:fill-soc5-panel [&>circle]:stroke-[#087f7c] [&>circle]:[stroke-width:2.7] [&>rect]:fill-soc5-panel [&>rect]:stroke-soc5-line [&>rect]:filter-[drop-shadow(0_.35rem_.6rem_#17515024)] [&>text]:fill-soc5-muted [&>text]:text-xs [&>text]:font-bold [&>text]:[text-anchor:start] [&>text:last-child]:fill-linehaul-teal-ink";
 export const dashboardListClass = "grid gap-[.35rem]";
@@ -322,22 +341,27 @@ export const tripsPanelBodyClass =
 export const queueRowClass =
   "grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto_auto] items-center gap-[.4rem] rounded-[.55rem] border border-soc5-line bg-soc5-panel p-[.45rem] transition-[transform,border-color,box-shadow,background-color] duration-150 hover:-translate-y-px hover:border-soc5-line hover:bg-soc5-panel hover:shadow-[0_.3rem_.8rem_rgb(20_54_54_/_6%)] max-[600px]:grid-cols-[1.4rem_minmax(0,1fr)_auto] max-[600px]:[&>span:last-child]:hidden";
 export const linehaulRowClass = `${queueRowClass} relative min-h-[2.7rem] grid-cols-[1.5rem_minmax(5rem,1.15fr)_minmax(4.6rem,.9fr)_minmax(3.4rem,.7fr)] rounded-[.55rem] border-soc5-line bg-soc5-panel py-2 pl-[.65rem] pr-2 before:absolute before:bottom-[.45rem] before:left-0 before:top-[.45rem] before:w-[.15rem] before:rounded-r-[.2rem] before:bg-[#087f7c] max-[600px]:grid-cols-[1.4rem_minmax(0,1fr)_auto]`;
-export const queueRowGroupClass = "grid min-w-0 gap-[.1rem] [&>strong]:overflow-hidden [&>strong]:text-ellipsis [&>strong]:whitespace-nowrap [&>strong]:text-xs [&>strong]:font-bold [&>small]:text-xs";
-export const avatarClass = "grid size-[1.4rem] place-items-center rounded-full bg-linehaul-lime-surface text-xs font-bold text-linehaul-lime-ink";
+export const queueRowGroupClass =
+  "grid min-w-0 gap-[.1rem] [&>strong]:overflow-hidden [&>strong]:text-ellipsis [&>strong]:whitespace-nowrap [&>strong]:text-xs [&>strong]:font-bold [&>small]:text-xs";
+export const avatarClass =
+  "grid size-[1.4rem] place-items-center rounded-full bg-linehaul-lime-surface text-xs font-bold text-linehaul-lime-ink";
 export const truckDotClass = `${avatarClass} text-linehaul-lime-ink`;
 export const compactEmptyClass = "m-0 p-5 text-center text-xs text-soc5-muted";
 export const donutLayoutClass =
   "grid grid-cols-[7.25rem_minmax(0,1fr)] items-center gap-[.6rem] max-[600px]:grid-cols-1";
 export const donutClass =
   "relative grid size-[6.25rem] place-items-center justify-self-center rotate-[-12deg] rounded-full my-[.4rem] max-[600px]:mb-0 before:size-[4.1rem] before:rounded-full before:bg-soc5-panel before:shadow-[inset_0_0_0_.05rem_#f0f0f0] before:content-['']";
-export const donutCenterClass = "absolute grid place-items-center rotate-[12deg]";
-export const donutCenterValueClass = "text-base font-semibold text-soc5-ink tabular-nums";
+export const donutCenterClass =
+  "absolute grid place-items-center rotate-[12deg]";
+export const donutCenterValueClass =
+  "text-base font-semibold text-soc5-ink tabular-nums";
 export const donutCenterLabelClass = "text-xs text-soc5-muted";
 export const donutLegendClass = "grid gap-[.3rem]";
 export const donutLegendItemClass =
   "grid grid-cols-[.45rem_1fr_auto] items-center gap-[.35rem] rounded-[.4rem] border border-soc5-line bg-linehaul-surface-soft p-[.35rem]";
 export const donutLegendSwatchClass = "size-[.4rem] rounded-[.1rem]";
-export const donutLegendValueClass = "text-xs font-semibold text-soc5-ink tabular-nums";
+export const donutLegendValueClass =
+  "text-xs font-semibold text-soc5-ink tabular-nums";
 
 export const printDialogClass =
   "print-dialog w-[min(49rem,100%)] max-h-[min(43rem,calc(100dvh-1.6rem))] overflow-hidden rounded-[.9rem] border border-[#dfe5e8] bg-[#f4f7f8] shadow-[0_1.4rem_4rem_rgb(14_23_38_/_28%),0_.2rem_.9rem_rgb(14_23_38_/_10%)] animate-[dialog-panel-in_.34s_cubic-bezier(.22,1,.36,1)_both] motion-reduce:animate-none max-[640px]:max-h-[calc(100dvh-1.2rem)] max-[640px]:rounded-[.8rem_.8rem_.6rem_.6rem]";
@@ -360,8 +384,7 @@ export const truckLabelDockClass =
   "left-[27.5%] top-[28.5%] h-[18.5%] w-[21%] text-[9cqw]";
 export const truckLabelDockTimeClass =
   "left-[51.8%] top-[28.5%] h-[18.5%] w-[20.8%] text-[4cqw]";
-export const truckLabelLoadBaseClass =
-  "top-[60%] h-[21.5%] text-[6cqw]";
+export const truckLabelLoadBaseClass = "top-[60%] h-[21.5%] text-[6cqw]";
 export const truckLabelLoadSingleClass = "left-[5%] w-[68.5%]";
 export const truckLabelLoadLeftClass = "left-[4.2%] w-[33%]";
 export const truckLabelLoadRightClass = "left-[39.6%] w-[33%]";

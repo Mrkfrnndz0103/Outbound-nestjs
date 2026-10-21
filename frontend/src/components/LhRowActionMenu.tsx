@@ -1,7 +1,11 @@
 import { MoreHorizontal } from "lucide-react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { requestToolbarIconClass, rowMenuClass, rowMenuWrapClass } from "../lib/uiClasses";
+import {
+  requestToolbarIconClass,
+  rowMenuClass,
+  rowMenuWrapClass,
+} from "../lib/uiClasses";
 
 const MENU_WIDTH = 148;
 const VIEWPORT_EDGE = 8;
@@ -25,7 +29,10 @@ export function LhRowActionMenu({
 }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLSpanElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [position, setPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
   useLayoutEffect(() => {
     if (!open) {

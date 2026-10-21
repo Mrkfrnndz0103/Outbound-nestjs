@@ -266,25 +266,24 @@ export function Login({
           overlayClassName={loginModalLayerClass}
           className={`${loginModalCardClass} max-w-[360px] p-6 opacity-100 translate-y-0`}
         >
-            <div className="mx-auto grid h-12 w-12 animate-pulse place-items-center rounded-full bg-auth-accent/15 text-auth-accent">
-              <KeyRound size={23} aria-hidden="true" />
-            </div>
-            <h2 className="mt-4 text-center font-display text-lg font-semibold text-auth-ink">
-              Forgot password?
-            </h2>
-            <p className="mt-2 text-center text-xs leading-relaxed text-auth-muted">
-              To reset your password, please reach out to your FTE for
-              assistance.
-            </p>
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setForgotOpen(false)}
-                className="rounded-xl bg-auth-accent px-4 py-2 text-sm font-semibold text-white"
-              >
-                Close
-              </button>
-            </div>
+          <div className="mx-auto grid h-12 w-12 animate-pulse place-items-center rounded-full bg-auth-accent/15 text-auth-accent">
+            <KeyRound size={23} aria-hidden="true" />
+          </div>
+          <h2 className="mt-4 text-center font-display text-lg font-semibold text-auth-ink">
+            Forgot password?
+          </h2>
+          <p className="mt-2 text-center text-xs leading-relaxed text-auth-muted">
+            To reset your password, please reach out to your FTE for assistance.
+          </p>
+          <div className="mt-5 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setForgotOpen(false)}
+              className="rounded-xl bg-auth-accent px-4 py-2 text-sm font-semibold text-white"
+            >
+              Close
+            </button>
+          </div>
         </AccessibleDialog>
       )}
     </LoginCard>

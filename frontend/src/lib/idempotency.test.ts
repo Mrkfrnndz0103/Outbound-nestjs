@@ -41,8 +41,8 @@ describe("idempotency keys", () => {
     expect(generateIdempotencyKey("outbound-bulk-approve", firstCycle)).toBe(
       generateIdempotencyKey("outbound-bulk-approve", retry),
     );
-    expect(generateIdempotencyKey("outbound-bulk-approve", firstCycle)).not.toBe(
-      generateIdempotencyKey("outbound-bulk-approve", laterCycle),
-    );
+    expect(
+      generateIdempotencyKey("outbound-bulk-approve", firstCycle),
+    ).not.toBe(generateIdempotencyKey("outbound-bulk-approve", laterCycle));
   });
 });

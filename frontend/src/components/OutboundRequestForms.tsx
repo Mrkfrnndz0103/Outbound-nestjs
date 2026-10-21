@@ -1,21 +1,31 @@
-import { useQuery } from "@tanstack/react-query";
 import { Combobox } from "@headlessui/react";
+import { useQuery } from "@tanstack/react-query";
 import { Save, X } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import {
-  buildRequestPayload,
-  type RequestPayload,
-} from "../lib/requests";
 import { api } from "../lib/api";
+import { buildRequestPayload, type RequestPayload } from "../lib/requests";
+import {
+  inlineActionsClass,
+  inlineCreateFormClass,
+  inlineCreateInputClass,
+  inlineCreateLabelClass,
+  inlinePrimaryButtonClass,
+  inlineSuggestionClass,
+  inlineSuggestionsClass,
+  secondaryButtonClass,
+} from "../lib/uiClasses";
 import type { ClusterLookup, TruckRequest } from "../types";
-import { inlineActionsClass, inlineCreateFormClass, inlineCreateInputClass, inlineCreateLabelClass, inlinePrimaryButtonClass, inlineSuggestionClass, inlineSuggestionsClass, secondaryButtonClass } from "../lib/uiClasses";
 
 export type FieldErrors = Record<string, string[]>;
 
 function FieldError({ name, errors }: { name: string; errors?: FieldErrors }) {
   const message = errors?.[name]?.[0];
-  return message ? <span className="text-xs text-[var(--color-danger)]" role="alert">{message}</span> : null;
+  return message ? (
+    <span className="text-xs text-[var(--color-danger)]" role="alert">
+      {message}
+    </span>
+  ) : null;
 }
 
 export function InlineCreateRow({
@@ -79,7 +89,7 @@ export function InlineCreateRow({
             }}
             placeholder="Type 3 chars"
           />
-            <FieldError name="cluster" errors={fieldErrors} />
+          <FieldError name="cluster" errors={fieldErrors} />
           <Combobox.Options as="div" className={inlineSuggestionsClass}>
             {searchIsCurrent &&
               clusterSearch.length >= 3 &&
@@ -88,11 +98,13 @@ export function InlineCreateRow({
             {searchIsCurrent && lookup.isError && (
               <p>Unable to load clusters.</p>
             )}
-            {searchIsCurrent && lookup.data && !lookup.isFetching && (
-              lookup.data.data.length ? (
+            {searchIsCurrent &&
+              lookup.data &&
+              !lookup.isFetching &&
+              (lookup.data.data.length ? (
                 lookup.data.data.map((cluster) => (
-                    <Combobox.Option
-                      className={inlineSuggestionClass}
+                  <Combobox.Option
+                    className={inlineSuggestionClass}
                     key={cluster.id}
                     value={cluster}
                     as="button"
@@ -113,14 +125,19 @@ export function InlineCreateRow({
                 ))
               ) : (
                 <p>No cluster found.</p>
-              )
-            )}
+              ))}
           </Combobox.Options>
         </Combobox>
       </label>
       <label className={inlineCreateLabelClass}>
         Region
-        <input className={inlineCreateInputClass} name="region" required readOnly value={selected?.region ?? ""} />
+        <input
+          className={inlineCreateInputClass}
+          name="region"
+          required
+          readOnly
+          value={selected?.region ?? ""}
+        />
         <FieldError name="region" errors={fieldErrors} />
       </label>
       <label className={inlineCreateLabelClass}>
@@ -150,7 +167,7 @@ export function InlineCreateRow({
       </label>
       <label className={inlineCreateLabelClass}>
         Backlogs Timestamp
-          <input
+        <input
           className={inlineCreateInputClass}
           readOnly
           value={
@@ -167,7 +184,11 @@ export function InlineCreateRow({
       </label>
       <label className={inlineCreateLabelClass}>
         Truck Size
-        <select className={inlineCreateInputClass} name="truck_size" defaultValue="6W">
+        <select
+          className={inlineCreateInputClass}
+          name="truck_size"
+          defaultValue="6W"
+        >
           <option>4W</option>
           <option>4WAUV</option>
           <option>4WCV</option>
@@ -181,11 +202,19 @@ export function InlineCreateRow({
         <p className="error notice text-[var(--color-danger)]">{error}</p>
       )}
       <div className={inlineActionsClass}>
-        <button className={secondaryButtonClass} type="button" onClick={onCancel}>
+        <button
+          className={secondaryButtonClass}
+          type="button"
+          onClick={onCancel}
+        >
           <X size={15} />
           Cancel
         </button>
-        <button className={inlinePrimaryButtonClass} type="submit" disabled={busy || !selected}>
+        <button
+          className={inlinePrimaryButtonClass}
+          type="submit"
+          disabled={busy || !selected}
+        >
           <Save size={15} />
           {busy ? "Saving..." : "Save"}
         </button>
@@ -263,7 +292,11 @@ export function InlineEditRow({
       </label>
       <label className={inlineCreateLabelClass}>
         Truck Size
-        <select className={inlineCreateInputClass} name="truck_size" defaultValue={request.truck_size}>
+        <select
+          className={inlineCreateInputClass}
+          name="truck_size"
+          defaultValue={request.truck_size}
+        >
           <option>4W</option>
           <option>6W</option>
           <option>10W</option>
@@ -273,7 +306,11 @@ export function InlineEditRow({
       </label>
       <label className={inlineCreateLabelClass}>
         Truck Type
-        <select className={inlineCreateInputClass} name="truck_type" defaultValue={request.truck_type}>
+        <select
+          className={inlineCreateInputClass}
+          name="truck_type"
+          defaultValue={request.truck_type}
+        >
           <option>WETLEASE</option>
           <option>DRYLEASE</option>
         </select>
@@ -283,11 +320,19 @@ export function InlineEditRow({
         <p className="error notice text-[var(--color-danger)]">{error}</p>
       )}
       <div className={inlineActionsClass}>
-        <button className={secondaryButtonClass} type="button" onClick={onCancel}>
+        <button
+          className={secondaryButtonClass}
+          type="button"
+          onClick={onCancel}
+        >
           <X size={15} />
           Cancel
         </button>
-        <button className={inlinePrimaryButtonClass} type="submit" disabled={busy}>
+        <button
+          className={inlinePrimaryButtonClass}
+          type="submit"
+          disabled={busy}
+        >
           <Save size={15} />
           {busy ? "Saving..." : "Save"}
         </button>

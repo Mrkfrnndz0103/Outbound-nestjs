@@ -1,8 +1,6 @@
 import { Truck, X } from "lucide-react";
 import type { FormEvent } from "react";
-import { Modal } from "../Modal";
 import { buildMidmileAssignmentPayload } from "../../lib/requests";
-import type { WorkflowAction } from "../../lib/workflow";
 import {
   compactFormDialogClass,
   dialogActionsClass,
@@ -15,7 +13,9 @@ import {
   iconButtonClass,
   secondaryButtonClass,
 } from "../../lib/uiClasses";
+import type { WorkflowAction } from "../../lib/workflow";
 import type { TruckRequest } from "../../types";
+import { Modal } from "../Modal";
 
 type MmAction = Extract<WorkflowAction, "assign-truck" | "reject-mm">;
 

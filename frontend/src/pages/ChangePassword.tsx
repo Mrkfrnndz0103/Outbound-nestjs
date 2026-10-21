@@ -45,11 +45,20 @@ export function ChangePassword({ onComplete }: { onComplete: () => void }) {
   return (
     <main className={changePasswordPageClass}>
       <section className={changePasswordCardClass}>
-        <p className="mb-[.35rem] text-xs font-semibold text-soc5-lime-deep">First login</p>
-        <h1 className="text-[clamp(1.35rem,4vw,1.8rem)] font-bold tracking-tight text-[#0b1d2d]">Secure your account</h1>
-        <p className="mt-2 text-xs leading-normal text-soc5-muted">Set a permanent password before continuing.</p>
+        <p className="mb-[.35rem] text-xs font-semibold text-soc5-lime-deep">
+          First login
+        </p>
+        <h1 className="text-[clamp(1.35rem,4vw,1.8rem)] font-bold tracking-tight text-[#0b1d2d]">
+          Secure your account
+        </h1>
+        <p className="mt-2 text-xs leading-normal text-soc5-muted">
+          Set a permanent password before continuing.
+        </p>
       </section>
-      <form className={`${changePasswordCardClass} ${changePasswordFormClass}`} onSubmit={submit}>
+      <form
+        className={`${changePasswordCardClass} ${changePasswordFormClass}`}
+        onSubmit={submit}
+      >
         <h2 className="text-base font-bold text-[#203638]">Change password</h2>
         <label className={changePasswordLabelClass}>
           New password
@@ -74,11 +83,18 @@ export function ChangePassword({ onComplete }: { onComplete: () => void }) {
           />
         </label>
         {error && (
-          <p className="rounded-[.5rem] border border-[rgb(194_54_70_/_20%)] bg-[#fff5f6] px-3 py-2 text-xs leading-snug text-[#a4283c]" role="alert">
+          <p
+            className="rounded-[.5rem] border border-[rgb(194_54_70_/_20%)] bg-[#fff5f6] px-3 py-2 text-xs leading-snug text-[#a4283c]"
+            role="alert"
+          >
             {error}
           </p>
         )}
-        <button className={changePasswordSubmitClass} type="submit" disabled={busy}>
+        <button
+          className={changePasswordSubmitClass}
+          type="submit"
+          disabled={busy}
+        >
           {busy ? "Saving…" : "Change password"}
         </button>
       </form>

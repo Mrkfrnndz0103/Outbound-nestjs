@@ -94,10 +94,15 @@ export async function api<T = unknown>(
       ? body.message
       : `Request failed (${response.status})`;
   const errors =
-    body && typeof body === "object" && "errors" in body && body.errors && typeof body.errors === "object"
+    body &&
+    typeof body === "object" &&
+    "errors" in body &&
+    body.errors &&
+    typeof body.errors === "object"
       ? Object.fromEntries(
           Object.entries(body.errors).flatMap(([key, value]) =>
-            Array.isArray(value) && value.every((item) => typeof item === "string")
+            Array.isArray(value) &&
+            value.every((item) => typeof item === "string")
               ? [[key, value]]
               : [],
           ),

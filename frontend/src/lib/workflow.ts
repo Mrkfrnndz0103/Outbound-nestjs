@@ -35,16 +35,24 @@ export function statusLabelFor(status: string): string {
   return statusLabels[normalized as Status] ?? normalized.replaceAll("_", " ");
 }
 
-export function workflowActionPath(requestId: string, action: WorkflowAction): string {
+export function workflowActionPath(
+  requestId: string,
+  action: WorkflowAction,
+): string {
   return `/requests/${requestId}/${action}`;
 }
 
 export function nextActionLabelFor(role: Role | null | undefined): string {
   switch (role) {
-    case "fte_ops": return "FTE Ops: review request";
-    case "fte_mm": return "FTE MM: assign truck";
-    case "doc_officer": return "DOC Officer: assign driver";
-    case "ops_pic": return "OPS PIC: confirm trip";
-    default: return "No action pending";
+    case "fte_ops":
+      return "FTE Ops: review request";
+    case "fte_mm":
+      return "FTE MM: assign truck";
+    case "doc_officer":
+      return "DOC Officer: assign driver";
+    case "ops_pic":
+      return "OPS PIC: confirm trip";
+    default:
+      return "No action pending";
   }
 }

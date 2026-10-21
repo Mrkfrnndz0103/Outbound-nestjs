@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { nextActionLabelFor, statusLabelFor, workflowActionPath } from "./workflow";
+import {
+  nextActionLabelFor,
+  statusLabelFor,
+  workflowActionPath,
+} from "./workflow";
 
 describe("workflow presentation and commands", () => {
   it("uses one label source for status text", () => {
@@ -14,7 +18,9 @@ describe("workflow presentation and commands", () => {
   });
 
   it("names the responsible next action clearly", () => {
-    expect(nextActionLabelFor("doc_officer")).toBe("DOC Officer: assign driver");
+    expect(nextActionLabelFor("doc_officer")).toBe(
+      "DOC Officer: assign driver",
+    );
     expect(nextActionLabelFor(null)).toBe("No action pending");
   });
 });

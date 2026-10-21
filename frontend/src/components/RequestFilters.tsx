@@ -1,5 +1,18 @@
 import { CalendarDays, Download, RefreshCw, Search } from "lucide-react";
-import { iconButtonClass, requestControlActionsClass, requestControlsClass, requestExportButtonClass, requestFilterClass, requestSearchClass, requestStatusBadgeActiveClass, requestStatusBadgeClass, requestStatusTabActiveClass, requestStatusTabClass, requestStatusTabsClass, requestToolbarClass } from "../lib/uiClasses";
+import {
+  iconButtonClass,
+  requestControlActionsClass,
+  requestControlsClass,
+  requestExportButtonClass,
+  requestFilterClass,
+  requestSearchClass,
+  requestStatusBadgeActiveClass,
+  requestStatusBadgeClass,
+  requestStatusTabActiveClass,
+  requestStatusTabClass,
+  requestStatusTabsClass,
+  requestToolbarClass,
+} from "../lib/uiClasses";
 import type { RequestFilters as Filters, Status } from "../types";
 
 export const statuses: Array<Status | "ALL"> = [
@@ -62,7 +75,11 @@ export function RequestFilters({
               <span>
                 {tab.value === "ALL" ? "All" : tab.value.replaceAll("_", " ")}
               </span>
-              <span className={`${requestStatusBadgeClass} ${active ? requestStatusBadgeActiveClass : ""}`}>{tab.count}</span>
+              <span
+                className={`${requestStatusBadgeClass} ${active ? requestStatusBadgeActiveClass : ""}`}
+              >
+                {tab.count}
+              </span>
             </button>
           );
         })}

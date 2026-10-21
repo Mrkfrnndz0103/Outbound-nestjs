@@ -76,8 +76,9 @@ vi.mock("../hooks/useOutboundRequests", () => ({
     refreshManually: vi.fn(),
   }),
 }));
-import { OutboundRequests } from "./OutboundRequests";
+
 import { MidmileRequests } from "./MidmileRequests";
+import { OutboundRequests } from "./OutboundRequests";
 
 const queue = { alerts: [], acknowledge: vi.fn() } as unknown as QueueSnapshot;
 const user = (role: User["role"]): User => ({

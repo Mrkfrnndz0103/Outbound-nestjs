@@ -1,8 +1,7 @@
 import { Printer, X } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { QRCodeSVG } from "qrcode.react";
-import type { TruckRequest } from "../types";
 import {
   driverQrClass,
   iconButtonClass,
@@ -25,6 +24,7 @@ import {
   truckLabelPlateClass,
   truckLabelValueClass,
 } from "../lib/uiClasses";
+import type { TruckRequest } from "../types";
 import { Modal } from "./Modal";
 
 type TemplateKind = "single" | "coload" | "triload";

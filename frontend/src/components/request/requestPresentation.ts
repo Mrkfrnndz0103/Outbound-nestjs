@@ -38,7 +38,9 @@ export function canEditDockedRequest(
   actorId: string,
   request: Pick<TruckRequest, "status" | "created_by">,
 ) {
-  return role === "ops_pic"
-    && actorId === request.created_by
-    && request.status === "DOCKED";
+  return (
+    role === "ops_pic" &&
+    actorId === request.created_by &&
+    request.status === "DOCKED"
+  );
 }

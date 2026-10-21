@@ -22,11 +22,7 @@ const groups: NotificationGroup[] = [
 describe("Notification4", () => {
   it("renders supplied notifications and exposes a dismissible panel", () => {
     const markup = renderToStaticMarkup(
-      <Notification4
-        groups={groups}
-        countLabel="1"
-        onDismiss={vi.fn()}
-      />,
+      <Notification4 groups={groups} countLabel="1" onDismiss={vi.fn()} />,
     );
 
     expect(markup).toContain("Request approved");

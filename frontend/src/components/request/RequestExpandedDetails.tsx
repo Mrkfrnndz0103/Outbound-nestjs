@@ -114,7 +114,10 @@ export function RequestExpandedDetails({
             <section className="min-w-0" key={fields[0]?.key}>
               <dl className="grid gap-2">
                 {fields.map(({ key, label, value }) => (
-                  <div className="min-w-0 border-b border-soc5-line pb-2" key={key}>
+                  <div
+                    className="min-w-0 border-b border-soc5-line pb-2"
+                    key={key}
+                  >
                     <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
                       {label}
                     </dt>

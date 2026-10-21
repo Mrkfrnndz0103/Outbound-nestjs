@@ -5,8 +5,11 @@ import { ApprovalStateBadge, approvalStateFor } from "./ApprovalStateBadge";
 describe("ApprovalStateBadge", () => {
   it("shows rerouting while a request is being reassigned", () => {
     expect(approvalStateFor("REROUTED", "PENDING")).toBe("routing");
-    expect(renderToStaticMarkup(<ApprovalStateBadge status="REROUTED" approvalStatus="PENDING" />))
-      .toContain("Rerouting");
+    expect(
+      renderToStaticMarkup(
+        <ApprovalStateBadge status="REROUTED" approvalStatus="PENDING" />,
+      ),
+    ).toContain("Rerouting");
   });
 
   it.each([

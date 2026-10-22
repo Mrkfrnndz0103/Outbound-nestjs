@@ -1,5 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRealtimeRecoveryTracker } from "./useRequestRealtime";
+import { createRealtimeRecoveryTracker, isNotificationForUser } from "./useRequestRealtime";
+
+describe("notification audience", () => {
+  const user = { id: "me", role: "fte_ops" } as const;
+  it("only sounds for the active role or explicitly addressed user", () => {
+    expect(isNotificationForUser({ target_role: "fte_ops" }, user)).toBe(true);
+    expect(isNotificationForUser({ target_role: "fte_mm" }, user)).toBe(false);
+    expect(isNotificationForUser({ user_id: "other", target_role: "fte_ops" }, user)).toBe(false);
+    expect(isNotificationForUser({ user_id: "me" }, user)).toBe(true);
+    expect(isNotificationForUser({}, user)).toBe(false);
+  });
+});
 
 async function settleRecovery() {
   await Promise.resolve();

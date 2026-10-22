@@ -1,807 +1,948 @@
 import {
-  ArrowUpDown,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  MoreHorizontal,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  X,
+  RequestDetailRow,
+  RequestRecordHead,
+  RequestRecordRow,
+} from "../components/request/RequestRecordTable";
+import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
+import {
+  BadgeCheck,
+  CircleCheck,
+  Clock3,
+  Hash,
+  LayoutGrid,
+  ListChecks,
+  Printer,
+  RefreshCw,
+  Table2,
+  Truck,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { TruckRequest, User } from "../types";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { textButtonClass } from "../lib/uiClasses";
+import {
+  compactRequestRowClass,
+  inlineCreateShellClass,
+  recordsScrollClass,
+  recordsTableClass,
+  requestApproveClass,
+  requestCheckboxClass,
+  requestExpandedRowClass,
+  requestPageClass,
+  requestRejectClass,
+  requestRowClass,
+  requestSelectedRowClass,
+  requestTableBodyClass,
+  requestToolbarIconClass,
+  requestViewToggleClass,
+  requestWorkspaceClass,
+  tableShellClass,
+} from "../lib/uiClasses";
+import {
+  ApprovalStateBadge,
+  approvalStateFor,
+} from "../components/approval/ApprovalStateBadge";
+import {
+  linehaulColumnOptions,
+  linehaulPrimaryColumnKeys,
+} from "../components/ColumnVisibilityMenu";
+import { LhRowActionMenu } from "../components/LhRowActionMenu";
+import { LhTableToolbar } from "../components/LhTableToolbar";
+import {
+  OutboundRejectDialog,
+  OutboundCancelDialog,
+  OutboundRequestDrawer,
+} from "../components/request/OutboundRequestOverlays";
+import { Pagination } from "../components/Pagination";
+import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
+import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
+import { StatusBadge, StatusText } from "../components/StatusBadge";
+import { RequestElapsedTime } from "../components/RequestTable";
+import { RequestExpandButton } from "../components/request/RequestExpandButton";
+import { RequestCancellationRemarks } from "../components/request/RequestCancellationRemarks";
+import {
+  canEditDockedRequest,
+  displayRequestValue as displayValue,
+  displayRequestActor,
+  formatRequestDateTime as formatDateTime,
+  formatRequestDetailDateTime as formatDetailDateTime,
+} from "../components/request/requestPresentation";
+import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
 import { useOutboundRequests } from "../hooks/useOutboundRequests";
-import { MidmileActionDialog } from "../components/request/MidmileActionDialog";
-import { DockDialog } from "../components/request/DockDialog";
-import { api } from "../lib/api";
-import { workflowActionPath } from "../lib/workflow";
-import type { WorkflowAction } from "../lib/workflow";
+import type { QueueSnapshot } from "../hooks/useQueueNotifications";
+import { openRequestsSheet } from "../lib/requests";
+import type { TruckRequest, User } from "../types";
 
-// SLA thresholds are intentionally configurable in one place.
-const SLA_GREEN_HOURS = 4;
-const SLA_AMBER_HOURS = 24;
-type Status =
-  | "Pending"
-  | "Approved"
-  | "Requested"
-  | "Rerouted"
-  | "Assigned"
-  | "Docking"
-  | "Docked"
-  | "Rejected"
-  | "Cancelled";
-const STATUSES: Status[] = [
-  "Pending",
-  "Approved",
-  "Requested",
-  "Rerouted",
-  "Assigned",
-  "Docking",
-  "Docked",
-  "Rejected",
-  "Cancelled",
-];
-const STATUS_ACTIONS: Partial<
-  Record<
-    Status,
-    {
-      label: string;
-      next: Status;
-      apiAction: WorkflowAction;
-      danger?: boolean;
-    }[]
-  >
-> = {
-  Requested: [
-    { label: "Assign truck", next: "Assigned", apiAction: "assign-truck" },
-  ],
-  Pending: [
-    { label: "Approve", next: "Approved", apiAction: "approve" },
-    {
-      label: "Reject",
-      next: "Rejected",
-      apiAction: "reject-ops",
-      danger: true,
-    },
-  ],
-  Docking: [{ label: "Mark docked", next: "Docked", apiAction: "mark-docked" }],
-};
-// UI access follows the same role boundaries as the workflow API.
-const ACTION_ROLES: Partial<Record<Status, User["role"][]>> = {
-  Pending: ["fte_ops"],
-  Requested: ["fte_mm"],
-  Docking: ["doc_officer", "ops_pic"],
-};
-function actionsFor(status: Status, role: User["role"]) {
-  return ACTION_ROLES[status]?.includes(role)
-    ? (STATUS_ACTIONS[status] ?? [])
-    : [];
+const InlineCreateRow = lazy(() =>
+  import("../components/OutboundRequestForms").then(({ InlineCreateRow }) => ({
+    default: InlineCreateRow,
+  })),
+);
+
+const OutboundEditDialog = lazy(() =>
+  import("../components/request/OutboundEditDialog").then((module) => ({ default: module.OutboundEditDialog })),
+);
+
+function formatCluster(value: string) {
+  return value
+    .split(",")
+    .map((cluster) => cluster.trim())
+    .filter(Boolean)
+    .join(" · ");
 }
-const COLS = [
-  "runningTime",
-  "requestTime",
-  "cluster",
-  "region",
-  "dock",
-  "backlogs",
-  "plateNumber",
-  "lhSize",
-  "linehaulTrip",
-] as const;
-type Col = (typeof COLS)[number];
-const LABELS: Record<Col, string> = {
-  runningTime: "Running time",
-  requestTime: "Request time",
-  cluster: "Cluster",
-  region: "Region",
-  dock: "Dock",
-  backlogs: "Backlogs",
-  plateNumber: "Plate number",
-  lhSize: "LH size",
-  linehaulTrip: "Linehaul trip",
-};
-const DOT: Record<Status, string> = {
-  Pending: "bg-[#f0a11a]",
-  Approved: "bg-[#2d8a62]",
-  Requested: "bg-[#2e80b9]",
-  Rerouted: "bg-[#8b63c7]",
-  Assigned: "bg-[#3375d6]",
-  Docking: "bg-[#d47a22]",
-  Docked: "bg-[#24765a]",
-  Rejected: "bg-[#c45454]",
-  Cancelled: "bg-[#8b9298]",
-};
-const TONE: Record<Status, string> = {
-  Pending: "bg-[#fff7e7] text-[#9a640b]",
-  Approved: "bg-[#edf8f1] text-[#28724f]",
-  Requested: "bg-[#edf6fb] text-[#2e6d98]",
-  Rerouted: "bg-[#f4effb] text-[#7655a8]",
-  Assigned: "bg-[#edf3ff] text-[#3568b3]",
-  Docking: "bg-[#fff2e6] text-[#a65b18]",
-  Docked: "bg-[#edf8f1] text-[#28724f]",
-  Rejected: "bg-[#fff0f0] text-[#a44a4a]",
-  Cancelled: "bg-[#f1f2f3] text-[#6e767c]",
-};
-const labelStatus = (status: TruckRequest["status"]): Status =>
-  (
-    ({
-      PENDING: "Pending",
-      REQUESTED: "Requested",
-      CANCELLED: "Cancelled",
-      REJECTED: "Rejected",
-      REROUTED: "Rerouted",
-      ASSIGNED: "Assigned",
-      DOCKING: "Docking",
-      DOCKED: "Docked",
-    }) as Record<TruckRequest["status"], Status>
-  )[status] ?? "Requested";
-const hoursSince = (value?: string) =>
-  value ? Math.max(0, (Date.now() - new Date(value).getTime()) / 3600000) : 0;
-const formatDate = (value?: string) =>
-  value
-    ? new Intl.DateTimeFormat("en-SG", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(new Date(value))
-    : "-";
-const formatHours = (hours: number) =>
-  hours < 1
-    ? `${Math.round(hours * 60)}m`
-    : `${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m`;
+function canApproveRequest(role: User["role"], row: TruckRequest) {
+  return role === "fte_ops"
+    && (row.status === "PENDING" || row.status === "REROUTED")
+    && approvalStateFor(row.status, row.approval_status) === "pending";
+}
+function shouldRenderExpandedField(
+  fieldKey: string,
+  visibleColumns: readonly string[],
+) {
+  return !visibleColumns.includes(fieldKey);
+}
+
+function expandedRequestGroups(
+  row: TruckRequest,
+  visibleColumns: readonly string[],
+) {
+  const groups = [
+    {
+      title: "Timing",
+      fields: [
+        {
+          key: "backlogsTime",
+          label: "Backlogs Time Stamp",
+          value: formatDetailDateTime(row.backlogs_timestamp),
+        },
+        {
+          key: "provideTime",
+          label: "Provide Time",
+          value: formatDetailDateTime(row.provide_time),
+        },
+        {
+          key: "assignedTime",
+          label: "Assigned Time",
+          value: formatDetailDateTime(row.driver_assigned_at),
+        },
+      ],
+    },
+    {
+      title: "Assignment",
+      fields: [
+        {
+          key: "opsFte",
+          label: "SOC PIC \u00b7 FTE Ops",
+          value: displayValue(row.ob_fte_name ?? row.ob_fte),
+        },
+        {
+          key: "mmFte",
+          label: "MM FTE",
+          value: displayRequestActor(row.mm_fte_name, row.mm_fte_id),
+        },
+        {
+          key: "opsPic",
+          label: "OPS PIC",
+          value: displayValue(row.ob_fte_name ?? row.ob_fte),
+        },
+      ],
+    },
+    {
+      title: "Operations",
+      fields: [
+        {
+          key: "lhTypeRequest",
+          label: "Truck Type",
+          value: displayValue(row.truck_type),
+        },
+        {
+          key: "lhTypeInput",
+          label: "LH Type (input by FTE MM)",
+          value: "Same as Truck Type",
+        },
+        {
+          key: "docOfficer",
+          label: "Doc Officer",
+          value: displayRequestActor(row.doc_officer_name, row.doc_officer_id),
+        },
+      ],
+    },
+  ];
+
+  return groups
+    .map((group) => ({
+      ...group,
+      fields: group.fields.filter(({ key }) =>
+        shouldRenderExpandedField(key, visibleColumns),
+      ),
+    }))
+    .filter((group) => group.fields.length > 0);
+}
 
 export function OutboundRequests({
   user: _user,
   queue: _queue,
 }: {
   user: User;
-  queue: unknown;
+  queue: QueueSnapshot;
 }) {
   const {
-    rows: sourceRows,
+    filters,
+    setFilters,
+    changeFilters,
     requests,
+    rows,
+    creating,
+    setCreating,
+    editing,
+    setEditing,
+    toast,
+    createRequest,
+    updateRequest,
     approveRequests,
     rejectRequest,
+    cancelRequest,
+    sortBy,
     refreshManually,
+    lastRefreshReason,
+    dataUpdatedAt,
   } = useOutboundRequests();
-  const [tab, setTab] = useState<Status | "All">("All");
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({
-    region: "All",
-    cluster: "All",
-    dock: "All",
-    lhSize: "All",
-  });
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [columnsOpen, setColumnsOpen] = useState(false);
-  const [secondaryOpen, setSecondaryOpen] = useState<string | null>(null);
-  const [assignment, setAssignment] = useState<{
-    request: TruckRequest;
-    action: "assign-truck";
-  } | null>(null);
-  const [assignmentBusy, setAssignmentBusy] = useState(false);
-  const [assignmentError, setAssignmentError] = useState<string | undefined>();
-  const [docking, setDocking] = useState<TruckRequest | null>(null);
-  const [dockingBusy, setDockingBusy] = useState(false);
-  const [visible, setVisible] = useState<Col[]>(
-    COLS.filter((key) => key !== "linehaulTrip"),
+  const [view, setView] = useState<"table" | "card">("table");
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [printRequest, setPrintRequest] = useState<TruckRequest | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<TruckRequest | null>(
+    null,
   );
-  const [sort, setSort] = useState<{
-    key: Col | "default";
-    direction: "asc" | "desc";
-  }>({ key: "default", direction: "desc" });
-  const rows = useMemo(
-    () =>
-      sourceRows.map((row) => ({
-        ...row,
-        displayStatus:
-          row.status === "PENDING" && row.approval_status === "APPROVED"
-            ? "Approved"
-            : labelStatus(row.status),
-        runningTime: hoursSince(row.request_timestamp ?? row.created_at),
-        requestTime: row.request_timestamp ?? row.created_at,
-        dock: row.dock_no,
-        plateNumber: row.plate_number,
-        lhSize: row.truck_size,
-        linehaulTrip: row.linehaul_trip_no,
-      })),
-    [sourceRows],
-  );
-  const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        STATUSES.map((status) => [
-          status,
-          rows.filter((row) => row.displayStatus === status).length,
-        ]),
-      ) as Record<Status, number>,
-    [rows],
-  );
-  const maxBacklog = Math.max(1, ...rows.map((row) => row.backlogs));
-  const options = useMemo(
-    () => ({
-      region: ["All", ...new Set(rows.map((row) => row.region))],
-      cluster: ["All", ...new Set(rows.map((row) => row.cluster))],
-      dock: ["All", ...new Set(rows.map((row) => row.dock))],
-      lhSize: ["All", ...new Set(rows.map((row) => row.lhSize))],
-    }),
-    [rows],
-  );
-  const shown = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const filtered = rows.filter(
-      (row) =>
-        (tab === "All" || row.displayStatus === tab) &&
-        (!query ||
-          `${row.cluster} ${row.dock} ${row.plateNumber ?? ""}`
-            .toLowerCase()
-            .includes(query)) &&
-        Object.entries(filters).every(
-          ([key, value]) =>
-            value === "All" || row[key as keyof typeof row] === value,
-        ),
+  const drawerTrigger = useRef<HTMLElement | null>(null);
+  const printTrigger = useRef<HTMLElement | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [rejecting, setRejecting] = useState<TruckRequest | null>(null);
+  const [cancelling, setCancelling] = useState<TruckRequest | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const { visibleColumns, updateColumns, density, setDensity } =
+    useLinehaulTablePreferences(
+      "outbound",
+      linehaulColumnOptions.map(({ key }) => key),
+      linehaulPrimaryColumnKeys,
     );
-    return filtered.sort((a, b) => {
-      if (sort.key === "default")
-        return a.displayStatus === "Pending" && b.displayStatus !== "Pending"
-          ? -1
-          : b.displayStatus === "Pending" && a.displayStatus !== "Pending"
-            ? 1
-            : b.runningTime - a.runningTime;
-      const av = a[sort.key];
-      const bv = b[sort.key];
-      return (
-        String(av ?? "").localeCompare(String(bv ?? ""), undefined, {
-          numeric: true,
-        }) * (sort.direction === "asc" ? 1 : -1)
-      );
+  const hasColumn = (key: string) =>
+    (visibleColumns as readonly string[]).includes(key);
+  function exportRows() {
+    if (exporting) return;
+    setExporting(true);
+    openRequestsSheet();
+    window.setTimeout(() => setExporting(false), 700);
+  }
+  const canApprove = _user.role === "fte_ops";
+  const canEdit = _user.role === "fte_ops";
+  const eligibleApprovalRows = rows.filter((row) => canApproveRequest(_user.role, row));
+  const eligibleApprovalIds = new Set(eligibleApprovalRows.map((row) => row.id));
+  const selectedApprovalIds = eligibleApprovalRows
+    .filter((row) => selectedIds.has(row.id))
+    .map((row) => row.id);
+  const selectedCount = selectedApprovalIds.length;
+  const allEligibleSelected = eligibleApprovalRows.length > 0 && selectedCount === eligibleApprovalRows.length;
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const eligibleIds = new Set(rows.filter((row) => canApproveRequest(_user.role, row)).map((row) => row.id));
+      const next = new Set([...current].filter((id) => eligibleIds.has(id)));
+      return next.size === current.size ? current : next;
     });
-  }, [rows, tab, search, filters, sort]);
-  const primary: (Status | "All")[] = ["All", "Pending", "Approved", "Docking"];
-  const moreTabs = STATUSES.filter((status) => !primary.includes(status));
-  const overSla = rows.filter(
-    (row) =>
-      row.displayStatus === "Pending" && row.runningTime > SLA_AMBER_HOURS,
-  ).length;
-  const action = async (
-    row: (typeof rows)[number],
-    next: Status,
-    apiAction: WorkflowAction,
-  ) => {
-    if (
-      !actionsFor(row.displayStatus, _user.role).some(
-        (item) => item.apiAction === apiAction && item.next === next,
-      )
-    ) {
-      return;
-    }
-    if (apiAction === "approve") {
-      approveRequests.mutate({
-        ids: [row.id],
-        operationId: `${row.id}-approve-${Date.now()}`,
-      });
-      return;
-    }
-    if (apiAction === "assign-truck") {
-      const request = sourceRows.find((item) => item.id === row.id);
-      if (!request) return;
-      setAssignmentError(undefined);
-      setAssignment({ request, action: "assign-truck" });
-      return;
-    }
-    if (apiAction === "mark-docked") {
-      const request = sourceRows.find((item) => item.id === row.id);
-      if (!request) return;
-      setDocking(request);
-      return;
-    }
-    if (apiAction === "reject-ops") {
-      rejectRequest.mutate({
-        id: row.id,
-        rejection_remarks: "Rejected from LH Request control tower",
-      });
-      return;
-    }
-    try {
-      await api(workflowActionPath(row.id, apiAction), {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      refreshManually();
-    } catch {
-      /* The shared request notice surfaces the next refresh error. */
-    }
-  };
-  const clearFilters = () => {
-    setFilters({ region: "All", cluster: "All", dock: "All", lhSize: "All" });
-    setSearch("");
-  };
+  }, [rows, _user.role]);
+  const approvalLabel = `Approve selected (${selectedCount})`;
+  const canActOnApproval = (row: TruckRequest) => canApproveRequest(_user.role, row);
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleExpanded(row: TruckRequest) {
+    setExpandedRow((current) => (current === row.id ? null : row.id));
+    _queue.acknowledge(row.id);
+  }
+
+  function approveSelected() {
+    const ids = selectedApprovalIds;
+    if (!ids.length) return;
+    approveRequests.mutate({ ids, operationId: crypto.randomUUID() }, {
+      onSuccess: () => setSelectedIds(new Set()),
+    });
+  }
+
+  function selectAllEligible(checked: boolean) {
+    setSelectedIds(checked ? new Set(eligibleApprovalIds) : new Set());
+    if (checked) eligibleApprovalRows.forEach((row) => _queue.acknowledge(row.id));
+  }
+
+  function canEditRow(row: TruckRequest) {
+    if (canEdit && canActOnApproval(row)) return true;
+    if (canEditDockedRequest(_user.role, _user.id, row)) return true;
+    return row.status === "REJECTED" && row.next_action_role === _user.role
+      && (_user.role === "fte_ops" || _user.role === "ops_pic");
+  }
+
+  function canCancelRow(row: TruckRequest) {
+    return _user.role === "fte_ops" && (
+      row.status === "PENDING" || row.status === "REROUTED" ||
+      (row.status === "REJECTED" && row.next_action_role === "fte_ops")
+    );
+  }
+
+  function openCancellation(row: TruckRequest) {
+    cancelRequest.reset();
+    setCancelling(row);
+    setOpenRow(null);
+    _queue.acknowledge(row.id);
+  }
+
+  const emptyMessage = requests.isFetching || requests.error || requests.isPlaceholderData
+    ? "No requests in the last successful results."
+    : "No live requests match the current filters.";
+
   return (
-    <main className="min-h-full bg-[#f5f6f6] px-4 py-5 text-[#242628] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1600px]">
-        <section className="mb-4 rounded-xl border border-[#e1e4e5] bg-white p-4">
-          <div
-            className="flex flex-wrap items-center gap-1.5"
-            role="tablist"
-            aria-label="Request status"
-          >
-            {primary.map((status) => (
-              <button
-                key={status}
-                role="tab"
-                aria-selected={tab === status}
-                onClick={() => setTab(status)}
-                className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-semibold ${tab === status ? "bg-[#242628] text-white" : status !== "All" && counts[status] === 0 ? "text-[#b4bbbe] hover:bg-[#f6f7f7]" : "text-[#687278] hover:bg-[#f1f3f3]"}`}
-              >
-                <span
-                  className={`size-1.5 rounded-full ${status === "All" ? "bg-[#8c9599]" : DOT[status]}`}
-                />
-                {status}
-                <span className="rounded bg-[#f0f2f2] px-1.5 py-0.5 text-[10px]">
-                  {status === "All" ? rows.length : counts[status]}
-                </span>
-              </button>
-            ))}
-            <div className="relative">
-              <button
-                onClick={() => setMoreOpen(!moreOpen)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-[#687278] hover:bg-[#f1f3f3]"
-              >
-                More{" "}
-                <span className="rounded bg-[#f0f2f2] px-1.5 py-0.5 text-[10px]">
-                  {moreTabs.reduce(
-                    (total, status) => total + counts[status],
-                    0,
-                  )}
-                </span>
-                <ChevronDown size={13} />
-              </button>
-              {moreOpen && (
-                <div className="absolute left-0 top-10 z-30 w-44 rounded-lg border border-[#e1e4e5] bg-white p-1.5 shadow-lg">
-                  {moreTabs.map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => {
-                        setTab(status);
-                        setMoreOpen(false);
-                      }}
-                      className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-xs hover:bg-[#f5f6f6]"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span
-                          className={`size-1.5 rounded-full ${DOT[status]}`}
-                        />
-                        {status}
-                      </span>
-                      <span>{counts[status]}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="ml-auto flex gap-2">
-              <button className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#242628] px-3 text-xs font-semibold text-white hover:bg-black">
-                <Download size={14} />
-                Export
-              </button>
-              <button className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#2563eb] px-3 text-xs font-semibold text-white hover:bg-[#1e52c5]">
-                <Plus size={15} />
-                Add new
-              </button>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-lg bg-[#fff7e7] px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a16a0c]">
-                SLA watch
-              </p>
-              <p className="mt-0.5 text-sm font-semibold text-[#80550d]">
-                {overSla} Pending over SLA
-              </p>
-            </div>
-            <div className="rounded-lg bg-[#fff2e6] px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a65b18]">
-                At dock
-              </p>
-              <p className="mt-0.5 text-sm font-semibold text-[#824915]">
-                {counts.Docking} Docking
-              </p>
-            </div>
-            <div className="rounded-lg bg-[#fff0f0] px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a44a4a]">
-                Peak backlog
-              </p>
-              <p className="mt-0.5 text-sm font-semibold text-[#873d3d]">
-                Highest backlog:{" "}
-                {rows.length
-                  ? rows.reduce(
-                      (peak, row) =>
-                        row.backlogs > peak.backlogs ? row : peak,
-                      rows[0],
-                    ).dock
-                  : "-"}
-              </p>
-            </div>
-          </div>
-        </section>
-        <section className="overflow-hidden rounded-xl border border-[#e1e4e5] bg-white">
-          <div className="flex flex-wrap items-center gap-2 border-b border-[#edf0f0] p-3">
-            <div className="relative min-w-[220px] flex-1">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a9499]"
-              />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search cluster, dock, plate number"
-                className="h-9 w-full rounded-lg border border-[#dfe3e4] bg-[#fbfcfc] pl-9 pr-3 text-xs outline-none focus:border-[#2563eb]"
-              />
-            </div>
-            {(["region", "cluster", "dock", "lhSize"] as const).map((key) => (
-              <select
-                key={key}
-                value={filters[key]}
-                onChange={(event) =>
-                  setFilters({ ...filters, [key]: event.target.value })
+    <div className={requestPageClass}>
+      <section className={requestWorkspaceClass} aria-label="Linehaul requests">
+        {editing && (
+            <Suspense fallback={null}>
+              <OutboundEditDialog
+                request={editing}
+                requireRemarks={_user.role === "fte_ops"}
+                returnFocus={drawerTrigger.current}
+                busy={updateRequest.isPending}
+                error={updateRequest.error?.message}
+                onClose={() => {
+                  updateRequest.reset();
+                  setEditing(null);
+                }}
+                onSubmit={(payload) =>
+                  updateRequest.mutate({ id: editing.id, payload })
                 }
-                className="h-9 min-w-[112px] rounded-lg border border-[#dfe3e4] bg-white px-3 text-xs font-medium text-[#59646a]"
-              >
-                <option value="All">
-                  {key === "lhSize"
-                    ? "LH Size"
-                    : key[0].toUpperCase() + key.slice(1)}
-                  : All
-                </option>
-                {options[key].slice(1).map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            ))}
-            <button
-              onClick={clearFilters}
-              className="inline-flex h-9 items-center gap-1 px-2 text-xs font-semibold text-[#2563eb] hover:underline"
-            >
-              <X size={13} />
-              Clear filters
-            </button>
-            <div className="relative ml-auto">
+              />
+            </Suspense>
+        )}
+        {creating && (
+          <div className={inlineCreateShellClass}>
+            <Suspense fallback={null}>
+              <InlineCreateRow
+                busy={createRequest.isPending}
+                error={createRequest.error?.message}
+                onCancel={() => {
+                  createRequest.reset();
+                  setCreating(false);
+                }}
+                onSubmit={(payload) => createRequest.mutate(payload)}
+              />
+            </Suspense>
+          </div>
+        )}
+        {printRequest && (
+          <PrintableTruckLabel
+            request={printRequest}
+            returnFocus={printTrigger.current}
+            onClose={() => setPrintRequest(null)}
+          />
+        )}
+        <section
+          className={tableShellClass}
+          aria-label="Outbound linehaul request records"
+        >
+          <div className="relative z-20 flex min-w-0 flex-wrap items-center justify-start gap-2 border-b border-soc5-line bg-linehaul-surface-soft px-2.5 py-1.5 max-[680px]:flex-col max-[680px]:items-stretch max-[680px]:gap-1.5 max-[680px]:p-[.45rem]">
+            <LhTableToolbar
+              filters={filters}
+              onChange={changeFilters}
+              onSort={sortBy}
+              onExport={exportRows}
+              onAddNew={() => {
+                createRequest.reset();
+                setCreating(true);
+              }}
+              showCreateNew={_user.role === "ops_pic" || canApprove}
+              visibleColumns={visibleColumns}
+              onColumnsChange={updateColumns}
+              density={density}
+              onDensityChange={setDensity}
+              exporting={exporting}
+              lastUpdated={dataUpdatedAt}
+              refreshReason={lastRefreshReason}
+            />
+            <div className="flex min-w-0 items-center gap-1.5">
               <button
-                onClick={() => setColumnsOpen(!columnsOpen)}
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#dfe3e4] px-3 text-xs font-semibold text-[#59646a]"
+                className={`${requestToolbarIconClass}${requests.isFetching ? " animate-spin" : ""}`}
+                type="button"
+                aria-label={
+                  requests.isFetching ? "Refreshing records" : "Refresh records"
+                }
+                title={
+                  requests.isFetching ? "Refreshing records" : "Refresh records"
+                }
+                aria-busy={requests.isFetching}
+                disabled={requests.isFetching}
+                onClick={refreshManually}
               >
-                <SlidersHorizontal size={14} />
-                Columns
+                <RefreshCw size={16} aria-hidden="true" />
               </button>
-              {columnsOpen && (
-                <div className="absolute right-0 top-10 z-20 w-48 rounded-lg border border-[#e1e4e5] bg-white p-2 shadow-lg">
-                  {COLS.map((key) => (
-                    <label
-                      key={key}
-                      className="flex items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[#f5f6f6]"
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {canApprove && eligibleApprovalRows.length > 0 && (
+                <label className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-soc5-muted">
+                  <input
+                    type="checkbox"
+                    className={requestCheckboxClass}
+                    aria-label="Select all eligible requests"
+                    aria-checked={selectedCount > 0 && !allEligibleSelected ? "mixed" : allEligibleSelected}
+                    checked={allEligibleSelected}
+                    disabled={approveRequests.isPending}
+                    onChange={(event) => selectAllEligible(event.target.checked)}
+                  />
+                  Select all
+                </label>
+              )}
+              {canApprove && selectedCount > 0 && (
+                <button
+                  type="button"
+                  className={`${requestApproveClass} h-8! whitespace-nowrap px-3!`}
+                  disabled={approveRequests.isPending}
+                  onClick={approveSelected}
+                >
+                  {approvalLabel}
+                </button>
+              )}
+              <fieldset
+                className={requestViewToggleClass}
+                style={{ border: 0, margin: 0, padding: 0 }}
+                aria-label="Request view"
+              >
+                <button
+                  className={requestToolbarIconClass}
+                  type="button"
+                  aria-label="Table"
+                  title="Table"
+                  aria-pressed={view === "table"}
+                  onClick={() => setView("table")}
+                >
+                  <Table2 size={16} aria-hidden="true" />
+                </button>
+                <button
+                  className={requestToolbarIconClass}
+                  type="button"
+                  aria-label="Card"
+                  title="Card"
+                  aria-pressed={view === "card"}
+                  onClick={() => setView("card")}
+                >
+                  <LayoutGrid size={16} aria-hidden="true" />
+                </button>
+              </fieldset>
+            </div>
+            <RequestFetchNotice
+              hasData={requests.data !== undefined}
+              fetching={requests.isFetching}
+              previousFilters={requests.isPlaceholderData}
+              error={requests.error}
+              onRetry={refreshManually}
+            />
+          </div>
+          {view === "table" ? (
+            <div className={recordsScrollClass}>
+              <table
+                aria-label="Request records"
+                className={recordsTableClass}
+                style={{
+                  gridTemplateColumns: `5rem repeat(${visibleColumns.length}, minmax(7rem, 1fr)) 4rem`,
+                  minWidth: `${visibleColumns.length * 7 + 9}rem`,
+                }}
+              >
+                <RequestRecordHead
+                  sort={filters.sort}
+                  direction={filters.direction}
+                >
+                  <span>
+                    <span className="sr-only">Row controls</span>
+                  </span>
+                  {hasColumn("status") && (
+                    <span>
+                      <CircleCheck size={14} />
+                      Status
+                    </span>
+                  )}
+                  {hasColumn("runningTime") && (
+                    <span>
+                      <Clock3 size={14} />
+                      Running time
+                    </span>
+                  )}
+                  {hasColumn("requestTime") && (
+                    <button
+                      type="button"
+                      data-sort="request_timestamp"
+                      onClick={() => sortBy("request_timestamp")}
                     >
-                      <input
-                        type="checkbox"
-                        checked={visible.includes(key)}
-                        onChange={() =>
-                          setVisible((current) =>
-                            current.includes(key)
-                              ? current.filter((item) => item !== key)
-                              : [...current, key],
-                          )
-                        }
-                        className="accent-[#2563eb]"
+                      <Clock3 size={14} />
+                      <span>Request Time</span>
+                    </button>
+                  )}
+                  {hasColumn("cluster") && (
+                    <button
+                      type="button"
+                      data-sort="cluster"
+                      onClick={() => sortBy("cluster")}
+                    >
+                      <Hash size={14} />
+                      <span>Cluster</span>
+                    </button>
+                  )}
+                  {hasColumn("region") && (
+                    <span>
+                      <BadgeCheck size={14} />
+                      Region
+                    </span>
+                  )}
+                  {hasColumn("dock") && (
+                    <button
+                      type="button"
+                      data-sort="dock_no"
+                      onClick={() => sortBy("dock_no")}
+                    >
+                      <Truck size={14} />
+                      <span>Dock #</span>
+                    </button>
+                  )}
+                  {hasColumn("backlogs") && (
+                    <button
+                      type="button"
+                      data-sort="backlogs"
+                      onClick={() => sortBy("backlogs")}
+                    >
+                      <ListChecks size={14} />
+                      <span>Backlogs</span>
+                    </button>
+                  )}
+                  {hasColumn("backlogsTime") && (
+                    <span>Backlogs Time Stamp</span>
+                  )}
+                  {hasColumn("lhTypeRequest") && <span>LH Type (Request)</span>}
+                  {hasColumn("opsFte") && <span>Ops FTE</span>}
+                  {hasColumn("plateNumber") && (
+                    <button
+                      type="button"
+                      data-sort="plate_number"
+                      onClick={() => sortBy("plate_number")}
+                    >
+                      <Hash size={14} />
+                      <span>Plate number</span>
+                    </button>
+                  )}
+                  {hasColumn("mmFte") && <span>MM FTE</span>}
+                  {hasColumn("truckSize") && (
+                    <span>
+                      <Truck size={14} />
+                      LH Size
+                    </span>
+                  )}
+                  {hasColumn("lhTypeInput") && (
+                    <span>LH type (input by FTE MM)</span>
+                  )}
+                  {hasColumn("provideTime") && <span>Provide Time</span>}
+                  {hasColumn("linehaulTrip") && <span>Linehaul Trip</span>}
+                  {hasColumn("assignedTime") && <span>Assigned time</span>}
+                  {hasColumn("dockedTime") && <span>Docked Time</span>}
+                  {hasColumn("docOfficer") && <span>DOC Officer</span>}
+                  {hasColumn("opsPic") && <span>OPS/PIC</span>}
+                  <span className="justify-center">
+<span className="sr-only">Actions</span>
+                  </span>
+                </RequestRecordHead>
+                <tbody className={requestTableBodyClass}>
+                  {requests.isPending && (
+                    <RequestDetailRow columns={visibleColumns.length + 2}>
+                      <SkeletonRequestTable
+                        rows={6}
+                        columns={visibleColumns.length + 2}
                       />
-                      {LABELS[key]}
-                    </label>
-                  ))}
-                </div>
+                    </RequestDetailRow>
+                  )}
+                  {rows.map((row, index) => {
+                      const isExpanded = expandedRow === row.id;
+                      const isAlerting = _queue.alerts.some((alert) => alert.id === row.id);
+                      return (
+                        <Fragment key={row.id}>
+                          <RequestRecordRow
+                            className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${isExpanded ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${isAlerting ? "request-alert-blink" : ""}`}
+                            style={
+                              { "--row-index": index } as React.CSSProperties
+                            }
+                          >
+                            <span className="flex min-w-max items-center gap-2 overflow-visible whitespace-nowrap">
+                              <RequestExpandButton
+                                requestId={row.id}
+                                expanded={isExpanded}
+                                onToggle={() => toggleExpanded(row)}
+                              />
+                              {canApprove &&
+                                (row.status === "PENDING" ||
+                                  row.status === "REROUTED") && (
+                                  <input
+                                    type="checkbox"
+                                    className={requestCheckboxClass}
+                                    aria-label={`Select request ${row.id}`}
+                                    checked={
+                                      row.approval_status === "APPROVED" ||
+                                      selectedIds.has(row.id)
+                                    }
+                                    disabled={
+                                      approvalStateFor(
+                                        row.status,
+                                        row.approval_status,
+                                      ) !== "pending" ||
+                                      approveRequests.isPending
+                                    }
+                                    onChange={() => { toggleSelected(row.id); _queue.acknowledge(row.id); }}
+                                    onClick={(event) =>
+                                      event.stopPropagation()
+                                    }
+                                  />
+                              )}
+                            </span>
+                            {hasColumn("status") && (
+                              <span className="flex items-center gap-2">
+                                <StatusText status={row.display_status ?? row.status} />
+                                <ApprovalStateBadge
+                                  status={row.status}
+                                  approvalStatus={row.approval_status}
+                                />
+                              </span>
+                            )}
+                            {hasColumn("runningTime") && (
+                              <RequestElapsedTime request={row} />
+                            )}
+                            {hasColumn("requestTime") && (
+                              <span>
+                                {formatDateTime(row.request_timestamp)}
+                              </span>
+                            )}
+                            {hasColumn("cluster") && (
+                              <span title={row.cluster}>{row.cluster}</span>
+                            )}
+                            {hasColumn("region") && <span>{row.region}</span>}
+                            {hasColumn("dock") && <span>{row.dock_no}</span>}
+                            {hasColumn("backlogs") && (
+                              <span>{row.backlogs.toLocaleString()}</span>
+                            )}
+                            {hasColumn("backlogsTime") && (
+                              <span>
+                                {formatDateTime(row.backlogs_timestamp)}
+                              </span>
+                            )}
+                            {hasColumn("lhTypeRequest") && (
+                              <span>{displayValue(row.truck_type)}</span>
+                            )}
+                            {hasColumn("opsFte") && (
+                              <span>
+                                {displayValue(row.ob_fte_name ?? row.ob_fte)}
+                              </span>
+                            )}
+                            {hasColumn("plateNumber") && (
+                              <span>{displayValue(row.plate_number)}</span>
+                            )}
+                            {hasColumn("mmFte") && (
+                              <span>
+                                {displayRequestActor(row.mm_fte_name, row.mm_fte_id)}
+                              </span>
+                            )}
+                            {hasColumn("truckSize") && (
+                              <span>{row.truck_size}</span>
+                            )}
+                            {hasColumn("lhTypeInput") && (
+                              <span>{displayValue(row.truck_type)}</span>
+                            )}
+                            {hasColumn("provideTime") && (
+                              <span>{formatDateTime(row.provide_time)}</span>
+                            )}
+                            {hasColumn("linehaulTrip") && (
+                              <span>{displayValue(row.linehaul_trip_no)}</span>
+                            )}
+                            {hasColumn("assignedTime") && <span>{formatDateTime(row.driver_assigned_at)}</span>}
+                            {hasColumn("dockedTime") && (
+                              <span>{formatDateTime(row.docked_time)}</span>
+                            )}
+                            {hasColumn("docOfficer") && (
+                              <span>
+                                {displayRequestActor(row.doc_officer_name, row.doc_officer_id)}
+                              </span>
+                            )}
+                            {hasColumn("opsPic") && (
+                              <span>
+                                {displayValue(row.ob_fte_name ?? row.ob_fte)}
+                              </span>
+                            )}
+                            <LhRowActionMenu
+                              open={openRow === row.id}
+                              ariaLabel={`Actions for request ${row.id}`}
+                              onToggle={() => {
+                                drawerTrigger.current = document.activeElement instanceof HTMLElement
+                                  ? document.activeElement : null;
+                                setOpenRow(openRow === row.id ? null : row.id);
+                              }}
+                            >
+                              <button
+                                role="menuitem"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelectedRequest(row);
+                                  setOpenRow(null);
+                                }}
+                              >
+                                View
+                              </button>
+                              <button
+                                role="menuitem"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  printTrigger.current = drawerTrigger.current;
+                                  setPrintRequest(row);
+                                  setOpenRow(null);
+                                }}
+                              >
+                                <Printer size={14} />
+                                Print
+                              </button>
+                              {canActOnApproval(row) && (
+                                <button
+                                  role="menuitem"
+                                  className={requestRejectClass}
+                                  type="button"
+                                  onClick={() => {
+                                    rejectRequest.reset();
+                                    setRejecting(row);
+                                    setOpenRow(null);
+                                  }}
+                                >
+                                  Reject
+                                </button>
+                              )}
+                              {canEditRow(row) && (
+                                <button
+                                  role="menuitem"
+                                  type="button"
+                                  onClick={() => {
+                                    updateRequest.reset();
+                                    setEditing(row);
+                                    setOpenRow(null);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {canCancelRow(row) && (
+                                <button role="menuitem" type="button" className={requestRejectClass}
+                                  onClick={() => openCancellation(row)}>Cancel request</button>
+                              )}
+                            </LhRowActionMenu>
+                          </RequestRecordRow>
+                          {isExpanded && (
+                            <RequestDetailRow columns={visibleColumns.length + 2}>
+                            <section
+                              id={`request-detail-${row.id}`}
+                              className="col-span-full min-w-0 w-full max-w-full overflow-x-hidden border-b border-soc5-line border-l-2 border-l-[#a2c500] bg-linehaul-surface-soft px-5 py-3 text-xs text-soc5-ink"
+                              aria-label={`Expanded details for request ${row.id}`}
+                            >
+                              <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
+                                <dl>
+                                  <div className="border-b border-soc5-line pb-3">
+                                    <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
+                                      Cluster
+                                    </dt>
+                                    <dd className="wrap-break-word text-base font-semibold leading-6 tracking-normal text-soc5-ink">
+                                      {formatCluster(row.cluster)}
+                                    </dd>
+                                  </div>
+                                </dl>
+                                <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(13rem,100%),1fr))] gap-3 overflow-x-hidden pt-3">
+                                  {expandedRequestGroups(
+                                    row,
+                                    visibleColumns,
+                                  ).map(({ fields }) => (
+                                    <section
+                                      className="min-w-0"
+                                      key={fields[0]?.key}
+                                    >
+                                      <dl className="grid gap-2">
+                                        {fields.map(({ key, label, value }) => (
+                                          <div
+                                            className="min-w-0 border-b border-soc5-line pb-2"
+                                            key={key}
+                                          >
+                                            <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-soc5-muted">
+                                              {label}
+                                            </dt>
+                                            <dd className="wrap-break-word text-xs font-medium leading-4 text-soc5-ink">
+                                              {value}
+                                            </dd>
+                                          </div>
+                                        ))}
+                                      </dl>
+                                    </section>
+                                  ))}
+                                </div>
+                                <RequestCancellationRemarks remarks={row.cancellation_remarks} />
+                              </div>
+                            </section>
+                            </RequestDetailRow>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  {requests.data && rows.length === 0 && (
+                      <RequestDetailRow columns={visibleColumns.length + 2}>
+                      <div className="col-span-full grid min-h-[220px] place-items-center content-center gap-[6px] p-8 text-center text-xs text-soc5-muted bg-soc5-panel">
+                        {emptyMessage}
+                      </div>
+                      </RequestDetailRow>
+                    )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="grid min-h-0 content-start grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] gap-[10px] p-3 overflow-auto bg-linehaul-surface-soft">
+              {requests.isPending ? (
+                <SkeletonCardList rows={4} />
+              ) : (
+                rows.map((row) => (
+                  <article
+                    className={`lh-record-card flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap ${_queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
+                    key={row.id}
+                  >
+                    <div>
+                      <small className="text-soc5-muted text-xs">
+                        {row.id}
+                      </small>
+                      <h3 className="mt-2 mb-1 text-soc5-ink text-sm font-semibold">
+                        {row.cluster}
+                      </h3>
+                      <p className="m-0 text-soc5-muted text-xs">
+                        {row.region} · Dock {row.dock_no}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 max-[760px]:items-start">
+                      <strong className="text-soc5-ink text-xs">
+                        {row.truck_size}
+                      </strong>
+                      <span>{row.backlogs.toLocaleString()} backlogs</span>
+                      <StatusBadge status={row.display_status ?? row.status} uppercase />
+                      {canActOnApproval(row) && (
+                        <>
+                          <input type="checkbox" className={requestCheckboxClass}
+                            aria-label={`Select request ${row.id}`} checked={selectedIds.has(row.id)}
+                            disabled={approveRequests.isPending}
+                            onChange={() => { toggleSelected(row.id); _queue.acknowledge(row.id); }} />
+                          <button type="button" className={requestApproveClass} disabled={approveRequests.isPending}
+                            onClick={() => approveRequests.mutate({ ids: [row.id], operationId: crypto.randomUUID() })}>Approve</button>
+                          <button type="button" className={requestRejectClass}
+                            onClick={() => { rejectRequest.reset(); setRejecting(row); }}>Reject</button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        className={textButtonClass}
+                        aria-label="View details"
+                        onClick={(event) => {
+                          drawerTrigger.current = event.currentTarget;
+                          setSelectedRequest(row);
+                          _queue.acknowledge(row.id);
+                        }}
+                      >
+                        View details
+                      </button>
+                      {canEditRow(row) && (
+                        <button
+                          type="button"
+                          className={textButtonClass}
+                          onClick={() => {
+                            updateRequest.reset();
+                            setEditing(row);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canCancelRow(row) && (
+                        <button type="button" className={requestRejectClass}
+                          onClick={() => openCancellation(row)}>Cancel request</button>
+                      )}
+                      <button
+                        type="button"
+                        className={textButtonClass}
+                        onClick={(event) => { printTrigger.current = event.currentTarget; setPrintRequest(row); }}
+                      >
+                        <Printer size={14} />
+                        Print label
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+              {requests.data && rows.length === 0 && (
+                <p className="col-span-full p-8 text-center text-sm text-soc5-muted">{emptyMessage}</p>
               )}
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] border-collapse text-left text-xs">
-              <thead>
-                <tr className="border-b border-[#edf0f0] bg-[#fbfcfc] text-[10px] uppercase tracking-[.08em] text-[#899297]">
-                  <th className="sticky left-0 z-10 w-[136px] bg-[#fbfcfc] px-4 py-3">
-                    Status
-                  </th>
-                  {visible.map((key) => (
-                    <th
-                      key={key}
-                      className={`px-3 py-3 ${key === "cluster" ? "w-[190px]" : key === "region" ? "w-[170px]" : ""}`}
-                    >
-                      <button
-                        onClick={() =>
-                          setSort((current) => ({
-                            key,
-                            direction:
-                              current.key === key && current.direction === "asc"
-                                ? "desc"
-                                : "asc",
-                          }))
-                        }
-                        className="inline-flex items-center gap-1"
-                      >
-                        {LABELS[key]}
-                        <ArrowUpDown size={11} />
-                      </button>
-                    </th>
-                  ))}
-                  <th className="sticky right-0 z-10 w-[190px] bg-[#fbfcfc] px-4 py-3 text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="group border-b border-[#f0f2f2] hover:bg-[#fcfdfd]"
-                  >
-                    <td className="sticky left-0 z-10 bg-white px-4 py-2 group-hover:bg-[#fcfdfd]">
-                      <button
-                        onClick={() =>
-                          setExpanded(expanded === row.id ? null : row.id)
-                        }
-                        className="mr-1 text-[#8b959a]"
-                        aria-label={`${expanded === row.id ? "Collapse" : "Expand"} ${row.id}`}
-                      >
-                        {expanded === row.id ? (
-                          <ChevronDown size={14} />
-                        ) : (
-                          <ChevronRight size={14} />
-                        )}
-                      </button>
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold ${TONE[row.displayStatus]}`}
-                      >
-                        <span
-                          className={`size-1.5 rounded-full ${DOT[row.displayStatus]}`}
-                        />
-                        {row.displayStatus}
-                      </span>
-                    </td>
-                    {visible.map((key) => (
-                      <td
-                        key={key}
-                        className="max-w-[210px] px-3 py-2 text-[#4f5a60]"
-                      >
-                        {key === "runningTime" ? (
-                          <span
-                            className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${row.runningTime < SLA_GREEN_HOURS ? "bg-[#edf8f1] text-[#28724f]" : row.runningTime <= SLA_AMBER_HOURS ? "bg-[#fff7e7] text-[#9a640b]" : "bg-[#fff0f0] text-[#a44a4a]"}`}
-                          >
-                            {formatHours(row.runningTime)}
-                          </span>
-                        ) : key === "requestTime" ? (
-                          <span className="whitespace-nowrap">
-                            {formatDate(row.requestTime)}
-                          </span>
-                        ) : key === "backlogs" ? (
-                          <span className="flex items-center gap-2">
-                            <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#edf0f0]">
-                              <span
-                                className={`block h-full rounded-full ${row.backlogs >= maxBacklog * 0.8 ? "bg-[#c45454]" : "bg-[#7eafb2]"}`}
-                                style={{
-                                  width: `${Math.max(8, (row.backlogs / maxBacklog) * 100)}%`,
-                                }}
-                              />
-                            </span>
-                            {row.backlogs}
-                          </span>
-                        ) : (
-                          <span
-                            title={String(row[key] ?? "-")}
-                            className={`block max-w-[190px] truncate ${row[key] == null ? "text-[#b0b7ba]" : ""}`}
-                          >
-                            {key === "plateNumber" && row.plateNumber
-                              ? row.plateNumber.toUpperCase()
-                              : (row[key] ?? "-")}
-                          </span>
-                        )}
-                      </td>
-                    ))}
-                    <td className="sticky right-0 z-10 bg-white px-4 py-2 group-hover:bg-[#fcfdfd]">
-                      <div className="relative flex items-center justify-end gap-1.5">
-                        {actionsFor(row.displayStatus, _user.role).map(
-                          (item) => (
-                            <button
-                              key={item.label}
-                              disabled={requests.isFetching}
-                              onClick={() =>
-                                void action(row, item.next, item.apiAction)
-                              }
-                              className={`whitespace-nowrap rounded-md px-2 py-1.5 text-[10px] font-semibold disabled:opacity-50 ${item.danger ? "text-[#a44a4a] hover:bg-[#fff0f0]" : "bg-[#242628] text-white hover:bg-black"}`}
-                            >
-                              {item.label}
-                            </button>
-                          ),
-                        )}
-                        <button
-                          aria-label={`More actions for ${row.id}`}
-                          onClick={() =>
-                            setSecondaryOpen(
-                              secondaryOpen === row.id ? null : row.id,
-                            )
-                          }
-                          className="rounded-md p-1.5 text-[#788389] hover:bg-[#eef1f1]"
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
-                        {secondaryOpen === row.id && (
-                          <div className="absolute right-0 top-8 z-20 w-32 rounded-lg border border-[#e1e4e5] bg-white p-1 shadow-lg">
-                            {["View details", "Reroute", "Cancel", "Edit"].map(
-                              (item) => (
-                                <button
-                                  key={item}
-                                  onClick={() => setSecondaryOpen(null)}
-                                  className="block w-full rounded px-2.5 py-2 text-left text-[11px] text-[#59646a] hover:bg-[#f5f6f6]"
-                                >
-                                  {item}
-                                </button>
-                              ),
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {shown.map(
-                  (row) =>
-                    expanded === row.id && (
-                      <tr key={`${row.id}-details`} className="bg-[#f8faf9]">
-                        <td colSpan={visible.length + 2} className="px-12 py-3">
-                          <div className="grid gap-3 text-xs sm:grid-cols-4">
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-[#8a9499]">
-                                Linehaul trip
-                              </p>
-                              <p className="mt-1 font-semibold">
-                                {row.linehaulTrip ?? "-"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-[#8a9499]">
-                                Plate number
-                              </p>
-                              <p className="mt-1 font-semibold">
-                                {row.plateNumber?.toUpperCase() ?? "-"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-[#8a9499]">
-                                Timestamps
-                              </p>
-                              <p className="mt-1 text-[#59646a]">
-                                Requested {formatDate(row.requestTime)}
-                                <br />
-                                Updated {formatDate(row.updated_at)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-[#8a9499]">
-                                History
-                              </p>
-                              <p className="mt-1 text-[#59646a]">
-                                Created {formatDate(row.created_at)}
-                                <br />
-                                Status: {row.displayStatus}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ),
-                )}
-                {shown.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={visible.length + 2}
-                      className="px-6 py-16 text-center"
-                    >
-                      <p className="font-semibold">
-                        {requests.isLoading
-                          ? "Loading requests"
-                          : "No requests match these filters"}
-                      </p>
-                      <p className="mt-1 text-xs text-[#7c878c]">
-                        {requests.isLoading
-                          ? "Fetching the latest linehaul queue."
-                          : "Try clearing the search or selecting a different status."}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f0] px-4 py-3 text-xs text-[#7c878c]">
-            <span>
-              {shown.length ? `1-${shown.length} of ${shown.length}` : "0 of 0"}
-            </span>
-            <div className="flex items-center gap-4">
-              <span>
-                Rows per page{" "}
-                <strong className="ml-1 font-semibold text-[#485258]">
-                  25
-                </strong>
-              </span>
-              <span>
-                Page{" "}
-                <strong className="ml-1 font-semibold text-[#485258]">
-                  1 of 1
-                </strong>
-              </span>
-            </div>
-          </div>
+          )}
+          <Pagination
+            page={requests.data}
+            perPage={filters.perPage}
+            onPageChange={(page) =>
+              setFilters((current) => ({ ...current, page }))
+            }
+            onPerPageChange={(perPage) =>
+              setFilters((current) => ({ ...current, perPage, page: 1 }))
+            }
+          />
         </section>
-        {assignment && (
-          <MidmileActionDialog
-            selection={assignment}
-            busy={assignmentBusy}
-            error={assignmentError}
-            onClose={() => {
-              if (!assignmentBusy) setAssignment(null);
-            }}
-            onSubmit={async (payload) => {
-              setAssignmentBusy(true);
-              setAssignmentError(undefined);
-              try {
-                await api(
-                  workflowActionPath(assignment.request.id, "assign-truck"),
-                  {
-                    method: "POST",
-                    body: JSON.stringify(payload),
-                  },
-                );
-                setAssignment(null);
-                refreshManually();
-              } catch (error) {
-                setAssignmentError(
-                  error instanceof Error
-                    ? error.message
-                    : "Unable to assign truck.",
-                );
-              } finally {
-                setAssignmentBusy(false);
-              }
-            }}
-          />
-        )}
-        {docking && (
-          <DockDialog
-            request={docking}
-            actorRole={_user.role}
-            action="mark-docked"
-            busy={dockingBusy}
-            onClose={() => {
-              if (!dockingBusy) setDocking(null);
-            }}
-            onSubmit={async (payload) => {
-              setDockingBusy(true);
-              try {
-                await api(workflowActionPath(docking.id, "mark-docked"), {
-                  method: "POST",
-                  body: JSON.stringify(payload),
-                });
-                setDocking(null);
-                refreshManually();
-              } catch {
-                // The next request refresh surfaces the API error through the shared notice.
-              } finally {
-                setDockingBusy(false);
-              }
-            }}
-          />
-        )}
-      </div>
-    </main>
+      </section>
+      {selectedRequest && (
+        <OutboundRequestDrawer
+          request={selectedRequest}
+          returnFocus={drawerTrigger.current}
+          onClose={() => setSelectedRequest(null)}
+        />
+      )}
+      {rejecting && (
+        <OutboundRejectDialog
+          returnFocus={drawerTrigger.current}
+          request={rejecting}
+          busy={rejectRequest.isPending}
+          error={rejectRequest.error?.message}
+          onClose={() => setRejecting(null)}
+          onSubmit={(remarks) =>
+            rejectRequest.mutate(
+              { id: rejecting.id, rejection_remarks: remarks },
+              { onSuccess: () => setRejecting(null) },
+            )
+          }
+        />
+      )}
+      {cancelling && (
+        <OutboundCancelDialog request={cancelling} returnFocus={drawerTrigger.current}
+          busy={cancelRequest.isPending} error={cancelRequest.error?.message}
+          onClose={() => setCancelling(null)}
+          onSubmit={(remarks) => cancelRequest.mutate(
+            { id: cancelling.id, cancellation_remarks: remarks },
+            { onSuccess: () => setCancelling(null) },
+          )} />
+      )}
+      {toast && (
+        <div
+          className="fixed right-5 bottom-5 z-30 max-w-[min(420px,calc(100vw-32px))] rounded-[7px] border border-soc5-line bg-linehaul-surface-soft px-[14px] py-[11px] text-xs text-soc5-ink shadow-[0_8px_24px_rgb(32_32_34/14%)]"
+          role="status"
+        >
+          {toast}
+        </div>
+      )}
+    </div>
   );
 }

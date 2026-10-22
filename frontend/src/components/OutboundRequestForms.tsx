@@ -230,6 +230,7 @@ export function InlineEditRow({
   fieldErrors,
   onCancel,
   onSubmit,
+  requireRemarks = false,
 }: {
   request: TruckRequest;
   busy: boolean;
@@ -237,9 +238,15 @@ export function InlineEditRow({
   fieldErrors?: FieldErrors;
   onCancel: () => void;
   onSubmit: (payload: RequestPayload) => void;
+  requireRemarks?: boolean;
 }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const remarks = event.currentTarget.elements.namedItem("edit_remarks") as HTMLTextAreaElement | null;
+    if (remarks) {
+      remarks.setCustomValidity(remarks.value.trim() ? "" : "Enter edit remarks.");
+      if (!remarks.reportValidity()) return;
+    }
     onSubmit(buildRequestPayload(new FormData(event.currentTarget)));
   }
 
@@ -298,6 +305,8 @@ export function InlineEditRow({
           defaultValue={request.truck_size}
         >
           <option>4W</option>
+          <option>4WAUV</option>
+          <option>4WCV</option>
           <option>6W</option>
           <option>10W</option>
           <option>6WF</option>
@@ -316,6 +325,16 @@ export function InlineEditRow({
         </select>
         <FieldError name="truck_type" errors={fieldErrors} />
       </label>
+      {requireRemarks && (
+        <label className={inlineCreateLabelClass}>
+          Edit remarks
+          <textarea name="edit_remarks" required maxLength={2000} rows={4}
+            className={inlineCreateInputClass}
+            onInput={(event) => event.currentTarget.setCustomValidity("")}
+          />
+          <FieldError name="edit_remarks" errors={fieldErrors} />
+        </label>
+      )}
       {error && (
         <p className="error notice text-[var(--color-danger)]">{error}</p>
       )}

@@ -4,7 +4,12 @@ import {
   recordRealtimeInvalidation,
   recordRealtimeSignal,
 } from "../lib/realtimeMetrics";
-import { REQUEST_REALTIME_REFRESH_EVENT } from "../lib/requestRefresh";
+import {
+  REQUEST_REALTIME_REFRESH_EVENT,
+  requestQueryKey,
+} from "../lib/requestRefresh";
+import { createNotificationSound } from "../lib/notificationSound";
+import type { User } from "../types";
 import { supabase } from "../lib/supabase";
 
 export type RealtimeSubscriptionStatus =
@@ -12,6 +17,15 @@ export type RealtimeSubscriptionStatus =
   | "TIMED_OUT"
   | "CLOSED"
   | "CHANNEL_ERROR";
+
+export function isNotificationForUser(
+  notification: { user_id?: string | null; target_role?: string | null },
+  user: Pick<User, "id" | "role">,
+) {
+  return notification.user_id
+    ? notification.user_id === user.id
+    : notification.target_role === user.role;
+}
 
 export function createRealtimeRecoveryTracker<ChannelName extends string>(
   recover: (channels: ReadonlySet<ChannelName>) => Promise<unknown> | void,
@@ -53,12 +67,19 @@ export function createRealtimeRecoveryTracker<ChannelName extends string>(
   };
 }
 
-export function useRequestRealtime() {
+export function useRequestRealtime(user: Pick<User, "id" | "role">, enabled = true) {
   const queryClient = useQueryClient();
+  const { id, role } = user;
   const requestRefreshTimer = useRef<number | null>(null);
   const intradayRefreshTimer = useRef<number | null>(null);
+  const notificationRefreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
+    const sound = createNotificationSound();
+    const unlock = () => sound.unlock();
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
     const invalidateRequestQueries = () => {
       recordRealtimeInvalidation("requests");
       window.dispatchEvent(new Event(REQUEST_REALTIME_REFRESH_EVENT));
@@ -91,6 +112,21 @@ export function useRequestRealtime() {
         });
       }, 250);
     };
+    const refreshNotifications = (payload: { new: Record<string, unknown> }) => {
+      if (!isNotificationForUser(payload.new, { id, role })) return;
+      recordRealtimeSignal("notifications");
+      if (notificationRefreshTimer.current !== null) return;
+      sound.play();
+
+      notificationRefreshTimer.current = window.setTimeout(() => {
+        notificationRefreshTimer.current = null;
+        recordRealtimeInvalidation("notifications");
+        void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        void queryClient.invalidateQueries({
+          queryKey: requestQueryKey("notification-queue"),
+        });
+      }, 250);
+    };
     const recoverAfterReconnect = createRealtimeRecoveryTracker((channels) =>
       Promise.all([
         ...(channels.has("requests") ? [invalidateRequestQueries()] : []),
@@ -98,6 +134,14 @@ export function useRequestRealtime() {
           ? [
               queryClient.invalidateQueries({
                 queryKey: ["intraday-dispatch"],
+              }),
+            ]
+          : []),
+        ...(channels.has("notifications")
+          ? [
+              queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+              queryClient.invalidateQueries({
+                queryKey: requestQueryKey("notification-queue"),
               }),
             ]
           : []),
@@ -130,7 +174,23 @@ export function useRequestRealtime() {
       )
       .subscribe((status) => recoverAfterReconnect("intraday", status));
 
+    const notificationsChannel = supabase
+      .channel("notifications-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+        },
+        refreshNotifications,
+      )
+      .subscribe((status) => recoverAfterReconnect("notifications", status));
+
     return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      sound.dispose();
       if (requestRefreshTimer.current !== null) {
         window.clearTimeout(requestRefreshTimer.current);
         requestRefreshTimer.current = null;
@@ -139,8 +199,13 @@ export function useRequestRealtime() {
         window.clearTimeout(intradayRefreshTimer.current);
         intradayRefreshTimer.current = null;
       }
+      if (notificationRefreshTimer.current !== null) {
+        window.clearTimeout(notificationRefreshTimer.current);
+        notificationRefreshTimer.current = null;
+      }
       void supabase.removeChannel(channel);
       void supabase.removeChannel(intradayChannel);
+      void supabase.removeChannel(notificationsChannel);
     };
-  }, [queryClient]);
+  }, [queryClient, id, role, enabled]);
 }

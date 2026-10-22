@@ -189,7 +189,7 @@ final class IdempotencyTest extends TestCase
     public function test_update_is_replayed_without_duplicate_events(): void
     {
         $request = $this->insertRequest(['status' => 'PENDING']);
-        $data = $this->requestData(['cluster' => 'SOC 6']);
+        $data = $this->requestData(['cluster' => 'SOC 6', 'edit_remarks' => 'Corrected cluster']);
         $headers = $this->headers('update-key');
 
         $first = $this->putJson('/api/requests/'.$request->id, $data, $headers)->assertOk();
@@ -314,7 +314,7 @@ final class IdempotencyTest extends TestCase
     {
         $created = $this->postJson('/api/requests', $this->requestData(), $this->headers())->assertCreated();
         $url = '/api/requests/'.$created->json('id');
-        $updated = $this->putJson($url, $this->requestData(['dock_no' => 'D-02']), $this->headers())->assertOk();
+        $updated = $this->putJson($url, $this->requestData(['dock_no' => 'D-02', 'edit_remarks' => 'Corrected dock']), $this->headers())->assertOk();
         $read = $this->getJson($url, $this->headers())->assertOk();
         foreach ([$created, $updated, $read] as $response) {
             $this->assertSame('PENDING', $response->json('status'));

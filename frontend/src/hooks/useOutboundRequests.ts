@@ -64,7 +64,7 @@ export function useOutboundRequests() {
     showToast(message);
     pendingRefreshReason.current = "mutation";
     await queryClient.invalidateQueries({
-      queryKey: requestQueryKey("outbound-all"),
+      queryKey: ["requests"],
     });
   }
 
@@ -105,7 +105,7 @@ export function useOutboundRequests() {
       ids: string[];
       operationId: string;
     }) => {
-      if (ids.length > 2) {
+      if (ids.length > 1) {
         return api<{ data: TruckRequest[] }>("/requests/bulk-approve", {
           method: "POST",
           body: JSON.stringify({ ids }),
@@ -128,7 +128,7 @@ export function useOutboundRequests() {
     },
     onSuccess: async (_, { ids }) => {
       await refreshData(
-        ids.length > 2
+        ids.length > 1
           ? `${ids.length} LH requests bulk approved.`
           : `${ids.length} LH request${ids.length === 1 ? "" : "s"} approved.`,
       );
@@ -153,6 +153,15 @@ export function useOutboundRequests() {
     onSuccess: async () => {
       await refreshData("LH request rejected.");
     },
+  });
+  const cancelRequest = useMutation({
+    mutationFn: ({ id, cancellation_remarks }: { id: string; cancellation_remarks: string }) =>
+      api<TruckRequest>(workflowActionPath(id, "cancel"), {
+        method: "POST",
+        body: JSON.stringify({ cancellation_remarks }),
+        headers: buildIdempotencyHeaders("outbound-cancel", { id, cancellation_remarks }),
+      }),
+    onSuccess: async () => { await refreshData("LH request cancelled."); },
   });
 
   function sortBy(sort: RequestSort) {
@@ -181,6 +190,7 @@ export function useOutboundRequests() {
     updateRequest,
     approveRequests,
     rejectRequest,
+    cancelRequest,
     updateSearch,
     sortBy,
     refreshManually,

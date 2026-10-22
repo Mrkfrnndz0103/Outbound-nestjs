@@ -1,4 +1,4 @@
-export type RealtimeMetricChannel = "requests" | "intraday";
+export type RealtimeMetricChannel = "requests" | "intraday" | "notifications";
 
 export type RealtimeRefreshMetrics = {
   startedAt: number;
@@ -9,6 +9,12 @@ export type RealtimeRefreshMetrics = {
     lastInvalidationAt: number | null;
   };
   intraday: {
+    signals: number;
+    invalidations: number;
+    lastSignalAt: number | null;
+    lastInvalidationAt: number | null;
+  };
+  notifications: {
     signals: number;
     invalidations: number;
     lastSignalAt: number | null;
@@ -25,6 +31,12 @@ const metrics: RealtimeRefreshMetrics = {
     lastInvalidationAt: null,
   },
   intraday: {
+    signals: 0,
+    invalidations: 0,
+    lastSignalAt: null,
+    lastInvalidationAt: null,
+  },
+  notifications: {
     signals: 0,
     invalidations: 0,
     lastSignalAt: null,
@@ -54,7 +66,7 @@ export function getRealtimeRefreshMetrics(): RealtimeRefreshMetrics {
 
 export function resetRealtimeRefreshMetrics() {
   metrics.startedAt = now();
-  for (const channel of ["requests", "intraday"] as const) {
+  for (const channel of ["requests", "intraday", "notifications"] as const) {
     metrics[channel].signals = 0;
     metrics[channel].invalidations = 0;
     metrics[channel].lastSignalAt = null;

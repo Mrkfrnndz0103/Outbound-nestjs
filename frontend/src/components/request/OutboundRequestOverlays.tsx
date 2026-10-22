@@ -116,6 +116,7 @@ export function OutboundRejectDialog({
   error,
   onClose,
   onSubmit,
+  action = "reject",
 }: {
   request: TruckRequest;
   returnFocus?: HTMLElement | null;
@@ -123,18 +124,26 @@ export function OutboundRejectDialog({
   error?: string;
   onClose: () => void;
   onSubmit: (remarks: string) => void;
+  action?: "reject" | "cancel";
 }) {
+  const cancelling = action === "cancel";
+  const name = cancelling ? "cancellation_remarks" : "rejection_remarks";
+  const title = cancelling ? "Cancel request" : "Reject request";
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    onSubmit(String(data.get("rejection_remarks") ?? ""));
+    const remarks = String(data.get(name) ?? "").trim();
+    const input = event.currentTarget.elements.namedItem(name) as HTMLTextAreaElement;
+    input.setCustomValidity(remarks ? "" : "Enter remarks.");
+    if (!input.reportValidity() || busy) return;
+    onSubmit(remarks);
   }
 
   return (
     <Modal
       returnFocus={returnFocus}
       open
-      onClose={onClose}
+      onClose={() => { if (!busy) onClose(); }}
       className={compactFormDialogClass}
       ariaLabelledBy="outbound-reject-title"
     >
@@ -143,17 +152,19 @@ export function OutboundRejectDialog({
           <p className="mb-[0.35rem] text-linehaul-lime-ink text-xs font-bold tracking-wider uppercase">
             FTE Ops action
           </p>
-          <h2 id="outbound-reject-title">Reject request</h2>
+          <h2 id="outbound-reject-title">{title}</h2>
           <p>{request.id}</p>
         </div>
       </div>
       <form className={dialogFormClass} onSubmit={submit}>
         <label className={dialogLabelClass}>
-          Rejection remarks
+          {cancelling ? "Cancellation remarks" : "Rejection remarks"}
           <textarea
             className={dialogTextareaClass}
-            name="rejection_remarks"
+            name={name}
             required
+            maxLength={2000}
+            onInput={(event) => event.currentTarget.setCustomValidity("")}
             rows={4}
           />
         </label>
@@ -168,10 +179,15 @@ export function OutboundRejectDialog({
             Cancel
           </button>
           <button className={requestRejectClass} type="submit" disabled={busy}>
-            {busy ? "Rejecting…" : "Reject request"}
+            {busy ? "Saving..." : title}
           </button>
         </div>
       </form>
     </Modal>
   );
 }
+
+export function OutboundCancelDialog(props: Omit<Parameters<typeof OutboundRejectDialog>[0], "action">) {
+  return <OutboundRejectDialog {...props} action="cancel" />;
+}
+

@@ -90,6 +90,10 @@ final class RequestService
         return DB::transaction(function () use ($id, $actor, $data) {
             $request = $this->requests->lock($id);
             abort_unless($this->authorizer->canEdit($actor, $request), 403, 'You cannot edit this request at its current workflow stage.');
+            $remarks = trim((string) ($data['edit_remarks'] ?? ''));
+            if (($actor->role === 'fte_ops' && $remarks === '') || mb_strlen($remarks) > 2000) {
+                throw ValidationException::withMessages(['edit_remarks' => 'Edit remarks are required for FTE OPS and must not exceed 2000 characters.']);
+            }
             $fields = array_intersect_key($data, array_flip([
                 'cluster', 'region', 'dock_no', 'backlogs', 'backlogs_timestamp', 'truck_size', 'truck_type',
             ]));
@@ -99,6 +103,7 @@ final class RequestService
                 'changes' => $fields,
                 'previous_values' => array_intersect_key((array) $request, $fields),
                 'source' => 'WEB',
+                'edit_remarks' => $remarks !== '' ? $remarks : null,
             ];
 
             if ($request->status === 'REJECTED') {
@@ -257,8 +262,8 @@ final class RequestService
             $request = $this->requests->lock($id);
             abort_unless($this->authorizer->canTransition($actor, 'cancel', $request), 403);
             $remarks = trim((string) ($input['cancellation_remarks'] ?? ''));
-            if (($actor->role === 'fte_mm' && $remarks === '') || mb_strlen($remarks) > 2000) {
-                throw ValidationException::withMessages(['cancellation_remarks' => 'Cancellation remarks are required for FTE MM and must not exceed 2000 characters.']);
+            if ((in_array($actor->role, ['fte_ops', 'fte_mm'], true) && $remarks === '') || mb_strlen($remarks) > 2000) {
+                throw ValidationException::withMessages(['cancellation_remarks' => 'Cancellation remarks are required for FTE OPS and FTE MM and must not exceed 2000 characters.']);
             }
 
             $updated = $this->requests->update($id, [

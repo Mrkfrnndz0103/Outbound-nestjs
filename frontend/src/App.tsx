@@ -201,6 +201,12 @@ export default function App() {
       sessionStorage,
     );
 
+    // SeaTalk OAuth uses the server session cookie. Resolve that session
+    // immediately instead of waiting on a Supabase browser session lookup.
+    if (seatalkSession.current) {
+      void resolveSession(null, true);
+    }
+
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         clearSeatalkSessionHint(sessionStorage);

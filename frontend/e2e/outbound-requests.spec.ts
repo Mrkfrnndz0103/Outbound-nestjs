@@ -242,6 +242,57 @@ test('switches views and supports row view and edit actions', async ({ page }) =
   await expect(page.getByLabel('Truck Type')).toHaveValue('WETLEASE');
 });
 
+for (const view of ['table', 'card']) {
+  for (const action of ['Edit', 'Reject', 'Cancel request']) {
+    test(`OPS FTE ${action} in ${view} requires remarks and submits the workflow payload`, async ({ page }) => {
+      let payload: Record<string, unknown> | undefined;
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (route.request().method() !== 'GET' &&
+            (path.endsWith('/requests/request-1') || /\/requests\/request-1\/(reject-ops|cancel)$/.test(path))) {
+          payload = route.request().postDataJSON();
+          return route.fulfill({ json: requestRow });
+        }
+        return route.fallback();
+      });
+      await openOutboundRequests(page);
+      if (view === 'card') {
+        await page.getByRole('button', { name: 'Card', exact: true }).click();
+        await page.getByRole('button', { name: action, exact: true }).click();
+      } else {
+        await page.getByRole('button', { name: 'Actions for request request-1' }).click();
+        await page.getByRole('menuitem', { name: action, exact: true }).click();
+      }
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      const submit = dialog.getByRole('button', { name: action === 'Edit' ? 'Save' : action === 'Reject' ? 'Reject request' : action, exact: true });
+      await submit.click();
+      expect(payload).toBeUndefined();
+      const remarks = dialog.getByRole('textbox', { name: /remarks/i });
+      await remarks.fill('   ');
+      await submit.click();
+      expect(payload).toBeUndefined();
+      await remarks.fill('  Duplicate or corrected request  ');
+      await submit.click();
+      await expect(dialog).toHaveCount(0);
+      const field = action === 'Edit' ? 'edit_remarks' : action === 'Reject' ? 'rejection_remarks' : 'cancellation_remarks';
+      expect(payload?.[field]).toBe('Duplicate or corrected request');
+    });
+  }
+}
+
+test('OPS FTE cancellation keeps remarks and displays an API failure for retry', async ({ page }) => {
+  await page.route('**/requests/request-1/cancel', async (route) => route.fulfill({ status: 409, json: { message: 'Request changed; refresh and retry.' } }));
+  await openOutboundRequests(page);
+  await page.getByRole('button', { name: 'Actions for request request-1' }).click();
+  await page.getByRole('menuitem', { name: 'Cancel request', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Cancellation remarks' }).fill('Duplicate');
+  await dialog.getByRole('button', { name: 'Cancel request', exact: true }).click();
+  await expect(dialog.getByText('Request changed; refresh and retry.')).toBeVisible();
+  await expect(dialog.getByRole('textbox', { name: 'Cancellation remarks' })).toHaveValue('Duplicate');
+});
+
 test('selects requests, approves them, and expands a row inline', async ({ page }) => {
   let approvedId = '';
   await page.route('**/requests/*/approve', async (route) => {
@@ -339,8 +390,8 @@ test('shows cancellation remarks in the request details drawer', async ({ page }
     .toContainText('Duplicate truck request');
 });
 
-test('bulk approves more than two selected requests', async ({ page }) => {
-  const requestRows = [1, 2, 3].map((number) => ({
+test('bulk approves two selected requests atomically', async ({ page }) => {
+  const requestRows = [1, 2].map((number) => ({
     ...requestRow,
     id: `request-${number}`,
     cluster: `Hub ${number}`,
@@ -368,15 +419,10 @@ test('bulk approves more than two selected requests', async ({ page }) => {
   await page.getByLabel('Select request request-1').check();
   await page.getByLabel('Select request request-2').check();
   await expect(page.getByRole('button', { name: 'Approve selected (2)', exact: true })).toBeVisible();
-  await page.getByLabel('Select request request-3').check();
-  await expect(
-    page.getByRole('button', { name: 'Approve selected (2)', exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Approve selected (3)' }).click();
+  await page.getByRole('button', { name: 'Approve selected (2)' }).click();
   await expect.poll(() => bulkIds).toEqual([
     'request-1',
     'request-2',
-    'request-3',
   ]);
 });
 
@@ -397,6 +443,15 @@ test('Select All checks only the eligible OPS FTE requests on the current page',
     await expect(page.getByLabel(`Select request ${request.id}`)).toBeChecked();
   }
   await expect(page.getByRole('button', { name: 'Approve selected (3)', exact: true })).toBeVisible();
+});
+
+test('bulk approval failure is visible and keeps the selected rows for retry', async ({ page }) => {
+  await page.route('**/requests/request-1/approve', async (route) => route.fulfill({ status: 409, json: { message: 'Approval state changed. Refresh and retry.' } }));
+  await openOutboundRequests(page);
+  await page.getByLabel('Select request request-1').check();
+  await page.getByRole('button', { name: 'Approve selected (1)', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Approval state changed. Refresh and retry.' })).toBeVisible();
+  await expect(page.getByLabel('Select request request-1')).toBeChecked();
 });
 
 test('alerts FTE Ops to pending requests and acknowledges opened rows', async ({

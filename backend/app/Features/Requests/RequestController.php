@@ -119,8 +119,10 @@ final class RequestController
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $data = $request->validate($this->requestRules());
         $actor = $request->attributes->get('actor');
+        $data = $request->validate($this->requestRules() + [
+            'edit_remarks' => ($actor->role === 'fte_ops' ? 'required' : 'sometimes').'|string|max:2000',
+        ]);
 
         return response()->json($this->repository->forActor($actor, $this->service->updateDetails($id, $actor, $data)));
     }
@@ -157,7 +159,7 @@ final class RequestController
     {
         return match ($action) {
             'approve' => [],
-            'cancel' => ['cancellation_remarks' => ($role === 'fte_mm' ? 'required' : 'sometimes').'|string|max:2000'],
+            'cancel' => ['cancellation_remarks' => (in_array($role, ['fte_ops', 'fte_mm'], true) ? 'required' : 'sometimes').'|string|max:2000'],
             'reject-ops' => [
                 'rejection_remarks' => 'required|string|max:2000',
             ],

@@ -34,6 +34,7 @@ export type RequestPayload = {
   backlogs_timestamp?: FormDataEntryValue | null;
   truck_size: FormDataEntryValue | null;
   truck_type: "WETLEASE" | "DRYLEASE";
+  edit_remarks?: string;
 };
 
 export function buildMidmileAssignmentPayload(
@@ -57,6 +58,7 @@ export function buildRequestPayload(data: FormData): RequestPayload {
     backlogs_timestamp: data.get("backlogs_timestamp"),
     truck_size: data.get("truck_size"),
     truck_type: data.get("truck_type") === "DRYLEASE" ? "DRYLEASE" : "WETLEASE",
+    ...(data.has("edit_remarks") ? { edit_remarks: String(data.get("edit_remarks") ?? "").trim() } : {}),
   };
 }
 

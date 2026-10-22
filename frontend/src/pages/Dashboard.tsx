@@ -38,6 +38,16 @@ const OutboundRequests = lazy(() =>
     default: module.OutboundRequests,
   })),
 );
+const MidmileRequests = lazy(() =>
+  import("./MidmileRequests").then((module) => ({
+    default: module.MidmileRequests,
+  })),
+);
+const DockingConfirmation = lazy(() =>
+  import("./DockingConfirmation").then((module) => ({
+    default: module.DockingConfirmation,
+  })),
+);
 const Kpi = lazy(() =>
   import("./Kpi").then((module) => ({ default: module.Kpi })),
 );
@@ -54,8 +64,6 @@ export function Dashboard({
   user: User;
   preview?: boolean;
 }) {
-  useRequestRealtime();
-
   const queryClient = useQueryClient();
   const location = useLocation();
   const routerNavigate = useNavigate();
@@ -66,6 +74,7 @@ export function Dashboard({
     ...user,
     role: user.is_admin && viewRole ? viewRole : user.role,
   };
+  useRequestRealtime(activeUser, !isPreview);
   useApprovalPresence(activeUser.role);
   const allowed = (candidate: AppView) =>
     candidate === "overview" ||
@@ -144,10 +153,10 @@ export function Dashboard({
             <OutboundRequests user={activeUser} queue={queue} />
           )}
           {view === "truck-request" && (
-            <OutboundRequests user={activeUser} queue={queue} />
+            <MidmileRequests user={activeUser} queue={queue} />
           )}
           {view === "docking" && (
-            <OutboundRequests user={activeUser} queue={queue} />
+            <DockingConfirmation user={activeUser} queue={queue} />
           )}
           {view === "kpi" && <Kpi />}
           {view === "users" && <UserManagement />}

@@ -46,6 +46,7 @@ final class RequestWorkflowTest extends TestCase
         $actor = (object) ['id' => (string) Str::uuid(), 'role' => 'fte_ops'];
 
         $updated = $this->service->updateDetails($request->id, $actor, [
+            'edit_remarks' => '  Corrected backlog count  ',
             'cluster' => 'SOC 6',
             'region' => 'NCR',
             'dock_no' => 'D-12',
@@ -58,11 +59,36 @@ final class RequestWorkflowTest extends TestCase
         $this->assertSame('PENDING', $updated->status);
         $this->assertSame('PENDING', $updated->approval_status);
         $this->assertDatabaseHas('request_events', ['request_id' => $request->id, 'event_type' => 'REQUEST_EDITED']);
+        $metadata = json_decode(DB::table('request_events')->where('request_id', $request->id)->value('metadata'), true);
+        $this->assertSame('Corrected backlog count', $metadata['edit_remarks'] ?? null);
         $this->assertDatabaseHas('notifications', [
             'request_id' => $request->id,
             'user_id' => $request->created_by,
             'event_type' => 'REQUEST_EDITED',
         ]);
+    }
+
+    public function test_fte_ops_edits_require_nonblank_bounded_remarks(): void
+    {
+        foreach (['', '   ', str_repeat('x', 2001)] as $remarks) {
+            $request = $this->insertRequest(['status' => 'PENDING']);
+            $actor = (object) ['id' => (string) Str::uuid(), 'role' => 'fte_ops'];
+            try {
+                $this->service->updateDetails($request->id, $actor, ['dock_no' => 'D-99', 'edit_remarks' => $remarks]);
+                $this->fail('An edit must require meaningful remarks.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('edit_remarks', $exception->errors());
+            }
+            $this->assertDatabaseHas('requests', ['id' => $request->id, 'dock_no' => 'D-01']);
+        }
+    }
+
+    public function test_fte_ops_cancellation_requires_nonblank_remarks(): void
+    {
+        $request = $this->insertRequest(['status' => 'PENDING']);
+        $actor = (object) ['id' => (string) Str::uuid(), 'role' => 'fte_ops'];
+        $this->expectException(ValidationException::class);
+        $this->service->transition($request->id, $actor, 'cancel', ['cancellation_remarks' => '   ']);
     }
 
     public function test_fte_ops_rejection_records_the_return_role(): void
@@ -167,7 +193,7 @@ final class RequestWorkflowTest extends TestCase
         $this->assertSame('REJECTED', $this->repository->findVisible($request->id, $ops)->status);
         $this->assertDatabaseHas('notifications', ['request_id' => $request->id, 'target_role' => 'fte_ops']);
 
-        $corrected = $this->service->updateDetails($request->id, $ops, ['cluster' => 'SOC 6']);
+        $corrected = $this->service->updateDetails($request->id, $ops, ['cluster' => 'SOC 6', 'edit_remarks' => 'Corrected cluster']);
         $this->assertSame('PENDING', $corrected->status);
         $this->assertSame('PENDING', $corrected->approval_status);
         $this->assertNull($corrected->rejection_return_role);

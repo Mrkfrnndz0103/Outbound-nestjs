@@ -47,7 +47,6 @@ type Props = {
   onAddNew?: () => void;
   showColumnSettings?: boolean;
   showCreateNew?: boolean;
-  onNotice?: (message: string) => void;
   visibleColumns: string[];
   onColumnsChange: (next: string[]) => void;
   density: TableDensity;
@@ -65,7 +64,6 @@ export function LhTableToolbar({
   exporting = false,
   showColumnSettings = true,
   showCreateNew = true,
-  onNotice,
   visibleColumns,
   onColumnsChange,
   density,
@@ -362,12 +360,12 @@ export function LhTableToolbar({
         <Download size={16} />
         {exporting ? "Exporting" : "Export"}
       </button>
-      {showCreateNew && (
+      {showCreateNew && onAddNew && (
         <button
           className={`${actionButtonClass} border-[#2563eb] bg-[#2563eb] text-white hover:bg-blue-700 max-[480px]:col-span-full max-[480px]:w-full`}
           type="button"
           aria-label="Add new linehaul request"
-          onClick={onAddNew ?? (() => onNotice?.("Add new request opened"))}
+          onClick={onAddNew}
         >
           <Plus size={16} />
           Add new

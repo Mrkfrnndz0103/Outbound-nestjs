@@ -5,15 +5,37 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("notification audio", () => {
   it("unlocks on a user gesture, reuses the context, and releases it", async () => {
-    const parameter = { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() };
+    const parameter = {
+      setValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn(),
+    };
     const start = vi.fn();
     const close = vi.fn(async () => {});
-    const context = { state: "suspended", currentTime: 0, destination: {}, close,
-      resume: vi.fn(async () => { context.state = "running"; }),
-      createGain: () => ({ gain: parameter, connect: vi.fn(), disconnect: vi.fn() }),
-      createOscillator: () => ({ frequency: parameter, connect: vi.fn(), disconnect: vi.fn(), start, stop: vi.fn(), addEventListener: vi.fn() }),
+    const context = {
+      state: "suspended",
+      currentTime: 0,
+      destination: {},
+      close,
+      resume: vi.fn(async () => {
+        context.state = "running";
+      }),
+      createGain: () => ({
+        gain: parameter,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      }),
+      createOscillator: () => ({
+        frequency: parameter,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        start,
+        stop: vi.fn(),
+        addEventListener: vi.fn(),
+      }),
     };
-    const AudioContext = vi.fn(function () { return context; });
+    const AudioContext = vi.fn(function () {
+      return context;
+    });
     vi.stubGlobal("window", { AudioContext });
     const sound = createNotificationSound();
     sound.play();
@@ -32,8 +54,22 @@ describe("notification audio", () => {
   it("tolerates unavailable or denied audio", async () => {
     vi.stubGlobal("window", {});
     const unavailable = createNotificationSound();
-    expect(() => { unavailable.unlock(); unavailable.play(); unavailable.dispose(); }).not.toThrow();
-    vi.stubGlobal("window", { AudioContext: class { state = "suspended"; resume() { return Promise.reject(new Error("blocked")); } close() { return Promise.resolve(); } } });
+    expect(() => {
+      unavailable.unlock();
+      unavailable.play();
+      unavailable.dispose();
+    }).not.toThrow();
+    vi.stubGlobal("window", {
+      AudioContext: class {
+        state = "suspended";
+        resume() {
+          return Promise.reject(new Error("blocked"));
+        }
+        close() {
+          return Promise.resolve();
+        }
+      },
+    });
     const blocked = createNotificationSound();
     blocked.unlock();
     await Promise.resolve();

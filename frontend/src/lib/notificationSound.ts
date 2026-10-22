@@ -7,12 +7,20 @@ export function createNotificationSound() {
     unlock() {
       if (disposed) return;
       try {
-        const AudioContextClass = window.AudioContext ??
-          (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        const AudioContextClass =
+          window.AudioContext ??
+          (
+            window as typeof window & {
+              webkitAudioContext?: typeof AudioContext;
+            }
+          ).webkitAudioContext;
         if (!AudioContextClass) return;
         context ??= new AudioContextClass();
-        if (context.state === "suspended") void context.resume().catch(() => undefined);
-      } catch { /* Visual notifications remain available when audio is denied. */ }
+        if (context.state === "suspended")
+          void context.resume().catch(() => undefined);
+      } catch {
+        /* Visual notifications remain available when audio is denied. */
+      }
     },
     play() {
       if (disposed || !context || context.state !== "running") return;
@@ -23,14 +31,29 @@ export function createNotificationSound() {
         oscillator.frequency.setValueAtTime(740, context.currentTime);
         oscillator.frequency.setValueAtTime(980, context.currentTime + 0.08);
         gain.gain.setValueAtTime(0.0001, context.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18);
+        gain.gain.exponentialRampToValueAtTime(
+          0.08,
+          context.currentTime + 0.01,
+        );
+        gain.gain.exponentialRampToValueAtTime(
+          0.0001,
+          context.currentTime + 0.18,
+        );
         oscillator.connect(gain);
         gain.connect(context.destination);
-        oscillator.addEventListener("ended", () => { oscillator.disconnect(); gain.disconnect(); }, { once: true });
+        oscillator.addEventListener(
+          "ended",
+          () => {
+            oscillator.disconnect();
+            gain.disconnect();
+          },
+          { once: true },
+        );
         oscillator.start();
         oscillator.stop(context.currentTime + 0.2);
-      } catch { /* Audio must not interrupt realtime refresh. */ }
+      } catch {
+        /* Audio must not interrupt realtime refresh. */
+      }
     },
     dispose() {
       disposed = true;

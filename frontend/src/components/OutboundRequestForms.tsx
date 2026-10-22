@@ -231,6 +231,7 @@ export function InlineEditRow({
   onCancel,
   onSubmit,
   requireRemarks = false,
+  layout = "inline",
 }: {
   request: TruckRequest;
   busy: boolean;
@@ -239,9 +240,11 @@ export function InlineEditRow({
   onCancel: () => void;
   onSubmit: (payload: RequestPayload) => void;
   requireRemarks?: boolean;
+  layout?: "inline" | "dialog";
 }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const remarks = event.currentTarget.elements.namedItem("edit_remarks") as HTMLTextAreaElement | null;
     if (remarks) {
       remarks.setCustomValidity(remarks.value.trim() ? "" : "Enter edit remarks.");
@@ -251,7 +254,7 @@ export function InlineEditRow({
   }
 
   return (
-    <form className={inlineCreateFormClass} onSubmit={submit}>
+    <form className={layout === "dialog" ? "grid grid-cols-1 items-end gap-4" : inlineCreateFormClass} onSubmit={submit}>
       <label className={inlineCreateLabelClass}>
         Cluster
         <input
@@ -329,7 +332,7 @@ export function InlineEditRow({
         <label className={inlineCreateLabelClass}>
           Edit remarks
           <textarea name="edit_remarks" required maxLength={2000} rows={4}
-            className={inlineCreateInputClass}
+            className={`${inlineCreateInputClass} h-auto! min-h-24`}
             onInput={(event) => event.currentTarget.setCustomValidity("")}
           />
           <FieldError name="edit_remarks" errors={fieldErrors} />

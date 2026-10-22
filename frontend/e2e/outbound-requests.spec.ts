@@ -265,6 +265,7 @@ for (const view of ['table', 'card']) {
       }
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
+      expect(await dialog.locator('form').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       const submit = dialog.getByRole('button', { name: action === 'Edit' ? 'Save' : action === 'Reject' ? 'Reject request' : action, exact: true });
       await submit.click();
       expect(payload).toBeUndefined();

@@ -4,18 +4,34 @@ import { describe, expect, it, vi } from "vitest";
 import type { TruckRequest } from "../../types";
 
 vi.mock("../Modal", () => ({
-  Modal: ({ children }: { children: ReactNode }) => <div role="dialog">{children}</div>,
+  Modal: ({ children }: { children: ReactNode }) => (
+    <div role="dialog">{children}</div>
+  ),
 }));
 vi.mock("@tanstack/react-query", () => ({ useQuery: () => ({}) }));
 
 import { OutboundEditDialog } from "./OutboundEditDialog";
-import { OutboundCancelDialog, OutboundRejectDialog } from "./OutboundRequestOverlays";
+import {
+  OutboundCancelDialog,
+  OutboundRejectDialog,
+} from "./OutboundRequestOverlays";
 
-const request = { id: "request-1", cluster: "North", region: "NCR", dock_no: "D-1", backlogs: 4, truck_size: "4WAUV", truck_type: "WETLEASE" } as TruckRequest;
+const request = {
+  id: "request-1",
+  cluster: "North",
+  region: "NCR",
+  dock_no: "D-1",
+  backlogs: 4,
+  truck_size: "4WAUV",
+  truck_type: "WETLEASE",
+} as TruckRequest;
 const props = { request, busy: false, onClose: vi.fn(), onSubmit: vi.fn() };
 
 describe("outbound action dialogs", () => {
-  for (const [Dialog, name] of [[OutboundRejectDialog, "rejection_remarks"], [OutboundCancelDialog, "cancellation_remarks"]] as const) {
+  for (const [Dialog, name] of [
+    [OutboundRejectDialog, "rejection_remarks"],
+    [OutboundCancelDialog, "cancellation_remarks"],
+  ] as const) {
     it(`requires bounded ${name}`, () => {
       const markup = renderToStaticMarkup(<Dialog {...props} />);
       expect(markup).toContain('role="dialog"');
@@ -25,7 +41,9 @@ describe("outbound action dialogs", () => {
     });
   }
   it("requires edit remarks for OPS FTE and preserves supported truck sizes", () => {
-    const markup = renderToStaticMarkup(<OutboundEditDialog {...props} requireRemarks />);
+    const markup = renderToStaticMarkup(
+      <OutboundEditDialog {...props} requireRemarks />,
+    );
     expect(markup).toContain('role="dialog"');
     expect(markup).toMatch(/<textarea[^>]*name="edit_remarks"[^>]*required=""/);
     expect(markup).toContain('<option selected="">4WAUV</option>');

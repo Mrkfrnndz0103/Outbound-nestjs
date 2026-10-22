@@ -446,6 +446,11 @@ export function OutboundRequests({
               onRetry={refreshManually}
             />
           </div>
+          {approveRequests.error && (
+            <p role="alert" className="px-4 py-2 text-sm text-[var(--color-danger)]">
+              {approveRequests.error.message}
+            </p>
+          )}
           {view === "table" ? (
             <div className={recordsScrollClass}>
               <table

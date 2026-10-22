@@ -3,12 +3,10 @@ import {
   BadgeCheck,
   CircleCheck,
   Clock3,
+  Download,
   Hash,
-  LayoutGrid,
   ListChecks,
   Printer,
-  RefreshCw,
-  Table2,
   Truck,
 } from "lucide-react";
 import { Fragment, useRef, useState } from "react";
@@ -17,7 +15,7 @@ import {
   linehaulPrimaryColumnKeysForRole,
 } from "../components/ColumnVisibilityMenu";
 import { LhRowActionMenu } from "../components/LhRowActionMenu";
-import { LhTableToolbar } from "../components/LhTableToolbar";
+import { statuses } from "../components/RequestFilters";
 import { Pagination } from "../components/Pagination";
 import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
 import { RequestElapsedTime } from "../components/RequestTable";
@@ -38,6 +36,7 @@ import {
 } from "../components/request/requestPresentation";
 import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
 import { StatusBadge, StatusText } from "../components/StatusBadge";
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreferences";
 import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 import { useRequestFilters } from "../hooks/useRequestFilters";
@@ -57,11 +56,7 @@ import {
   requestRowClass,
   requestSelectedRowClass,
   requestTableBodyClass,
-  requestToolbarIconClass,
-  requestViewToggleClass,
   requestWorkspaceClass,
-  selectedRequestActionsClass,
-  selectedRequestLabelClass,
   tableShellClass,
   textButtonClass,
 } from "../lib/uiClasses";
@@ -179,12 +174,12 @@ export function MidmileRequests({
   const [notice, setNotice] = useState("");
   const modalTrigger = useRef<HTMLElement | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
-  const [view, setView] = useState<"table" | "card">("table");
+  const view = "table" as const;
   const [printRequest, setPrintRequest] = useState<TruckRequest | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [exporting, setExporting] = useState(false);
-  const { visibleColumns, updateColumns, density, setDensity } =
+  const { visibleColumns, density } =
     useLinehaulTablePreferences(
       "midmile",
       linehaulColumnOptions.map(({ key }) => key),
@@ -213,9 +208,14 @@ export function MidmileRequests({
       return new Set([id]);
     });
   }
-  const selectedRequest = (requests.data?.data ?? []).find((row) =>
-    selectedIds.has(row.id),
-  );
+  const statusTabs = statuses.map((status) => ({
+    status,
+    count:
+      status === "ALL"
+        ? (requests.data?.data ?? []).length
+        : (requests.data?.data ?? []).filter((row) => row.status === status)
+            .length,
+  }));
   const transition = useMutation({
     mutationFn: ({
       request,
@@ -301,109 +301,53 @@ export function MidmileRequests({
           className={tableShellClass}
           aria-label="Midmile linehaul request records"
         >
-          <div className="relative z-20 flex min-w-0 flex-wrap items-center justify-start gap-2 border-b border-soc5-line bg-linehaul-surface-soft px-2.5 py-1.5 max-[680px]:flex-col max-[680px]:items-stretch max-[680px]:gap-1.5 max-[680px]:p-[.45rem]">
-            <LhTableToolbar
-              filters={filters}
-              onChange={changeFilters}
-              onSort={sortBy}
-              onExport={exportSheet}
-              showCreateNew={false}
-              onNotice={setNotice}
-              visibleColumns={visibleColumns}
-              onColumnsChange={updateColumns}
-              density={density}
-              onDensityChange={setDensity}
-              exporting={exporting}
-              lastUpdated={requests.dataUpdatedAt}
-            />
-            <div className="flex min-w-0 items-center gap-1.5">
-              <button
-                className={`${requestToolbarIconClass}${requests.isFetching ? " animate-spin" : ""}`}
-                type="button"
-                aria-label={
-                  requests.isFetching ? "Refreshing records" : "Refresh records"
-                }
-                title={
-                  requests.isFetching ? "Refreshing records" : "Refresh records"
-                }
-                aria-busy={requests.isFetching}
-                disabled={requests.isFetching}
-                onClick={() => void requests.refetch()}
+          <div className="relative z-20 flex min-w-0 flex-wrap items-center gap-3 border-b border-soc5-line bg-linehaul-surface-soft px-3 py-2 max-[680px]:items-stretch max-[680px]:gap-2 max-[680px]:p-2">
+            <Tabs
+              value={filters.status}
+              onValueChange={(value) =>
+                changeFilters({
+                  ...filters,
+                  status: value as (typeof filters)["status"],
+                  page: 1,
+                })
+              }
+              className="min-w-0 flex-1"
+            >
+              <TabsList
+                className="h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-full bg-soc5-panel p-1 [scrollbar-width:thin]"
+                aria-label="Request status tabs"
               >
-                <RefreshCw size={16} aria-hidden="true" />
-              </button>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {selectedRequest && (
-                <fieldset
-                  className={`${selectedRequestActionsClass} m-0 border-0 p-0`}
-                  aria-label="Selected request actions"
-                >
-                  <span className={selectedRequestLabelClass}>
-                    Selected request
-                  </span>
-                  <button
-                    className={requestAssignClass}
-                    type="button"
-                    onClick={(event) => {
-                      modalTrigger.current = event.currentTarget;
-                      setSelected({
-                        request: selectedRequest,
-                        action: "assign-truck",
-                      });
-                    }}
+                {statusTabs.map(({ status, count }) => (
+                  <TabsTrigger
+                    key={status}
+                    value={status}
+                    className="h-8 shrink-0 rounded-full px-3 text-xs data-[state=active]:bg-soc5-ink data-[state=active]:text-soc5-panel"
                   >
-                    Assign
-                  </button>
-                  <button
-                    className={requestRejectClass}
-                    type="button"
-                    onClick={(event) => {
-                      modalTrigger.current = event.currentTarget;
-                      setSelected({
-                        request: selectedRequest,
-                        action: "reject-mm",
-                      });
-                    }}
-                  >
-                    Reject
-                  </button>
-                </fieldset>
-              )}
-              <fieldset
-                className={`${requestViewToggleClass} m-0 border-0 p-0`}
-                aria-label="Request view"
-              >
-                <button
-                  className={requestToolbarIconClass}
-                  type="button"
-                  aria-label="Table view"
-                  title="Table view"
-                  aria-pressed={view === "table"}
-                  onClick={() => setView("table")}
-                >
-                  <Table2 size={16} aria-hidden="true" />
-                </button>
-                <button
-                  className={requestToolbarIconClass}
-                  type="button"
-                  aria-label="Card view"
-                  title="Card view"
-                  aria-pressed={view === "card"}
-                  onClick={() => setView("card")}
-                >
-                  <LayoutGrid size={16} aria-hidden="true" />
-                </button>
-              </fieldset>
-            </div>
-            <RequestFetchNotice
-              hasData={requests.data !== undefined}
-              fetching={requests.isFetching}
-              previousFilters={requests.isPlaceholderData}
-              error={requests.error}
-              onRetry={() => void requests.refetch()}
-            />
+                    {status === "ALL" ? "All" : status.replaceAll("_", " ")}
+                    <span className="grid size-5 place-items-center rounded-md bg-linehaul-surface-soft px-1 text-[10px] tabular-nums text-soc5-muted">
+                      {count}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <button
+              className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-soc5-ink bg-soc5-ink px-4 py-1.5 text-sm font-medium text-soc5-panel transition-colors hover:bg-soc5-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linehaul-teal/40 disabled:cursor-wait disabled:opacity-60 max-[680px]:flex-1"
+              type="button"
+              disabled={exporting}
+              onClick={exportSheet}
+            >
+              <Download size={16} aria-hidden="true" />
+              {exporting ? "Exporting" : "Export"}
+            </button>
           </div>
+          <RequestFetchNotice
+            hasData={requests.data !== undefined}
+            fetching={requests.isFetching}
+            previousFilters={requests.isPlaceholderData}
+            error={requests.error}
+            onRetry={() => void requests.refetch()}
+          />
           {view === "table" ? (
             <div className={recordsScrollClass}>
               <table

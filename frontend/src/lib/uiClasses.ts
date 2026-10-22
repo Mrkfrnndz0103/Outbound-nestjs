@@ -32,7 +32,7 @@ export const requestPageClass =
   "workspace-view lh-request-page flex min-h-0 min-w-0 h-full flex-1 flex-col overflow-visible px-[var(--app-page-gutter)] pt-[.9rem] pb-[1.4rem] font-body text-soc5-ink antialiased max-[820px]:min-h-0 max-[820px]:h-auto max-[680px]:pt-[.6rem] max-[680px]:pb-4";
 
 export const requestWorkspaceClass =
-  "lh-request-workspace flex h-full min-h-0 min-w-0 w-full max-w-[78rem] flex-1 flex-col gap-[.7rem] mx-auto max-[820px]:min-h-0 max-[820px]:h-auto max-[680px]:gap-2";
+  "lh-request-workspace flex h-full min-h-0 min-w-0 w-full max-w-none flex-1 flex-col gap-[.7rem] mx-auto max-[820px]:min-h-0 max-[820px]:h-auto max-[680px]:gap-2";
 
 export const tableShellClass =
   "lh-table-shell grid min-h-[21rem] min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_2.4rem] overflow-hidden rounded-[.6rem] border border-soc5-line bg-soc5-panel shadow-[0_.05rem_.1rem_rgb(15_42_43_/_3%),0_.5rem_1.2rem_rgb(15_42_43_/_4%)] transition-[box-shadow] duration-180 max-[820px]:min-h-[26rem] max-[680px]:min-h-[28rem] max-[680px]:grid-rows-[auto_minmax(0,1fr)_2.3rem] motion-reduce:transition-none";
@@ -347,21 +347,19 @@ export const avatarClass =
   "grid size-[1.4rem] place-items-center rounded-full bg-linehaul-lime-surface text-xs font-bold text-linehaul-lime-ink";
 export const truckDotClass = `${avatarClass} text-linehaul-lime-ink`;
 export const compactEmptyClass = "m-0 p-5 text-center text-xs text-soc5-muted";
-export const donutLayoutClass =
-  "grid grid-cols-[7.25rem_minmax(0,1fr)] items-center gap-[.6rem] max-[600px]:grid-cols-1";
-export const donutClass =
-  "relative grid size-[6.25rem] place-items-center justify-self-center rotate-[-12deg] rounded-full my-[.4rem] max-[600px]:mb-0 before:size-[4.1rem] before:rounded-full before:bg-soc5-panel before:shadow-[inset_0_0_0_.05rem_#f0f0f0] before:content-['']";
-export const donutCenterClass =
-  "absolute grid place-items-center rotate-[12deg]";
-export const donutCenterValueClass =
-  "text-base font-semibold text-soc5-ink tabular-nums";
-export const donutCenterLabelClass = "text-xs text-soc5-muted";
-export const donutLegendClass = "grid gap-[.3rem]";
-export const donutLegendItemClass =
-  "grid grid-cols-[.45rem_1fr_auto] items-center gap-[.35rem] rounded-[.4rem] border border-soc5-line bg-linehaul-surface-soft p-[.35rem]";
-export const donutLegendSwatchClass = "size-[.4rem] rounded-[.1rem]";
-export const donutLegendValueClass =
-  "text-xs font-semibold text-soc5-ink tabular-nums";
+export const truckMixSvgClass = "mx-auto block h-auto w-full max-w-[24rem]";
+export const truckMixOuterRingClass =
+  "fill-none stroke-soc5-line [stroke-width:1]";
+export const truckMixTrackClass = "fill-none stroke-soc5-line";
+export const truckMixTickClass = "stroke-soc5-line [stroke-width:1.2]";
+export const truckMixLeaderClass =
+  "fill-none stroke-soc5-muted [stroke-width:1]";
+export const truckMixLabelClass = "fill-soc5-muted text-xs font-semibold";
+export const truckMixValueClass =
+  "fill-soc5-ink text-sm font-semibold tabular-nums";
+export const truckMixCenterValueClass =
+  "fill-soc5-ink text-lg font-semibold tabular-nums";
+export const truckMixCenterLabelClass = "fill-soc5-muted text-xs";
 
 export const printDialogClass =
   "print-dialog w-[min(49rem,100%)] max-h-[min(43rem,calc(100dvh-1.6rem))] overflow-hidden rounded-[.9rem] border border-[#dfe5e8] bg-[#f4f7f8] shadow-[0_1.4rem_4rem_rgb(14_23_38_/_28%),0_.2rem_.9rem_rgb(14_23_38_/_10%)] animate-[dialog-panel-in_.34s_cubic-bezier(.22,1,.36,1)_both] motion-reduce:animate-none max-[640px]:max-h-[calc(100dvh-1.2rem)] max-[640px]:rounded-[.8rem_.8rem_.6rem_.6rem]";

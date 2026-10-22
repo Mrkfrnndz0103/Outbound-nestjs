@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { format, startOfDay } from "date-fns";
 import { CheckCircle2, ClipboardList, Clock3, Truck, X } from "lucide-react";
 import {
   type ReactNode,
@@ -9,6 +10,11 @@ import {
 } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartHeader } from "../components/dashboard/ChartHeader";
+import { DockQueueStatus } from "../components/dashboard/DockQueueStatus";
+import {
+  DOCK_QUEUE_DEMO_DOCKS,
+  dockItemsFromRequests,
+} from "../components/dashboard/dockQueueDemoData";
 import {
   IntradayDateSelector,
   IntradayKpi,
@@ -18,10 +24,16 @@ import {
 import { MetricCard } from "../components/dashboard/MetricCard";
 import { Panel } from "../components/dashboard/Panel";
 import { QueuePreview } from "../components/dashboard/QueuePreview";
+import { TimingMetrics } from "../components/dashboard/TimingMetrics";
+import {
+  TruckMixDonut,
+  type TruckMixSegment,
+} from "../components/dashboard/TruckMixDonut";
 import { Modal } from "../components/Modal";
 import { RequestTable } from "../components/RequestTable";
 import { SkeletonTable } from "../components/SkeletonTable";
 import { api } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import {
   avatarClass,
   dashboardGridClass,
@@ -32,15 +44,6 @@ import {
   dashboardTripsPanelClass,
   dashboardViewClass,
   dialogHeadClass,
-  donutCenterClass,
-  donutCenterLabelClass,
-  donutCenterValueClass,
-  donutClass,
-  donutLayoutClass,
-  donutLegendClass,
-  donutLegendItemClass,
-  donutLegendSwatchClass,
-  donutLegendValueClass,
   iconButtonClass,
   intradayCardClass,
   intradayMetaDotClass,
@@ -49,7 +52,6 @@ import {
   loadingChipClass,
   loadingShellClass,
   loadingToolbarClass,
-  mutedCaptionClass,
   overviewMetricsClass,
   queueRowGroupClass,
   requestDetailContentClass,
@@ -58,7 +60,6 @@ import {
   requestDetailTitleClass,
   scorecardsLayoutClass,
   textButtonClass,
-  timingMetricsClass,
   tripsPanelBodyClass,
   truckDotClass,
 } from "../lib/uiClasses";
@@ -73,18 +74,21 @@ import type {
 } from "../types";
 
 const INTRADAY_HOURS = [
-  6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2,
-  3, 4, 5,
+  6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
 ] as const;
 
+const truckMixColors = [
+  "#1d5c58",
+  "#2f6f6a",
+  "#3f8f89",
+  "#77b7af",
+  "#a7d4cd",
+  "#d3e9e5",
+];
+
+import type { DateRange } from "react-day-picker";
 import type { IntradayChartPoint } from "../components/dashboard/IntradayCharts";
 
-function getTodayDate(now = new Date()) {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 function formatDurationMinutes(minutes?: number | null) {
   if (minutes == null || !Number.isFinite(minutes)) return "-";
   const rounded = Math.round(minutes);
@@ -114,7 +118,15 @@ export function Overview({
   const from = useUiStore((state) => state.dateFrom);
   const to = useUiStore((state) => state.dateTo);
   const [detailStatus, setDetailStatus] = useState<Status | "ALL" | null>(null);
-  const [intradayDate, setIntradayDate] = useState(() => getTodayDate());
+  const [intradayRange, setIntradayRange] = useState<DateRange>(() => {
+    const today = startOfDay(new Date());
+    return { from: today, to: today };
+  });
+  const intradayFrom = format(intradayRange.from ?? new Date(), "yyyy-MM-dd");
+  const intradayTo = format(
+    intradayRange.to ?? intradayRange.from ?? new Date(),
+    "yyyy-MM-dd",
+  );
   const [activeIntradayPoint, setActiveIntradayPoint] =
     useState<IntradayChartPoint | null>(null);
   const [refreshPulse, setRefreshPulse] = useState(false);
@@ -136,11 +148,30 @@ export function Overview({
     enabled: !preview,
   });
   const intraday = useQuery({
-    queryKey: ["intraday-dispatch", intradayDate],
-    queryFn: () =>
-      api<{ data: Array<{ hour: number; orderQty: number }> }>(
-        `/dispatch/intraday?date=${intradayDate}`,
-      ),
+    queryKey: ["intraday-dispatch", intradayFrom, intradayTo],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("intraday_dispatch")
+        .select("hour, order_qty")
+        .gte("dispatch_date", intradayFrom)
+        .lte("dispatch_date", intradayTo)
+        .order("hour", { ascending: true });
+
+      if (error) throw error;
+
+      return {
+        data: Object.values(
+          (data ?? []).reduce<
+            Record<number, { hour: number; orderQty: number }>
+          >((hours, row) => {
+            const hour = Number(row.hour);
+            hours[hour] ??= { hour, orderQty: 0 };
+            hours[hour].orderQty += Number(row.order_qty);
+            return hours;
+          }, {}),
+        ).sort((left, right) => left.hour - right.hour),
+      };
+    },
     refetchInterval: false,
     staleTime: 10_000,
     enabled: !preview,
@@ -160,9 +191,13 @@ export function Overview({
     enabled: detailStatus !== null,
   });
   const dispatchChart = useMemo(() => {
-    const points =
-      intraday.data?.data ??
-      INTRADAY_HOURS.map((hour) => ({ hour, orderQty: 0 }));
+    const valuesByHour = new Map(
+      (intraday.data?.data ?? []).map((point) => [point.hour, point.orderQty]),
+    );
+    const points = INTRADAY_HOURS.map((hour) => ({
+      hour,
+      orderQty: valuesByHour.get(hour) ?? 0,
+    }));
     const maximum = Math.max(1, ...points.map((point) => point.orderQty));
     const peak = points.reduce(
       (best, point) => (point.orderQty > best.orderQty ? point : best),
@@ -191,11 +226,15 @@ export function Overview({
   }, [intraday.data?.data]);
   const sizes = ["4W", "4WAUV", "4WCV", "6W", "10W", "6WF"] as const;
   const truckSizes = summary.data?.analytics.truck_sizes ?? {};
-  const sizeTotal = sizes.reduce(
-    (sum, size) => sum + (truckSizes[size] ?? 0),
-    0,
-  );
+  const truckMixSegments: TruckMixSegment[] = sizes.map((size, index) => ({
+    label: size,
+    value: truckSizes[size] ?? 0,
+    color: truckMixColors[index],
+  }));
   const rows = requests.data?.data ?? [];
+  const dockItems = preview
+    ? DOCK_QUEUE_DEMO_DOCKS
+    : dockItemsFromRequests(rows);
   const linehaulTrips = rows
     .filter((request) => request.linehaul_trip_no || request.driver_id)
     .slice(0, 4);
@@ -206,18 +245,6 @@ export function Overview({
         request.plate_number,
     )
     .slice(0, 4);
-  const palette = ["2f6f6a", "3f8f89", "77b7af", "dbece8"];
-  const gradients = useMemo(() => {
-    let offset = 0;
-    return sizes
-      .map((size, index) => {
-        const value = truckSizes[size] ?? 0;
-        const start = offset;
-        offset += sizeTotal ? (value / sizeTotal) * 100 : 0;
-        return `#${palette[index]} ${start}% ${offset}%`;
-      })
-      .join(",");
-  }, [sizeTotal, truckSizes]);
   const totalRequests = summary.data?.metrics.total ?? 0;
   const byStatus = summary.data?.metrics.by_status ?? {};
   const pendingRequests = byStatus.PENDING ?? 0;
@@ -241,7 +268,7 @@ export function Overview({
       value: totalRequests,
       icon: <ClipboardList size={22} aria-hidden="true" />,
       chip: "Overall volume",
-      footnote: `Intraday chart: ${dispatchChart.total.toLocaleString()} dispatches on ${intradayDate}`,
+      footnote: `Intraday chart: ${dispatchChart.total.toLocaleString()} dispatches from ${intradayFrom} to ${intradayTo}`,
     },
     {
       label: "Pending Requests",
@@ -326,13 +353,17 @@ export function Overview({
                   <span className={intradayMetaDotClass} aria-hidden="true" />
                   <span>Live operational feed</span>
                   <span aria-hidden="true">·</span>
-                  <time dateTime={intradayDate}>{intradayDate}</time>
+                  <time dateTime={intradayFrom}>
+                    {intradayFrom === intradayTo
+                      ? intradayFrom
+                      : `${intradayFrom} to ${intradayTo}`}
+                  </time>
                 </>
               }
               controls={
                 <IntradayDateSelector
-                  value={intradayDate}
-                  onChange={setIntradayDate}
+                  value={intradayRange}
+                  onChange={setIntradayRange}
                 />
               }
             />
@@ -368,43 +399,23 @@ export function Overview({
           </article>
         </section>
       </section>
-      <section
-        className={timingMetricsClass}
-        aria-label="Request timing metrics"
-      >
-        <MetricCard
-          label="Average Dwell time"
-          value={
-            summary.isPending ? (
-              <Skeleton className="h-[26px] w-[64px]" />
-            ) : (
-              formatDurationMinutes(
-                summary.data?.analytics.average_dwell_minutes,
-              )
-            )
-          }
-          icon={<Clock3 size={22} aria-hidden="true" />}
-          chip="Request to Depart"
-          footnote="Request to LHTrip entry"
-          onClick={() => setDetailStatus("ALL")}
-        />
-        <MetricCard
-          label="Average Waiting Time"
-          value={
-            summary.isPending ? (
-              <Skeleton className="h-[26px] w-[64px]" />
-            ) : (
-              formatDurationMinutes(
-                summary.data?.analytics.average_waiting_minutes,
-              )
-            )
-          }
-          icon={<Truck size={22} aria-hidden="true" />}
-          chip="Request to plate"
-          footnote="Request to FTE MM plate assignment"
-          onClick={() => setDetailStatus("ALL")}
-        />
-      </section>
+      {/* No live dock-occupancy source exists yet, so docks stays null and no sample rows render. */}
+      <DockQueueStatus
+        docks={requests.isPending && !preview ? null : dockItems}
+        source={preview ? "demo" : "live"}
+        isLoading={requests.isPending && !preview}
+        error={
+          requests.error ? "Request status data could not be loaded." : null
+        }
+        unavailableMessage="Dock occupancy is not connected to a live source yet."
+      />
+      <TimingMetrics
+        dwellMinutes={summary.data?.analytics.average_dwell_minutes}
+        waitingMinutes={summary.data?.analytics.average_waiting_minutes}
+        isLoading={summary.isPending}
+        formatDuration={formatDurationMinutes}
+        onOpenDetails={() => setDetailStatus("ALL")}
+      />
       <section className={dashboardGridClass}>
         <Panel
           className="chart-panel truck-mix-panel"
@@ -412,45 +423,7 @@ export function Overview({
           title="Truck mix"
           description="Selected date range"
         >
-          <div className={donutLayoutClass}>
-            <div
-              className={donutClass}
-              style={{
-                background: sizeTotal
-                  ? `conic-gradient(${gradients})`
-                  : "var(--color-bg-base)",
-              }}
-            >
-              <span className={donutCenterClass}>
-                <strong className={donutCenterValueClass}>{sizeTotal}</strong>
-                <small className={donutCenterLabelClass}>Total</small>
-              </span>
-            </div>
-            <section
-              className={donutLegendClass}
-              aria-label="Truck size breakdown"
-            >
-              {sizes.map((size, index) => {
-                const count = truckSizes[size] ?? 0;
-                return (
-                  <div className={donutLegendItemClass} key={size}>
-                    <i
-                      className={donutLegendSwatchClass}
-                      style={{ background: `#${palette[index]}` }}
-                    />
-                    <span className={mutedCaptionClass}>{size}</span>
-                    <strong className={donutLegendValueClass}>
-                      {count}{" "}
-                      <small>
-                        ({sizeTotal ? Math.round((count / sizeTotal) * 100) : 0}
-                        %)
-                      </small>
-                    </strong>
-                  </div>
-                );
-              })}
-            </section>
-          </div>
+          <TruckMixDonut segments={truckMixSegments} />
         </Panel>
         <article
           className={`${dashboardPanelClass} ${dashboardTripsPanelClass}`}

@@ -5,6 +5,7 @@ import { AccessibleDialog } from "@/components/AccessibleDialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
+  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
@@ -82,7 +83,9 @@ export function SiteHeader({ navigationGroups }: SiteHeaderProps) {
             <Breadcrumb className="min-w-0">
               <BreadcrumbList className="flex-nowrap">
                 <BreadcrumbItem className="hidden sm:inline-flex">
-                  {currentPage.group}
+                  <BreadcrumbLink render={<Link to="/dashboard" />}>
+                    {currentPage.group}
+                  </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden sm:flex" />
                 <BreadcrumbItem className="min-w-0">

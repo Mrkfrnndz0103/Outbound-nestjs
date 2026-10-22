@@ -1,5 +1,14 @@
+import { format } from "date-fns";
 import { CalendarDays } from "lucide-react";
 import { Fragment } from "react";
+import type { DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   chartGridLineClass,
@@ -35,30 +44,50 @@ export function IntradayDateSelector({
   value,
   onChange,
 }: {
-  value: string;
-  onChange: (value: string) => void;
+  value: DateRange;
+  onChange: (value: DateRange) => void;
 }) {
+  const label = value.from
+    ? value.to
+      ? `${format(value.from, "MMM d, yyyy")} - ${format(value.to, "MMM d, yyyy")}`
+      : format(value.from, "MMM d, yyyy")
+    : "Select dates";
+
   return (
-    <fieldset
+    <div
       className={intradayFiltersClass}
-      aria-label="Intraday dispatch date"
+      role="group"
+      aria-label="Intraday dispatch date range"
     >
-      <label className="sr-only" htmlFor="intraday-date-filter">
-        Intraday dispatch date
-      </label>
       <span className={intradayDateIconClass} aria-hidden="true">
         <CalendarDays size={16} strokeWidth={2.1} />
       </span>
-      <input
-        id="intraday-date-filter"
-        className="min-w-0 flex-1 rounded-[.5rem] border border-transparent bg-transparent px-1 text-xs font-bold text-soc5-ink outline-none focus:border-soc5-line focus:bg-soc5-panel focus:ring-[.2rem] focus:ring-[rgb(20_184_166_/_14%)] max-[600px]:w-full"
-        type="date"
-        value={value}
-        onChange={(event) => {
-          if (event.target.value) onChange(event.target.value);
-        }}
-      />
-    </fieldset>
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 min-w-[12rem] justify-start px-1 text-left text-xs font-bold text-soc5-ink hover:bg-transparent max-[600px]:w-full"
+            />
+          }
+        >
+          {label}
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0">
+          <Calendar
+            mode="range"
+            numberOfMonths={2}
+            selected={value}
+            onSelect={(range) =>
+              onChange(range ?? { from: undefined, to: undefined })
+            }
+            defaultMonth={value.from}
+            autoFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 
@@ -153,7 +182,7 @@ export function IntradayLineChart({
         aria-label="Intraday dispatch volume over a 24-hour period"
       >
         <desc>
-          Line chart showing dispatch order volume from 6 AM through 5 AM.
+          Line chart showing dispatch order volume from 6 AM through 6 PM.
         </desc>
         <defs>
           <linearGradient id="lineAreaTop" x1="0" x2="0" y1="0" y2="1">
@@ -182,7 +211,7 @@ export function IntradayLineChart({
         </text>
         {area && <path className={lineAreaClass} d={area} />}
         <path className={lineStrokeClass} d={line} />
-        {points.map((point, index) => {
+        {points.map((point) => {
           const active = activePoint?.hour === point.hour;
           const timeLabel = formatHour(point.hour);
           return (
@@ -193,11 +222,9 @@ export function IntradayLineChart({
                 data-active={active || undefined}
               >
                 <circle cx={point.x} cy={point.y} r="4.2" />
-                {index % 3 === 0 && (
-                  <text className={chartXLabelClass} x={point.x} y="184">
-                    {timeLabel}
-                  </text>
-                )}
+                <text className={chartXLabelClass} x={point.x} y="184">
+                  {timeLabel}
+                </text>
               </g>
               <foreignObject
                 key={`${point.label}-control`}

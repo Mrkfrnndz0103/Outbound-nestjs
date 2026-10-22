@@ -38,16 +38,6 @@ const OutboundRequests = lazy(() =>
     default: module.OutboundRequests,
   })),
 );
-const MidmileRequests = lazy(() =>
-  import("./MidmileRequests").then((module) => ({
-    default: module.MidmileRequests,
-  })),
-);
-const DockingConfirmation = lazy(() =>
-  import("./DockingConfirmation").then((module) => ({
-    default: module.DockingConfirmation,
-  })),
-);
 const Kpi = lazy(() =>
   import("./Kpi").then((module) => ({ default: module.Kpi })),
 );
@@ -139,7 +129,7 @@ export function Dashboard({
       onRoleChange={(role) => void switchRole(role)}
     >
       <section
-        className="relative z-[2] flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-y-auto overscroll-y-contain"
+        className="relative z-[2] flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col"
         aria-live="polite"
       >
         <Suspense fallback={<ViewLoading view={view} />}>
@@ -154,10 +144,10 @@ export function Dashboard({
             <OutboundRequests user={activeUser} queue={queue} />
           )}
           {view === "truck-request" && (
-            <MidmileRequests user={activeUser} queue={queue} />
+            <OutboundRequests user={activeUser} queue={queue} />
           )}
           {view === "docking" && (
-            <DockingConfirmation user={activeUser} queue={queue} />
+            <OutboundRequests user={activeUser} queue={queue} />
           )}
           {view === "kpi" && <Kpi />}
           {view === "users" && <UserManagement />}

@@ -32,20 +32,40 @@ function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 function BreadcrumbLink({
+  render,
   asChild,
   className,
+  children,
   ...props
 }: React.ComponentProps<"a"> & {
+  render?: React.ReactElement;
   asChild?: boolean;
 }) {
+  const linkClassName = cn(
+    "transition-colors hover:text-foreground",
+    className,
+  );
+
+  if (render) {
+    return React.cloneElement(
+      render as React.ReactElement<{
+        className?: string;
+        children?: React.ReactNode;
+      }>,
+      {
+        ...props,
+        className: linkClassName,
+        children,
+      },
+    );
+  }
+
   const Comp = asChild ? Slot.Root : "a";
 
   return (
-    <Comp
-      data-slot="breadcrumb-link"
-      className={cn("transition-colors hover:text-foreground", className)}
-      {...props}
-    />
+    <Comp data-slot="breadcrumb-link" className={linkClassName} {...props}>
+      {children}
+    </Comp>
   );
 }
 

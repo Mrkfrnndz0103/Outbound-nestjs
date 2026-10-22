@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Printer, ShipWheel } from "lucide-react";
+import { Download, Printer, ShipWheel } from "lucide-react";
 import { useState } from "react";
 import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
+import { statuses } from "../components/RequestFilters";
 import { RequestTable } from "../components/RequestTable";
 import { DockDialog } from "../components/request/DockDialog";
 import { SkeletonTable } from "../components/SkeletonTable";
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 import { api } from "../lib/api";
 import { buildIdempotencyHeaders } from "../lib/idempotency";
+import { openRequestsSheet } from "../lib/requests";
 import { requestQueryKey } from "../lib/requestRefresh";
 import {
   loadingChipClass,
@@ -23,7 +26,7 @@ import {
   workspaceViewClass,
 } from "../lib/uiClasses";
 import { type WorkflowAction, workflowActionPath } from "../lib/workflow";
-import type { TruckRequest, User } from "../types";
+import type { Status, TruckRequest, User } from "../types";
 
 type DockAction = Extract<WorkflowAction, "mark-docked" | "reassign-driver">;
 
@@ -60,6 +63,7 @@ export function DockingConfirmation({
   );
   const [printable, setPrintable] = useState<TruckRequest | null>(null);
   const [operationId, setOperationId] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Status | "ALL">("ALL");
   function openDockDialog(request: TruckRequest, action: DockAction) {
     setOperationId(crypto.randomUUID());
     setSelectedAction(action);
@@ -113,6 +117,17 @@ export function DockingConfirmation({
     },
   });
   const rows = requestQueue.data?.data ?? [];
+  const statusTabs = statuses.map((status) => ({
+    status,
+    count:
+      status === "ALL"
+        ? rows.length
+        : rows.filter((row) => row.status === status).length,
+  }));
+  const visibleRows =
+    statusFilter === "ALL"
+      ? rows
+      : rows.filter((row) => row.status === statusFilter);
   const actions = (request: TruckRequest) => (
     <>
       <button
@@ -202,6 +217,39 @@ export function DockingConfirmation({
             </p>
           </div>
         </div>
+        <div className="relative z-20 flex min-w-0 flex-wrap items-center gap-3 border-b border-soc5-line bg-linehaul-surface-soft px-3 py-2 max-[680px]:items-stretch max-[680px]:gap-2 max-[680px]:p-2">
+          <Tabs
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value as Status | "ALL")}
+            className="min-w-0 flex-1"
+          >
+            <TabsList
+              className="h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-full bg-soc5-panel p-1 [scrollbar-width:thin]"
+              aria-label="Docking request status tabs"
+            >
+              {statusTabs.map(({ status, count }) => (
+                <TabsTrigger
+                  key={status}
+                  value={status}
+                  className="h-8 shrink-0 rounded-full px-3 text-xs data-[state=active]:bg-soc5-ink data-[state=active]:text-soc5-panel"
+                >
+                  {status === "ALL" ? "All" : status.replaceAll("_", " ")}
+                  <span className="grid size-5 place-items-center rounded-md bg-linehaul-surface-soft px-1 text-[10px] tabular-nums text-soc5-muted">
+                    {count}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <button
+            type="button"
+            className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-soc5-ink bg-soc5-ink px-4 py-1.5 text-sm font-medium text-soc5-panel transition-colors hover:bg-soc5-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linehaul-teal/40 max-[680px]:flex-1"
+            onClick={openRequestsSheet}
+          >
+            <Download size={16} aria-hidden="true" />
+            Export
+          </button>
+        </div>
         {requestQueue.error && (
           <div
             role="alert"
@@ -240,7 +288,7 @@ export function DockingConfirmation({
           </div>
         ) : requestQueue.data ? (
           <RequestTable
-            rows={rows}
+            rows={visibleRows}
             actions={actions}
             alertedIds={new Set(queue.alerts.map((alert) => alert.id))}
             emptyMessage={

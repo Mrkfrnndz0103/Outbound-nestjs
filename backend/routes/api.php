@@ -63,6 +63,7 @@ $registerApiRoutes = static function (string $prefix): void {
             Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword']);
             Route::get('/notifications', [NotificationController::class, 'index']);
             Route::patch('/notifications/read-all', [NotificationController::class, 'readAll']);
+            Route::patch('/notifications/read-request', [NotificationController::class, 'readRequest']);
             Route::patch('/notifications/{id}/read', [NotificationController::class, 'read']);
             Route::post('/presence/heartbeat', [PresenceController::class, 'heartbeat']);
             Route::get('/clusters', function (Request $request) {

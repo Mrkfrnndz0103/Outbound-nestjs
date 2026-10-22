@@ -22,7 +22,7 @@ import type { TruckRequest } from "../../types";
 import { AccessibleDialog } from "../AccessibleDialog";
 import { Modal } from "../Modal";
 import { StatusBadge } from "../StatusBadge";
-import { RequestCancellationRemarks } from "./RequestCancellationRemarks";
+import { RequestDecisionRemarks } from "./RequestDecisionRemarks";
 import {
   displayRequestValue,
   formatRequestDetailDateTime,
@@ -71,7 +71,7 @@ export function OutboundRequestDrawer({
           </span>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
-          <StatusBadge status={request.status} uppercase />
+          <StatusBadge status={request.display_status ?? request.status} uppercase />
         </div>
       </div>
       <dl className={requestDrawerFieldsClass}>
@@ -104,7 +104,7 @@ export function OutboundRequestDrawer({
           <dd>{displayRequestValue(request.plate_number)}</dd>
         </div>
       </dl>
-      <RequestCancellationRemarks remarks={request.cancellation_remarks} />
+      <RequestDecisionRemarks rejectionRemarks={request.rejection_remarks} cancellationRemarks={request.cancellation_remarks} />
     </AccessibleDialog>
   );
 }

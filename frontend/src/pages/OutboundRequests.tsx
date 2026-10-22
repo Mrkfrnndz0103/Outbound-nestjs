@@ -57,7 +57,7 @@ import { SkeletonCardList, SkeletonRequestTable } from "../components/Skeleton";
 import { StatusBadge, StatusText } from "../components/StatusBadge";
 import { RequestElapsedTime } from "../components/RequestTable";
 import { RequestExpandButton } from "../components/request/RequestExpandButton";
-import { RequestCancellationRemarks } from "../components/request/RequestCancellationRemarks";
+import { RequestDecisionRemarks } from "../components/request/RequestDecisionRemarks";
 import {
   canEditDockedRequest,
   displayRequestValue as displayValue,
@@ -795,7 +795,7 @@ export function OutboundRequests({
                                     </section>
                                   ))}
                                 </div>
-                                <RequestCancellationRemarks remarks={row.cancellation_remarks} />
+                                <RequestDecisionRemarks rejectionRemarks={row.rejection_remarks} cancellationRemarks={row.cancellation_remarks} />
                               </div>
                             </section>
                             </RequestDetailRow>

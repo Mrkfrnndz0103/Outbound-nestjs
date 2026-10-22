@@ -66,6 +66,30 @@ final class NotificationController
         return response()->json(['ok' => true]);
     }
 
+    public function readRequest(Request $request): JsonResponse
+    {
+        $data = $request->validate(['request_id' => 'required|uuid']);
+        $actor = $request->attributes->get('actor');
+
+        DB::transaction(function () use ($actor, $data): void {
+            $notifications = $this->visibleQuery($actor)
+                ->where('n.request_id', $data['request_id'])
+                ->orderBy('n.id')
+                ->get(['n.id', 'n.user_id']);
+
+            foreach ($notifications->chunk(500) as $chunk) {
+                $personal = $chunk->where('user_id', $actor->id)->pluck('id')->all();
+                $shared = $chunk->reject(fn ($row): bool => $row->user_id === $actor->id)->pluck('id')->all();
+                if ($personal !== []) {
+                    DB::table('notifications')->whereIn('id', $personal)->whereNull('read_at')->update(['read_at' => now()]);
+                }
+                $this->recordRoleReads($actor->id, $shared);
+            }
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
     private function visibleQuery(object $actor)
     {
         return DB::table('notifications as n')

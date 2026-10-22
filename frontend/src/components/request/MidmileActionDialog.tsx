@@ -17,7 +17,10 @@ import type { WorkflowAction } from "../../lib/workflow";
 import type { TruckRequest } from "../../types";
 import { Modal } from "../Modal";
 
-type MmAction = Extract<WorkflowAction, "assign-truck" | "reject-mm">;
+export type MmAction = Extract<
+  WorkflowAction,
+  "assign-truck" | "reject-mm" | "cancel"
+>;
 
 export function MidmileActionDialog({
   selection,
@@ -35,13 +38,31 @@ export function MidmileActionDialog({
   onSubmit: (payload: Record<string, unknown>) => void;
 }) {
   const confirming = selection.action === "assign-truck";
+  const cancelling = selection.action === "cancel";
+  const remarksField = cancelling
+    ? "cancellation_remarks"
+    : "rejection_remarks";
+  const title = confirming
+    ? "Assign truck"
+    : cancelling
+      ? "Cancel request"
+      : "Reject request";
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const data = new FormData(event.currentTarget);
+    const remarks = String(data.get(remarksField) ?? "").trim();
+    if (!confirming) {
+      const input = event.currentTarget.elements.namedItem(
+        remarksField,
+      ) as HTMLTextAreaElement;
+      input.setCustomValidity(remarks ? "" : "Enter remarks.");
+      if (!input.reportValidity()) return;
+    }
     onSubmit(
       confirming
         ? buildMidmileAssignmentPayload(data)
-        : { rejection_remarks: data.get("rejection_remarks") },
+        : { [remarksField]: remarks },
     );
   }
 
@@ -49,7 +70,9 @@ export function MidmileActionDialog({
     <Modal
       returnFocus={returnFocus}
       open
-      onClose={onClose}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
       className={compactFormDialogClass}
       ariaLabelledBy="action-title"
     >
@@ -58,9 +81,7 @@ export function MidmileActionDialog({
           <p className="mb-[0.35rem] text-linehaul-lime-ink text-xs font-bold tracking-wider uppercase">
             {selection.request.cluster}
           </p>
-          <h2 id="action-title">
-            {confirming ? "Assign truck" : "Reject request"}
-          </h2>
+          <h2 id="action-title">{title}</h2>
         </div>
         <button
           className={iconButtonClass}
@@ -68,6 +89,7 @@ export function MidmileActionDialog({
           title="Close"
           aria-label="Close"
           onClick={onClose}
+          disabled={busy}
         >
           <X size={19} />
         </button>
@@ -113,11 +135,13 @@ export function MidmileActionDialog({
           </>
         ) : (
           <label className={dialogLabelClass}>
-            Rejection remarks
+            {cancelling ? "Cancellation remarks" : "Rejection remarks"}
             <textarea
               className={dialogTextareaClass}
-              name="rejection_remarks"
+              name={remarksField}
               required
+              maxLength={2000}
+              onInput={(event) => event.currentTarget.setCustomValidity("")}
               rows={4}
             />
           </label>
@@ -128,6 +152,7 @@ export function MidmileActionDialog({
             className={secondaryButtonClass}
             type="button"
             onClick={onClose}
+            disabled={busy}
           >
             Cancel
           </button>
@@ -140,7 +165,7 @@ export function MidmileActionDialog({
                 Assign truck
               </>
             ) : (
-              "Reject request"
+              title
             )}
           </button>
         </div>

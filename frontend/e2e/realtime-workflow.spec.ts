@@ -38,8 +38,25 @@ for (const [role, path, status] of [
     });
     let rows: Record<string, unknown>[] = [];
     let queueReads = 0;
+    const receipts = new Set<number>();
+    const notifications = [
+      { id: 1, request_id: 'live-request' },
+      { id: 2, request_id: 'live-request' },
+      { id: 3, request_id: 'another-request' },
+    ];
+    let failReceipt = false;
     await page.route('**/api/**', async (route) => {
       const url = new URL(route.request().url());
+      if (url.pathname.endsWith('/notifications')) return route.fulfill({ json: { data: notifications.map((notification) => ({ ...notification, read_at: receipts.has(notification.id) ? '2026-10-22T02:00:00Z' : null })) } });
+      if (url.pathname.endsWith('/notifications/read-request')) {
+        if (failReceipt) return route.fulfill({ status: 503, json: { message: 'Receipt service unavailable.' } });
+        expect(route.request().method()).toBe('PATCH');
+        const requestId = route.request().postDataJSON().request_id;
+        for (const notification of notifications) {
+          if (notification.request_id === requestId) receipts.add(notification.id);
+        }
+        return route.fulfill({ json: { ok: true } });
+      }
       if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: { id: 'realtime-user', name: 'Realtime user', role, is_admin: false } });
       if (url.pathname.endsWith('/requests/queue')) queueReads++;
       if (url.pathname.endsWith('/requests') || url.pathname.endsWith('/requests/queue')) {
@@ -67,6 +84,7 @@ for (const [role, path, status] of [
     if (role === 'doc_officer') await row.getByRole('checkbox', { name: 'Confirm docking for live-request' }).check();
     else await row.getByRole('button', { name: 'Expand details for request live-request' }).click();
     await expect(page.locator('.request-alert-blink').filter({ hasText: 'Live Hub' })).toHaveCount(0);
+    await expect.poll(() => [...receipts].sort()).toEqual([1, 2]);
 
     const readsBeforeUpdate = queueReads;
     rows = [{ ...rows[0], updated_at: '2026-10-22T00:05:00Z' }];
@@ -75,5 +93,21 @@ for (const [role, path, status] of [
     await expect(page.locator('.request-alert-blink').filter({ hasText: 'Live Hub' })).toBeVisible();
     emit('notifications', { id: 3, target_role: role === 'fte_mm' ? 'fte_ops' : 'fte_mm' });
     await expect(page.locator('html')).toHaveAttribute('data-audio-plays', '1');
+    notifications.push({ id: 4, request_id: 'live-request' });
+    failReceipt = true;
+    const acknowledgeAgain = async () => {
+      if (role === 'doc_officer') {
+        const checkbox = page.getByRole('checkbox', { name: 'Confirm docking for live-request' });
+        await checkbox.uncheck();
+        await checkbox.check();
+      } else await page.getByRole('button', { name: /(?:Expand|Collapse) details for request live-request/ }).click();
+    };
+    await acknowledgeAgain();
+    await expect(page.getByRole('alert').filter({ hasText: 'Could not mark notifications as read' })).toBeVisible();
+    await expect(page.locator('.request-alert-blink').filter({ hasText: 'Live Hub' })).toBeVisible();
+    failReceipt = false;
+    await acknowledgeAgain();
+    await expect.poll(() => [...receipts].sort()).toEqual([1, 2, 4]);
+    await expect(page.locator('.request-alert-blink').filter({ hasText: 'Live Hub' })).toHaveCount(0);
   });
 }

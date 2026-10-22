@@ -443,6 +443,7 @@ function RequestDetails({ request }: { request: TruckRequest }) {
     ["Updated At", formatDateTime(request.updated_at)],
     ["Driver", empty(request.driver_id)],
     ["Rejection Remarks", empty(request.rejection_remarks)],
+    ["Cancellation Remarks", empty(request.cancellation_remarks)],
   ];
 
   return (

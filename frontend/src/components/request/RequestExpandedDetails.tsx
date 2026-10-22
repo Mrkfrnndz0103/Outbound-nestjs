@@ -1,5 +1,5 @@
 import type { TruckRequest } from "../../types";
-import { RequestCancellationRemarks } from "./RequestCancellationRemarks";
+import { RequestDecisionRemarks } from "./RequestDecisionRemarks";
 import {
   displayRequestActor,
   displayRequestValue as displayValue,
@@ -130,7 +130,7 @@ export function RequestExpandedDetails({
             </section>
           ))}
         </div>
-        <RequestCancellationRemarks remarks={request.cancellation_remarks} />
+        <RequestDecisionRemarks rejectionRemarks={request.rejection_remarks} cancellationRemarks={request.cancellation_remarks} />
       </div>
     </section>
   );

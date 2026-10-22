@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { acknowledgeRequestNotifications } from "../lib/notificationAcknowledgment";
 import { requestQueryKey } from "../lib/requestRefresh";
 import type { Status, TruckRequest, User } from "../types";
 
@@ -11,6 +12,7 @@ export type QueueSnapshot = {
   count: number;
   isPending: boolean;
   error: Error | null;
+  acknowledgmentError: Error | null;
   refetch: () => void;
   acknowledge: (id: string) => void;
 };
@@ -72,13 +74,25 @@ export function useQueueNotifications(
   user: User,
   preview = false,
 ): QueueSnapshot {
+  const queryClient = useQueryClient();
+  const identity = `${user.id}|${user.role}`;
+  const activeIdentity = useRef(identity);
+  const inFlight = useRef(new Set<string>());
+  const [acknowledgmentError, setAcknowledgmentError] = useState<Error | null>(
+    null,
+  );
   const statuses = queueStatusesForRole(user.role);
   const status = statuses[0] ?? null;
   const [acknowledged, setAcknowledged] = useState<Map<string, string>>(
     () => new Map(),
   );
   const query = useQuery({
-    queryKey: [...requestQueryKey("notification-queue"), user.role, statuses],
+    queryKey: [
+      ...requestQueryKey("notification-queue"),
+      user.id,
+      user.role,
+      statuses,
+    ],
     queryFn: async () =>
       api<{ data: TruckRequest[]; limit: number }>("/requests/queue?limit=100"),
     enabled: isQueueQueryEnabled(preview, user.role),
@@ -87,8 +101,10 @@ export function useQueueNotifications(
   });
 
   useEffect(() => {
+    activeIdentity.current = identity;
     setAcknowledged(new Map());
-  }, [user.id, user.role]);
+    setAcknowledgmentError(null);
+  }, [identity]);
 
   const rows = actionableQueueRows(user.role, query.data?.data ?? []);
   const alerts = useMemo(
@@ -103,12 +119,37 @@ export function useQueueNotifications(
     count: rows.length,
     isPending: status !== null && query.isPending,
     error: query.error,
+    acknowledgmentError,
     refetch: () => void query.refetch(),
     acknowledge: (id) => {
       const request = rows.find((row) => row.id === id);
       if (!request) return;
       const version = queueAlertVersion(request);
+      const key = `${identity}|${id}|${version}`;
+      if (inFlight.current.has(key)) return;
       setAcknowledged((current) => new Map(current).set(id, version));
+      setAcknowledgmentError(null);
+      if (preview) return;
+      inFlight.current.add(key);
+      void acknowledgeRequestNotifications(id)
+        .then(() =>
+          queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        )
+        .catch((error: unknown) => {
+          if (activeIdentity.current !== identity) return;
+          setAcknowledgmentError(
+            error instanceof Error
+              ? error
+              : new Error("Notification acknowledgment failed."),
+          );
+          setAcknowledged((current) => {
+            if (current.get(id) !== version) return current;
+            const next = new Map(current);
+            next.delete(id);
+            return next;
+          });
+        })
+        .finally(() => inFlight.current.delete(key));
     },
   };
 }

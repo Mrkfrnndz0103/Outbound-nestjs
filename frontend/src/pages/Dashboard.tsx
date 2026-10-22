@@ -141,6 +141,11 @@ export function Dashboard({
         className="relative z-[2] flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col"
         aria-live="polite"
       >
+        {queue.acknowledgmentError && (
+          <p role="alert" className="px-4 py-2 text-sm text-[var(--color-danger)]">
+            Could not mark notifications as read. Reopen request details to retry. {queue.acknowledgmentError.message}
+          </p>
+        )}
         <Suspense fallback={<ViewLoading view={view} />}>
           {view === "overview" && (
             <Overview

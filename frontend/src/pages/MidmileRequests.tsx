@@ -19,7 +19,7 @@ import { statuses } from "../components/RequestFilters";
 import { Pagination } from "../components/Pagination";
 import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
 import { RequestElapsedTime } from "../components/RequestTable";
-import { MidmileActionDialog } from "../components/request/MidmileActionDialog";
+import { MidmileActionDialog, type MmAction } from "../components/request/MidmileActionDialog";
 import { RequestExpandButton } from "../components/request/RequestExpandButton";
 import { RequestExpandedDetails } from "../components/request/RequestExpandedDetails";
 import { RequestFetchNotice } from "../components/request/RequestFetchNotice";
@@ -60,10 +60,9 @@ import {
   tableShellClass,
   textButtonClass,
 } from "../lib/uiClasses";
-import { type WorkflowAction, workflowActionPath } from "../lib/workflow";
+import { workflowActionPath } from "../lib/workflow";
 import type { Page, RequestSort, TruckRequest, User } from "../types";
 
-type MmAction = Extract<WorkflowAction, "assign-truck" | "reject-mm">;
 
 function _formatCluster(value: string) {
   return value
@@ -237,10 +236,11 @@ export function MidmileRequests({
       }),
     onSuccess: async (_, variables) => {
       setSelected(null);
+      setSelectedIds(new Set());
       setNotice(
         variables.action === "assign-truck"
           ? "Truck confirmed."
-          : "Request returned to Outbound.",
+          : variables.action === "cancel" ? "Request cancelled." : "Request returned to Outbound.",
       );
       await queryClient.invalidateQueries({
         queryKey: requestQueryKey("midmile-all"),
@@ -254,6 +254,14 @@ export function MidmileRequests({
       await queryClient.invalidateQueries({ queryKey: ["request-metrics"] });
     },
   });
+
+  function openAction(request: TruckRequest, action: MmAction) {
+    transition.reset();
+    setNotice("");
+    setSelected({ request, action });
+    setOpenRow(null);
+    queue.acknowledge(request.id);
+  }
 
   function sortBy(sort: RequestSort) {
     setFilters((value) => ({
@@ -599,11 +607,7 @@ export function MidmileRequests({
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setSelected({
-                                    request: row,
-                                    action: "assign-truck",
-                                  });
-                                  setOpenRow(null);
+                                  openAction(row, "assign-truck");
                                 }}
                               >
                                 Assign
@@ -613,14 +617,14 @@ export function MidmileRequests({
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setSelected({
-                                    request: row,
-                                    action: "reject-mm",
-                                  });
-                                  setOpenRow(null);
+                                  openAction(row, "reject-mm");
                                 }}
                               >
                                 Reject
+                              </button>
+                              <button className={requestRejectClass} type="button"
+                                onClick={(event) => { event.stopPropagation(); openAction(row, "cancel"); }}>
+                                Cancel request
                               </button>
                             </>
                           )}

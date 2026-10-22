@@ -9,6 +9,25 @@ vi.mock("../Modal", () => ({
 import { MidmileActionDialog } from "./MidmileActionDialog";
 
 describe("MidmileActionDialog", () => {
+  it("offers a distinct cancellation action with mandatory bounded remarks", () => {
+    const markup = renderToStaticMarkup(
+      <MidmileActionDialog
+        selection={{
+          request: { id: "request-1", cluster: "North Hub" } as never,
+          action: "cancel",
+        }}
+        busy={false}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(markup).toContain("Cancel request");
+    expect(markup).toMatch(
+      /<textarea[^>]*name="cancellation_remarks"[^>]*required=""/,
+    );
+    expect(markup).toContain('maxLength="2000"');
+    expect(markup).not.toContain('name="rejection_remarks"');
+  });
   it("renders the assignment fields for an assign-truck action", () => {
     const markup = renderToStaticMarkup(
       <MidmileActionDialog

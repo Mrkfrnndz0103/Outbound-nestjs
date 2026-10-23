@@ -26,6 +26,12 @@ configured or exercised here. The branch/tag protections, exact service and
 container names, and least-privilege IAM permissions still require account-side
 setup. The prior audit rows below describe the earlier implementation state.
 
+GitLab is the source-of-truth repository. It mirrors to GitHub, and Travis CI
+is connected to that GitHub mirror. Protect `main` and release tags in GitLab,
+ensure GitLab mirrors the approved release tag/commit, and restrict direct
+writes/tag creation in GitHub so Travis cannot deploy an unapproved mirror-only
+tag.
+
 ## Fixes applied
 
 - PostgreSQL workflow tests and the complete Supabase/Laravel migration-chain

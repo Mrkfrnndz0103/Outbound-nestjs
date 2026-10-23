@@ -56,6 +56,23 @@ final class VerifyProductionConfig extends Command
             }
         }
 
+        if (config('services.user_imports_sheet.sync_enabled')) {
+            $credentialsConfigured = filled(config('services.google_sheets.credentials_json'))
+                || filled(config('services.google_sheets.credentials_path'));
+            if (! filled(config('services.user_imports_sheet.spreadsheet_id')) || ! $credentialsConfigured) {
+                $this->error('User imports Google Sheets sync is enabled but its spreadsheet ID or credentials are missing.');
+                $failed = true;
+            }
+            if ((int) config('services.user_imports_sheet.max_rows') < 1) {
+                $this->error('GOOGLE_USER_IMPORTS_MAX_ROWS must be at least 1.');
+                $failed = true;
+            }
+            if (! Schema::hasTable('user_imports')) {
+                $this->error('User imports Google Sheets sync is enabled but public.user_imports is missing.');
+                $failed = true;
+            }
+        }
+
         $deploymentMode = null;
         if ($this->option('production') && $this->option('staging')) {
             $this->error('Choose either --production or --staging, not both.');

@@ -9,6 +9,23 @@ PostgreSQL service, and runs tag-gated staging acceptance. It does not publish
 images or deploy/roll back an application; host deployment is manual through the
 documented Compose procedure.
 
+## Follow-up: gated AWS ECS deployment wiring
+
+The Travis configuration now orders tag release acceptance before an optional
+`publish-production` stage. When `PRODUCTION_DEPLOY_ENABLED=true` is configured
+in protected Travis repository settings, the job runs
+[`scripts/deploy/deploy-aws-ecs.sh`](../../scripts/deploy/deploy-aws-ecs.sh).
+That script publishes the backend image to ECR under the full commit SHA, checks
+the expected AWS account, registers task-definition revisions using the image,
+and updates the API, worker, then scheduler services while waiting for each to
+stabilize. It does not apply database migrations or deploy the Firebase site.
+
+This is repository wiring only. No AWS account identity, Travis encrypted
+variables, ECR repository, ECS cluster/services, or production release tag was
+configured or exercised here. The branch/tag protections, exact service and
+container names, and least-privilege IAM permissions still require account-side
+setup. The prior audit rows below describe the earlier implementation state.
+
 ## Fixes applied
 
 - PostgreSQL workflow tests and the complete Supabase/Laravel migration-chain

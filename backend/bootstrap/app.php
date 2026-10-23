@@ -6,6 +6,7 @@ use App\Console\Commands\ReconcileSeaTalkApprovals;
 use App\Console\Commands\RetryUserEvents;
 use App\Console\Commands\SentryTest;
 use App\Console\Commands\SyncRequestsToGoogleSheet;
+use App\Console\Commands\SyncUserImportsFromGoogleSheet;
 use App\Console\Commands\VerifyProductionConfig;
 use App\Http\Middleware\AuthenticateSupabase;
 use App\Http\Middleware\IdempotencyMiddleware;
@@ -50,6 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ReconcileSeaTalkApprovals::class,
         RetryUserEvents::class,
         SyncRequestsToGoogleSheet::class,
+        SyncUserImportsFromGoogleSheet::class,
         VerifyProductionConfig::class,
         SentryTest::class,
     ])
@@ -57,6 +59,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('outbox:drain --limit=100')->everyMinute()->withoutOverlapping();
         $schedule->job(new SyncRequestsToGoogleSheetJob)
             ->everyFiveMinutes()
+            ->withoutOverlapping();
+        $schedule->command('users:sync-imports-google-sheet')
+            ->everyFifteenMinutes()
             ->withoutOverlapping();
         $schedule->command('idempotency:prune')->hourly()->withoutOverlapping();
         $schedule->command('audit:retry-user-events')->everyFiveMinutes()->withoutOverlapping();

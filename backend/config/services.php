@@ -70,4 +70,10 @@ return [
         'retry_attempts' => (int) env('GOOGLE_SHEETS_RETRY_ATTEMPTS', 3),
         'retry_backoff_ms' => (int) env('GOOGLE_SHEETS_RETRY_BACKOFF_MS', 1000),
     ],
+    'user_imports_sheet' => [
+        'spreadsheet_id' => env('GOOGLE_USER_IMPORTS_SPREADSHEET_ID'),
+        'sheet_name' => env('GOOGLE_USER_IMPORTS_SHEET_NAME', 'user'),
+        'sync_enabled' => (bool) env('GOOGLE_USER_IMPORTS_SYNC_ENABLED', false),
+        'max_rows' => (int) env('GOOGLE_USER_IMPORTS_MAX_ROWS', 5000),
+    ],
 ];

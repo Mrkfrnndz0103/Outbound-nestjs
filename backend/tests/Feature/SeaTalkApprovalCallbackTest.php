@@ -2,15 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Features\Approvals\ApprovalItemProvisioner;
+use App\Features\Approvals\ApprovalItemSynchronizer;
 use App\Features\Approvals\ApprovalService;
 use App\Features\Approvals\ApprovalToken;
 use App\Features\Approvals\SeaTalkApprovalCallbackController;
 use App\Features\Approvals\SeaTalkCallbackSignature;
 use App\Features\Requests\RequestAuthorizer;
 use App\Features\Requests\RequestRepository;
+use App\Integrations\SeaTalk\SeaTalkApprovalCenterGateway;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use PDO;
 use Tests\TestCase;
@@ -26,6 +30,7 @@ final class SeaTalkApprovalCallbackTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Http::preventStrayRequests();
         if (! in_array('sqlite', PDO::getAvailableDrivers(), true)) {
             $this->markTestSkipped('The pdo_sqlite extension is required for isolated callback tests.');
         }
@@ -37,6 +42,59 @@ final class SeaTalkApprovalCallbackTest extends TestCase
         DB::purge('sqlite');
         DB::reconnect('sqlite');
         $this->createSchema();
+    }
+
+    public function test_reconciled_replacement_callbacks_reject_old_token_and_accept_current_once(): void
+    {
+        Schema::table('requests', function (Blueprint $table): void {
+            $table->timestamp('created_at')->nullable();
+        });
+        Schema::table('profiles', function (Blueprint $table): void {
+            $table->string('name')->nullable();
+        });
+        Schema::table('seatalk_approval_items', function (Blueprint $table): void {
+            $table->string('status')->default('ACTIVE');
+            $table->text('failure_reason')->nullable();
+            $table->timestamp('updated_at')->nullable();
+        });
+        Schema::table('seatalk_approval_assignments', function (Blueprint $table): void {
+            $table->unsignedInteger('sequence')->default(1);
+            $table->timestamp('sent_at')->nullable();
+        });
+        config()->set('services.seatalk.approval.approve_callback_url', 'https://app.test/approve');
+        config()->set('services.seatalk.approval.reject_callback_url', 'https://app.test/reject');
+        $oldPayload = $this->payload() + ['event_id' => 'old-reroute'];
+        DB::table('seatalk_approval_assignments')->update(['status' => 'EXPIRED']);
+        $replacement = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+        $token = app(ApprovalToken::class)->forAssignment($replacement);
+        DB::table('seatalk_approval_assignments')->insert([
+            'id' => $replacement, 'request_id' => $this->requestId, 'fte_user_id' => $this->profileId,
+            'status' => 'ACTIVE', 'sequence' => 2, 'expires_at' => now()->addMinutes(5),
+            'approval_token_hash' => app(ApprovalToken::class)->hash($token),
+        ]);
+        $captured = null;
+        $gateway = \Mockery::mock(SeaTalkApprovalCenterGateway::class);
+        $gateway->expects('updateItem')->andReturnUsing(function ($id, $payload) use (&$captured): void {
+            $captured = $payload;
+        });
+        $sync = new ApprovalItemSynchronizer($gateway, new ApprovalItemProvisioner($gateway));
+        $result = $sync->synchronize($this->requestId);
+        $this->assertTrue($result->synchronized(), $result->failureReason ?? $result->status);
+        parse_str(parse_url($captured->approveUrl, PHP_URL_QUERY), $approveQuery);
+        parse_str(parse_url($captured->rejectUrl, PHP_URL_QUERY), $rejectQuery);
+        $this->assertSame($token, $approveQuery['token']);
+        $this->assertSame($token, $rejectQuery['token']);
+        $controller = new SeaTalkApprovalCallbackController(new ApprovalService(new RequestRepository(new RequestAuthorizer), new RequestAuthorizer));
+        $controller->approve($this->request($oldPayload));
+        $this->assertDatabaseHas('requests', ['approval_status' => 'PENDING']);
+        $payload = $this->payload();
+        $payload['token'] = $approveQuery['token'];
+        $payload['event_id'] = 'current-reroute';
+        $controller->approve($this->request($payload));
+        $controller->approve($this->request($payload));
+        $this->assertDatabaseHas('requests', ['approval_status' => 'APPROVED']);
+        $this->assertDatabaseHas('seatalk_approval_assignments', ['id' => $replacement, 'status' => 'APPROVED']);
+        $this->assertSame(1, DB::table('request_events')->count());
     }
 
     public function test_valid_callback_is_authenticated_replay_safe_and_updates_shared_state(): void

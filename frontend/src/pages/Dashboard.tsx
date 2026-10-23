@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { PrincipalQueryScope } from "../lib/PrincipalQueryScope";
 import { lazy, Suspense, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,14 +57,21 @@ const UserManagement = lazy(() =>
   })),
 );
 
-export function Dashboard({
+export function Dashboard(props: { user: User; preview?: boolean }) {
+  const viewRole = useUiStore((state) => state.viewRole);
+  const role = props.user.is_admin && viewRole ? viewRole : props.user.role;
+  return <PrincipalQueryScope key={`${props.preview ? "demo" : "live"}:${props.user.id}:${role}`}>
+    <DashboardContent {...props} />
+  </PrincipalQueryScope>;
+}
+
+function DashboardContent({
   user,
   preview = false,
 }: {
   user: User;
   preview?: boolean;
 }) {
-  const queryClient = useQueryClient();
   const location = useLocation();
   const routerNavigate = useNavigate();
   const viewRole = useUiStore((state) => state.viewRole);
@@ -88,7 +95,7 @@ export function Dashboard({
     (candidate === "users" &&
       (activeUser.role === "fte_ops" || activeUser.role === "fte_mm"));
   const requestedView = getAppView(location.pathname);
-  const view = allowed(requestedView) ? requestedView : "overview";
+  const view = !isPreview && allowed(requestedView) ? requestedView : "overview";
   const queue = useQueueNotifications(activeUser, isPreview);
   const navigationGroups = createAppNavigationGroups({
     role: activeUser.role,
@@ -98,7 +105,6 @@ export function Dashboard({
   async function switchRole(role: Role) {
     setViewRole(role);
     routerNavigate(getAppPath("overview"));
-    await queryClient.invalidateQueries();
   }
 
   function navigate(next: AppView, replace = false) {
@@ -121,9 +127,9 @@ export function Dashboard({
   }
 
   useEffect(() => {
-    if (location.pathname !== getAppPath(view))
+    if (!isPreview && location.pathname !== getAppPath(view))
       routerNavigate(getAppPath(view), { replace: true });
-  }, [location.pathname, routerNavigate, view]);
+  }, [isPreview, location.pathname, routerNavigate, view]);
 
   return (
     <AppShell

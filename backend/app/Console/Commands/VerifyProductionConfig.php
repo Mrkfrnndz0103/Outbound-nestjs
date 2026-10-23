@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 final class VerifyProductionConfig extends Command
 {
-    protected $signature = 'system:verify-config {--production : Apply production-only requirements} {--staging : Apply staging-only requirements} {--worker-timeout= : Validate async worker safety against this queue:work timeout in seconds}';
+    protected $signature = 'system:verify-config {--require-seatalk : Require effective SeaTalk approvals and all provider settings} {--production : Apply production-only requirements} {--staging : Apply staging-only requirements} {--worker-timeout= : Validate async worker safety against this queue:work timeout in seconds}';
 
     protected $description = 'Verify required application configuration before startup or deployment';
 
@@ -44,6 +44,10 @@ final class VerifyProductionConfig extends Command
                 || filled(config('services.google_sheets.credentials_path'));
             if (! filled(config('services.google_sheets.spreadsheet_id')) || ! $credentialsConfigured) {
                 $this->error('Google Sheets sync is enabled but its spreadsheet ID or credentials are missing.');
+                $failed = true;
+            }
+            if ((int) config('services.google_sheets.lookback_days', 0) < 0) {
+                $this->error('GOOGLE_SHEETS_LOOKBACK_DAYS must be zero or greater.');
                 $failed = true;
             }
             if ((int) config('services.google_sheets.max_rows') < 1) {
@@ -110,6 +114,15 @@ final class VerifyProductionConfig extends Command
             }
         }
 
+        if ($deploymentMode === 'production' && ! $this->verifySharedStorage()) {
+            $failed = true;
+        }
+
+        if (($this->option('require-seatalk') || config('services.seatalk.approval.requested_enabled')
+            || config('services.seatalk.approval.enabled')) && ! $this->verifySeaTalk()) {
+            $failed = true;
+        }
+
         if ($this->option('worker-timeout') !== null && ! $this->verifyWorker()) {
             $failed = true;
         }
@@ -121,6 +134,79 @@ final class VerifyProductionConfig extends Command
         $this->info('Application configuration is valid.');
 
         return self::SUCCESS;
+    }
+
+    private function verifySharedStorage(): bool
+    {
+        $valid = true;
+        $sessionDriver = config('session.driver');
+        $cacheStore = (string) config('cache.default');
+        $cacheDriver = config("cache.stores.{$cacheStore}.driver");
+        foreach (['Session' => $sessionDriver, 'Cache' => $cacheDriver] as $name => $driver) {
+            if (! in_array($driver, ['database', 'redis'], true)) {
+                $this->error("{$name} storage must use a shared database or redis store in production.");
+                $valid = false;
+            }
+        }
+        $tables = [[null, 'workflow_outbox']];
+        if ($sessionDriver === 'database') {
+            $tables[] = [config('session.connection'), config('session.table', 'sessions')];
+        }
+        if ($cacheDriver === 'database') {
+            $connection = config("cache.stores.{$cacheStore}.connection");
+            $tables[] = [$connection, config("cache.stores.{$cacheStore}.table", 'cache')];
+            $tables[] = [config("cache.stores.{$cacheStore}.lock_connection") ?: $connection, config("cache.stores.{$cacheStore}.lock_table") ?: 'cache_locks'];
+        }
+        $queue = (string) config('queue.default');
+        if (config("queue.connections.{$queue}.driver") === 'database') {
+            $tables[] = [config("queue.connections.{$queue}.connection"), config("queue.connections.{$queue}.table", 'jobs')];
+        }
+        foreach ($tables as [$connection, $table]) {
+            $connection ??= config('database.default');
+            if (! in_array(config("database.connections.{$connection}.driver"), ['pgsql', 'mysql', 'mariadb', 'sqlsrv'], true)) {
+                $this->error("Shared production storage connection is invalid: {$connection}");
+                $valid = false;
+            } elseif (! Schema::connection($connection)->hasTable($table)) {
+                $this->error("Required production storage table is missing: {$table}");
+                $valid = false;
+            }
+        }
+
+        return $valid;
+    }
+
+    private function verifySeaTalk(): bool
+    {
+        $valid = true;
+        if (! config('services.seatalk.approval.requested_enabled') || ! config('services.seatalk.approval.enabled')) {
+            $this->error('SeaTalk approvals are required/requested but are not effectively enabled.');
+            $valid = false;
+        }
+        foreach ([
+            'app_id' => 'SEATALK_APP_ID', 'app_secret' => 'SEATALK_APP_SECRET',
+            'callback_signing_secret' => 'SEATALK_CALLBACK_SIGNING_SECRET',
+            'token_secret' => 'SEATALK_APPROVAL_TOKEN_SECRET',
+            'base_url' => 'SEATALK_APPROVAL_BASE_URL',
+            'create_path' => 'SEATALK_APPROVAL_CREATE_PATH', 'update_path' => 'SEATALK_APPROVAL_UPDATE_PATH',
+            'detail_path' => 'SEATALK_APPROVAL_DETAIL_PATH',
+            'approve_callback_url' => 'SEATALK_APPROVE_CALLBACK_URL', 'reject_callback_url' => 'SEATALK_REJECT_CALLBACK_URL',
+        ] as $key => $name) {
+            $value = config('services.seatalk.approval.'.$key);
+            if (blank($value)) {
+                $this->error("Missing required SeaTalk configuration: {$name}");
+                $valid = false;
+            } elseif (in_array($key, ['base_url', 'approve_callback_url', 'reject_callback_url'], true)
+                && (! filter_var($value, FILTER_VALIDATE_URL) || ! str_starts_with($value, 'https://'))) {
+                $this->error("{$name} must be a valid HTTPS URL.");
+                $valid = false;
+            } elseif (in_array($key, ['create_path', 'update_path', 'detail_path'], true)
+                && (! str_starts_with($value, '/') || str_starts_with($value, '//') || preg_match('/[\s?#]/', $value))) {
+                $this->error("{$name} must be an absolute provider operation path.");
+                $valid = false;
+            }
+        }
+
+        return $valid;
     }
 
     private function verifyWorker(): bool

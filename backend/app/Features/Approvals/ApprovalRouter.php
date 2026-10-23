@@ -151,7 +151,7 @@ final class ApprovalRouter
         }
 
         if (Schema::hasTable('workflow_outbox')) {
-            $this->seatalk->provision($requestId);
+            $this->seatalk->provision($requestId, $result->assignmentId);
 
             return $result;
         }

@@ -367,7 +367,7 @@ export function UserManagement() {
                       >
                         {user.is_active && (
                           <>
-                            {user.role === "ops_pic" && (
+                            {(user.role === "ops_pic" || user.role === "doc_officer") && (
                               <button
                                 className={tableActionClass}
                                 type="button"

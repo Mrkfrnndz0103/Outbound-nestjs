@@ -4,6 +4,18 @@ const loginEntryTimeout = 15_000;
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  // Keep login layout checks local and independent of provider configuration.
+  await page.addInitScript(() => {
+    (window as Window & { SEATALK_LOGIN?: { init: () => void } }).SEATALK_LOGIN = {
+      init: () => {
+        const container = document.getElementById('seatalk_login_button');
+        if (container) container.appendChild(document.createElement('button'));
+      },
+    };
+  });
+  await page.route('**/api/v1/auth/seatalk/config', route => route.fulfill({
+    json: { app_id: 'local-layout-fixture', state: 'local-layout-state' },
+  }));
   await page.route('**/api/requests**', async (route) => {
     await route.fulfill({
       json: {

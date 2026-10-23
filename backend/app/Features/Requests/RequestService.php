@@ -70,14 +70,14 @@ final class RequestService
             ]);
             $this->notify($request->id, 'fte_ops', 'REQUEST_CREATED', 'New request', 'A truck request needs review.', $eventId);
             if ($this->provisioner !== null) {
-                DB::afterCommit(function () use ($request): void {
+                DB::afterCommit(function () use ($request, $eventId): void {
                     if ($this->approvalRouter !== null && (bool) config('services.seatalk.approval.enabled', false)) {
                         $this->approvalRouter->assignNext((string) $request->id);
 
                         return;
                     }
 
-                    $this->seatalk->provision((string) $request->id);
+                    $this->seatalk->provision((string) $request->id, 'event:'.$eventId);
                 });
             }
 
@@ -137,7 +137,7 @@ final class RequestService
                         $this->approvalRouter?->assignNext($id);
                     });
                 } else {
-                    $this->approvals->synchronizeAfterCommit($id);
+                    $this->approvals->synchronizeAfterCommit($id, $eventId);
                 }
             }
 
@@ -207,7 +207,7 @@ final class RequestService
             $eventId = $this->event($id, $actor->id, $event, $request->status, $to, $fields);
             if ($to === 'DOCKED') {
                 $this->approvals->closeAssignments($id, strtolower($event));
-                $this->approvals->synchronizeAfterCommit($id);
+                $this->approvals->synchronizeAfterCommit($id, $eventId);
             }
             $target = match ($to) {
                 'DOCKING' => 'doc_officer', default => null
@@ -285,7 +285,7 @@ final class RequestService
                 $this->notify($id, $role, 'REQUEST_CANCELLED', 'Request cancelled', "Request {$id} was cancelled. {$remarks}", $eventId);
             }
             $this->approvals->closeAssignments($id, 'cancelled');
-            $this->approvals->synchronizeAfterCommit($id);
+            $this->approvals->synchronizeAfterCommit($id, $eventId);
 
             return $updated;
         });

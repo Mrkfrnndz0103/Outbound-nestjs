@@ -12,6 +12,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MANIFEST="$ROOT/docs/deployment/supabase-migration-manifest.txt"
 SPLIT="20261013060000_workflow_outbox.sql"
 
+node "$ROOT/scripts/ci/validate-migration-manifest.mjs" "$ROOT"
 psql -v ON_ERROR_STOP=1 -q -f "$ROOT/supabase/ci/local-auth-stubs.sql"
 
 ordered_migrations() {

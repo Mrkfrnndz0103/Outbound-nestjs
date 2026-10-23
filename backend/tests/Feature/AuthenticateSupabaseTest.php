@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PDO;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class AuthenticateSupabaseTest extends TestCase
@@ -18,6 +19,7 @@ final class AuthenticateSupabaseTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Http::preventStrayRequests();
         if (! in_array('sqlite', PDO::getAvailableDrivers(), true)) {
             $this->markTestSkipped('The pdo_sqlite extension is required for Supabase authentication tests.');
         }
@@ -60,6 +62,27 @@ final class AuthenticateSupabaseTest extends TestCase
             'created_at' => now()->subDay(),
             'updated_at' => now()->subMinute(),
         ]);
+    }
+
+    #[DataProvider('authenticationModes')]
+    public function test_cookie_admin_preview_matches_bearer_effective_role(bool $cookie): void
+    {
+        config()->set('services.admin_emails', ['admin@example.test']);
+        DB::table('profiles')->where('id', $this->userId)->update(['email' => 'admin@example.test', 'role' => 'fte_ops', 'must_change_password' => false]);
+        Http::fake(['https://test-project.supabase.co/auth/v1/user' => Http::response(['id' => $this->userId])]);
+        if ($cookie) {
+            $this->withSession(['seatalk_profile_id' => $this->userId]);
+        } else {
+            $this->withToken('synthetic-admin-token');
+        }
+        $this->withHeader('X-View-Role', 'doc_officer')->getJson('/api/v1/auth/me')
+            ->assertOk()->assertJsonPath('role', 'doc_officer');
+    }
+
+    public static function authenticationModes(): iterable
+    {
+        yield 'cookie' => [true];
+        yield 'bearer' => [false];
     }
 
     public function test_missing_ca_bundle_returns_service_unavailable(): void

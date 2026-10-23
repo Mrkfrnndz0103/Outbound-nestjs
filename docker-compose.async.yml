@@ -1,6 +1,11 @@
 services:
   api:
     environment:
+      SESSION_CONNECTION: pgsql
+      DB_CACHE_CONNECTION: pgsql
+      DB_CACHE_LOCK_CONNECTION: pgsql
+      SESSION_DRIVER: database
+      SESSION_SECURE_COOKIE: "true"
       CACHE_STORE: database
       QUEUE_CONNECTION: database
       DB_QUEUE_RETRY_AFTER: 120
@@ -8,6 +13,11 @@ services:
 
   scheduler:
     environment:
+      SESSION_CONNECTION: pgsql
+      DB_CACHE_CONNECTION: pgsql
+      DB_CACHE_LOCK_CONNECTION: pgsql
+      SESSION_DRIVER: database
+      SESSION_SECURE_COOKIE: "true"
       CACHE_STORE: database
       QUEUE_CONNECTION: database
       DB_QUEUE_RETRY_AFTER: 120
@@ -17,6 +27,11 @@ services:
     image: soc5-outbound-api:local
     env_file: ./backend/.env
     environment:
+      SESSION_CONNECTION: pgsql
+      DB_CACHE_CONNECTION: pgsql
+      DB_CACHE_LOCK_CONNECTION: pgsql
+      SESSION_DRIVER: database
+      SESSION_SECURE_COOKIE: "true"
       CACHE_STORE: database
       QUEUE_CONNECTION: database
       DB_QUEUE_RETRY_AFTER: 120

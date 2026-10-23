@@ -48,13 +48,13 @@ final class ApprovalService
 
     private WorkflowGoogleSheetsOutbox $sheets;
 
-    public function synchronizeAfterCommit(string $requestId): void
+    public function synchronizeAfterCommit(string $requestId, string|int|null $eventId = null): void
     {
         if ($this->synchronizer === null) {
             return;
         }
 
-        $this->seatalk->synchronize($requestId);
+        $this->seatalk->synchronize($requestId, $eventId);
     }
 
     public function approve(
@@ -142,7 +142,7 @@ final class ApprovalService
             // Preserve the actual responding assignment's outcome.
             $this->completeAssignment($assignment, 'APPROVED');
             $this->closeAssignments($requestId, 'approved');
-            $this->synchronizeAfterCommit($requestId);
+            $this->synchronizeAfterCommit($requestId, $eventId);
 
             return new ApprovalResult($updated, true);
         });
@@ -270,7 +270,7 @@ final class ApprovalService
                 $isOpsRejection ? 'rejected_by_ops' : 'rejected',
             );
 
-            $this->synchronizeAfterCommit($requestId);
+            $this->synchronizeAfterCommit($requestId, $eventId);
 
             return new ApprovalResult($updated, true);
         });

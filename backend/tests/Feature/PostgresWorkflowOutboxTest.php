@@ -102,4 +102,26 @@ final class PostgresWorkflowOutboxTest extends TestCase
         $this->assertNotNull($claimed);
         $this->assertNull((new WorkflowOutboxRepository)->claim($firstId, $now));
     }
+
+    public function test_exhausted_abandoned_lease_obeys_supabase_attempt_constraint(): void
+    {
+        DB::transaction(function (): void {
+            DB::statement('CREATE TEMPORARY TABLE workflow_outbox (LIKE public.workflow_outbox INCLUDING ALL) ON COMMIT DROP');
+            DB::statement('ALTER TABLE workflow_outbox ADD CONSTRAINT strict_attempt_cap CHECK (attempts <= max_attempts)');
+            $id = '00000000-0000-0000-0000-000000000103';
+            $now = CarbonImmutable::now();
+            DB::table('workflow_outbox')->insert([
+                'id' => $id, 'idempotency_key' => 'strict-final-attempt', 'event_type' => 'test',
+                'payload' => '{}', 'status' => 'PROCESSING', 'attempts' => 5, 'max_attempts' => 5,
+                'available_at' => $now->subMinutes(10), 'processing_started_at' => $now->subMinutes(10),
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+
+            $this->assertNull((new WorkflowOutboxRepository)->claim($id, $now));
+            $row = DB::table('workflow_outbox')->where('id', $id)->first();
+            $this->assertSame('DEAD_LETTER', $row->status);
+            $this->assertSame(5, $row->attempts);
+            $this->assertNull($row->processing_started_at);
+        });
+    }
 }

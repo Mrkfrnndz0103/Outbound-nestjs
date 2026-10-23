@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRealtimeRecoveryTracker, isNotificationForUser } from "./useRequestRealtime";
+import { RealtimeClient } from "@supabase/realtime-js";
+import { createRealtimeTopics, createRealtimeRecoveryTracker, isNotificationForUser } from "./useRequestRealtime";
 
 describe("notification audience", () => {
   const user = { id: "me", role: "fte_ops" } as const;
@@ -115,4 +116,21 @@ describe("realtime reconnect recovery", () => {
     expect(recover).toHaveBeenCalledTimes(1);
     expect(recover).toHaveBeenCalledWith(new Set(["notifications"]));
   });
+});
+
+it("role/effect replacement never reuses channels awaiting asynchronous removal", async () => {
+  const client = new RealtimeClient("ws://127.0.0.1:1/socket", { params: { apikey: "synthetic" } });
+  const oldTopics = createRealtimeTopics();
+  const nextTopics = createRealtimeTopics();
+  for (const kind of ["requests", "intraday", "notifications"] as const) {
+    const retiring = client.channel(oldTopics[kind]);
+    let acknowledge!: () => void;
+    retiring.unsubscribe = () => new Promise(resolve => { acknowledge = () => resolve("ok"); });
+    const removal = client.removeChannel(retiring);
+    const replacement = client.channel(nextTopics[kind]);
+    expect(replacement).not.toBe(retiring);
+    acknowledge();
+    await removal;
+    expect(client.getChannels()).toContain(replacement);
+  }
 });

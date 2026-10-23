@@ -134,3 +134,10 @@ describe("docking workflow gates", () => {
     ).toBe(true);
   });
 });
+
+it("provides an independent paged docking lookup after assigned trucks leave the actionable queue", () => {
+ const markup = renderToStaticMarkup(<DockingConfirmation user={user} queue={queueAlerts} />);
+ expect(markup).toContain("Assigned driver lookup");
+ expect(markup).toContain("Next lookup page");
+ expect(markup).toContain("Docking queue pages");
+});

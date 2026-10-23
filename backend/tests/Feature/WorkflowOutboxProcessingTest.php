@@ -108,6 +108,7 @@ final class WorkflowOutboxProcessingTest extends TestCase
 
     public function test_abandoned_attempts_are_capped_and_dead_letter_can_be_replayed(): void
     {
+        DB::unprepared("CREATE TRIGGER enforce_outbox_attempt_cap BEFORE UPDATE ON workflow_outbox WHEN NEW.attempts > NEW.max_attempts BEGIN SELECT RAISE(ABORT, 'attempt cap exceeded'); END");
         $id = $this->record('capped');
         DB::table('workflow_outbox')->where('id', $id)->update(['status' => 'PROCESSING', 'attempts' => 5, 'processing_started_at' => now()->subMinutes(10)]);
         $handler = new class implements WorkflowOutboxHandler
@@ -122,10 +123,22 @@ final class WorkflowOutboxProcessingTest extends TestCase
         (new ProcessWorkflowOutbox($id))->handle(new WorkflowOutboxRepository, new WorkflowOutboxHandlerRegistry(['capped' => $handler]));
         $this->assertFalse($handler->called);
         $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'DEAD_LETTER']);
+        $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'attempts' => 5]);
         Queue::fake();
         $this->artisan('outbox:retry', ['id' => $id])->assertExitCode(0);
         $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'PENDING', 'attempts' => 0]);
         Queue::assertPushed(ProcessWorkflowOutbox::class);
+    }
+
+    public function test_final_active_lease_is_not_dead_lettered_before_expiry(): void
+    {
+        $id = $this->record('final-active');
+        DB::table('workflow_outbox')->where('id', $id)->update([
+            'status' => 'PROCESSING', 'attempts' => 5, 'processing_started_at' => now(),
+        ]);
+
+        $this->assertNull((new WorkflowOutboxRepository)->claim($id, CarbonImmutable::now()));
+        $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'PROCESSING', 'attempts' => 5]);
     }
 
     public function test_status_endpoint_reports_retry_and_dead_letter_visibility_without_payloads(): void

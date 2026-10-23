@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Features\Approvals\ApprovalItemProvisioner;
+use App\Features\Outbox\WorkflowSeaTalkOutbox;
 use App\Features\Requests\RequestAuthorizer;
 use App\Features\Requests\RequestRepository;
 use App\Features\Requests\RequestService;
@@ -10,8 +11,11 @@ use App\Integrations\SeaTalk\ApprovalItemPayload;
 use App\Integrations\SeaTalk\ProviderItemResult;
 use App\Integrations\SeaTalk\SeaTalkApprovalCenterGateway;
 use App\Integrations\SeaTalk\SeaTalkResponse;
+use App\Jobs\ProcessWorkflowOutbox;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
 use PDO;
@@ -22,6 +26,7 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Http::preventStrayRequests();
         if (! in_array('sqlite', PDO::getAvailableDrivers(), true)) {
             $this->markTestSkipped('The pdo_sqlite extension is required for isolated approval-cycle tests.');
         }
@@ -36,6 +41,8 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
         DB::purge('sqlite');
         DB::reconnect('sqlite');
         $this->createSchema();
+        (require glob(database_path('migrations/*create_workflow_outbox.php'))[0])->up();
+        Queue::fake();
     }
 
     public function test_request_creation_and_correction_deliver_a_fresh_active_approval_assignment(): void
@@ -59,10 +66,14 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
                 && preg_match('/^[a-f0-9]{64}$/', (string) ($payload->pendingList[0]['token'] ?? '')) === 1
                 && str_contains((string) $payload->approveUrl, 'token=')))
             ->andReturn(new ProviderItemResult(new SeaTalkResponse(200, ['code' => 0, 'response_id' => 'response-1'])));
+        $gateway->expects('updateItem')->with('req_aaaaaaaaaaaaaaaaaaaaaaaaaa', Mockery::on(fn (ApprovalItemPayload $payload): bool => $payload->statusState === 2));
+        $gateway->expects('updateItem')->with('req_aaaaaaaaaaaaaaaaaaaaaaaaaa', Mockery::on(fn (ApprovalItemPayload $payload): bool => $payload->statusState === 1));
+        $gateway->expects('updateItem')->with('req_aaaaaaaaaaaaaaaaaaaaaaaaaa', Mockery::on(fn (ApprovalItemPayload $payload): bool => $payload->statusState === 4));
         $gateway->expects('updateItem')
             ->with('req_aaaaaaaaaaaaaaaaaaaaaaaaaa', Mockery::on(fn (ApprovalItemPayload $payload): bool => count($payload->pendingList) === 1
                 && $payload->pendingList[0]['employee_code'] === 'employee-ops-1'));
 
+        $this->app->instance(SeaTalkApprovalCenterGateway::class, $gateway);
         $authorizer = new RequestAuthorizer;
         $provisioner = new ApprovalItemProvisioner($gateway);
         $service = new RequestService(new RequestRepository($authorizer), $authorizer, provisioner: $provisioner);
@@ -78,6 +89,7 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
             'truck_type' => 'WETLEASE',
         ]);
 
+        $this->drainSeaTalk();
         $this->assertSame('PENDING', $request->status);
         $this->assertDatabaseHas('seatalk_approval_assignments', [
             'request_id' => $requestId,
@@ -99,8 +111,16 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
             'responded_at' => now(),
         ]);
 
+        $outbox = app(WorkflowSeaTalkOutbox::class);
+        $outbox->synchronize($requestId);
+        $this->drainSeaTalk();
+        $this->assertDatabaseHas('seatalk_approval_items', ['status' => 'REJECTED']);
+        $outbox->synchronize($requestId);
+        $this->assertSame(2, DB::table('workflow_outbox')->where('event_type', 'like', 'workflow.seatalk.%')->count());
+
         $corrected = $service->updateDetails($requestId, $pic, ['dock_no' => 'D-2']);
 
+        $this->drainSeaTalk();
         $this->assertSame('PENDING', $corrected->status);
         $this->assertSame(2, DB::table('seatalk_approval_assignments')->where('request_id', $requestId)->count());
         $this->assertDatabaseHas('seatalk_approval_assignments', [
@@ -110,6 +130,25 @@ final class SeaTalkApprovalCycleDeliveryTest extends TestCase
             'status' => 'ACTIVE',
         ]);
         $this->assertSame('ACTIVE', DB::table('seatalk_approval_items')->where('request_id', $requestId)->value('status'));
+        DB::table('requests')->where('id', $requestId)->update(['approval_status' => 'APPROVED', 'approval_version' => 2]);
+        DB::table('seatalk_approval_assignments')->where('status', 'ACTIVE')->update(['status' => 'APPROVED']);
+        $outbox->synchronize($requestId, 'approved-event');
+        $this->drainSeaTalk();
+        $outbox->synchronize($requestId, 'approved-event');
+        DB::table('requests')->where('id', $requestId)->update(['approval_status' => 'CANCELLED', 'approval_version' => 3]);
+        $outbox->synchronize($requestId, 'cancelled-event');
+        $this->drainSeaTalk();
+        $this->assertDatabaseHas('seatalk_approval_items', ['status' => 'CLOSED']);
+        $this->assertSame(5, DB::table('workflow_outbox')->where('event_type', 'like', 'workflow.seatalk.%')->count());
+
+    }
+
+    private function drainSeaTalk(): void
+    {
+        foreach (DB::table('workflow_outbox')->where('event_type', 'like', 'workflow.seatalk.%')->where('status', 'PENDING')->pluck('id') as $id) {
+            app()->call([new ProcessWorkflowOutbox($id), 'handle']);
+            $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'COMPLETED']);
+        }
     }
 
     private function createSchema(): void

@@ -5,12 +5,11 @@ const base = import.meta.env.VITE_API_URL ?? "/api/v1";
 
 async function getApiSession() {
   const current = await supabase.auth.getSession();
-  if (current.data.session || current.error) return current.data.session;
-
-  // Supabase can briefly expose no session while restoring a persisted one.
-  // Recover it before sending a protected request without Authorization.
-  const refreshed = await supabase.auth.refreshSession();
-  return refreshed.data.session;
+  // getSession waits for Supabase client initialization. If it has no active
+  // browser session, let the same-origin backend cookie authenticate the
+  // request (SeaTalk) or reject it; an unsolicited refresh can stall previews
+  // and cookie-authenticated requests on an unrelated Supabase network call.
+  return current.data.session;
 }
 
 export class ApiError extends Error {

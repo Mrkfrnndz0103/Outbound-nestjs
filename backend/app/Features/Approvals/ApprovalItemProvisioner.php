@@ -153,12 +153,7 @@ final class ApprovalItemProvisioner
                     ->orderBy('assignments.sequence')
                     ->get(['assignments.id as assignment_id', 'profiles.seatalk_employee_code'])
                     ->map(function (object $profile) use ($createdAt): array {
-                        $entry = ['employee_code' => $profile->seatalk_employee_code, 'ts' => $createdAt];
-                        if ((string) config('services.seatalk.approval.token_secret') !== '') {
-                            $entry['token'] = app(ApprovalToken::class)->forAssignment((string) $profile->assignment_id);
-                        }
-
-                        return $entry;
+                        return $this->assignmentEntry((string) $profile->assignment_id, (string) $profile->seatalk_employee_code, $createdAt);
                     })
                     ->all();
             }
@@ -207,6 +202,16 @@ final class ApprovalItemProvisioner
             approveUrl: $approveUrl,
             rejectUrl: $rejectUrl,
         );
+    }
+
+    public function assignmentEntry(string $assignmentId, string $employeeCode, int $timestamp): array
+    {
+        $entry = ['employee_code' => $employeeCode, 'ts' => $timestamp];
+        if ((string) config('services.seatalk.approval.token_secret') !== '') {
+            $entry['token'] = app(ApprovalToken::class)->forAssignment($assignmentId);
+        }
+
+        return $entry;
     }
 
     private function callbackUrl(string $url, ?string $token): string

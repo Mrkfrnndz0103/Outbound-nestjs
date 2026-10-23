@@ -37,6 +37,21 @@ final class ApprovalServiceTest extends TestCase
         $this->service = new ApprovalService(new RequestRepository($authorizer), $authorizer);
     }
 
+    public function test_role_preview_cannot_override_stored_approval_authorization(): void
+    {
+        $requestId = $this->insertRequest('PENDING');
+        $storedActor = new ApprovalActor((string) Str::uuid(), 'doc_officer');
+        $this->insertApprovalProfile($storedActor);
+        try {
+            $this->service->approve($requestId, new ApprovalActor($storedActor->id, 'fte_ops'), ApprovalSource::Web);
+            $this->fail('A preview must not confer the stored approval role.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+        $this->assertDatabaseHas('requests', ['id' => $requestId, 'approval_status' => 'PENDING']);
+        $this->assertSame(0, DB::table('request_events')->count());
+    }
+
     public function test_web_approval_records_canonical_metadata_once(): void
     {
         $request = $this->insertRequest('PENDING');

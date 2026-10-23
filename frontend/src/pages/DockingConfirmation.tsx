@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Printer, ShipWheel } from "lucide-react";
 import { useState } from "react";
 import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
@@ -26,7 +26,7 @@ import {
   workspaceViewClass,
 } from "../lib/uiClasses";
 import { type WorkflowAction, workflowActionPath } from "../lib/workflow";
-import type { Status, TruckRequest, User } from "../types";
+import type { Page, Status, TruckRequest, User } from "../types";
 
 type DockAction = Extract<WorkflowAction, "mark-docked" | "reassign-driver">;
 
@@ -55,6 +55,13 @@ export function DockingConfirmation({
   queue: QueueSnapshot;
 }) {
   const client = useQueryClient();
+  const [lookupPage, setLookupPage] = useState(1);
+  const [lookupSearch, setLookupSearch] = useState("");
+  const lookup = useQuery({
+    queryKey: [...requestQueryKey("docking"), "assigned-lookup", lookupPage, lookupSearch],
+    queryFn: ({ signal }) => api<Page<TruckRequest>>(`/requests?status=DOCKING&per_page=20&page=${lookupPage}&search=${encodeURIComponent(lookupSearch.trim())}&sort=created_at&direction=desc`, { signal }),
+    enabled: user.role === "doc_officer",
+  });
   const [selected, setSelected] = useState<TruckRequest | null>(null);
   const [selectedAction, setSelectedAction] =
     useState<DockAction>("mark-docked");
@@ -196,7 +203,7 @@ export function DockingConfirmation({
   );
 
   return (
-    <div className={workspaceViewClass}>
+    <div className={`${workspaceViewClass} flex-col gap-4`}>
       {action.error && (
         <p className="notice error text-[var(--color-danger)]">
           {action.error.message}
@@ -300,6 +307,31 @@ export function DockingConfirmation({
             onClick={queue.nextPage} aria-label="Next queue page">{queue.isFetching ? "Loading..." : "Next"}</button>
         </nav>
       </section>
+      {user.role === "doc_officer" && (
+        <section className={operationalPanelClass} aria-label="Assigned driver lookup">
+          <div className={operationalPanelHeadClass}>
+            <div>
+              <h2 className={operationalPanelTitleClass}>Assigned driver lookup</h2>
+              <p className={operationalPanelCopyClass}>Find docking trucks to reprint labels or reassign a driver.</p>
+            </div>
+            <label>Search docking trucks
+              <input value={lookupSearch} onChange={(event) => { setLookupSearch(event.target.value); setLookupPage(1); }} />
+            </label>
+          </div>
+          {lookup.error && <p role="alert">Unable to load assigned drivers. <button type="button" onClick={() => void lookup.refetch()}>Retry lookup</button></p>}
+          {lookup.isPending ? <SkeletonTable columns={4} rows={4} compact /> : lookup.data && (
+            <RequestTable rows={lookup.data.data.filter(row => Boolean(row.driver_id))} actions={actions}
+              emptyMessage="No assigned drivers on this page. Search or check the next page." />
+          )}
+          <nav aria-label="Assigned driver lookup pages" className="flex items-center justify-end gap-3 p-3">
+            <span>Page {lookupPage}</span>
+            <button type="button" className={secondaryButtonClass} aria-label="Previous lookup page"
+              disabled={lookupPage <= 1 || lookup.isFetching} onClick={() => setLookupPage(page => Math.max(1, page - 1))}>Previous</button>
+            <button type="button" className={secondaryButtonClass} aria-label="Next lookup page"
+              disabled={!lookup.data || lookupPage >= lookup.data.last_page || lookup.isFetching} onClick={() => setLookupPage(page => page + 1)}>Next</button>
+          </nav>
+        </section>
+      )}
       {selected && (
         <DockDialog
           request={selected}

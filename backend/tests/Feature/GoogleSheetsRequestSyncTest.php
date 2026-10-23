@@ -210,4 +210,86 @@ final class GoogleSheetsRequestSyncTest extends TestCase
 
         $this->assertSame(0, Artisan::call('requests:sync-google-sheet'));
     }
+
+    public function test_over_limit_export_is_rejected_before_loading_request_payloads(): void
+    {
+        config()->set('services.google_sheets.max_rows', 1);
+        $extra = (array) DB::table('requests')->first();
+        $extra['id'] = 'second-request';
+        DB::table('requests')->insert($extra);
+        DB::enableQueryLog();
+        try {
+            (new GoogleSheetsRequestSync)->sync();
+            $this->fail('An over-limit export must fail before calling Google.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('1-row limit', $exception->getMessage());
+        }
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+        foreach ($queries as $query) {
+            $this->assertStringNotContainsString('"r"."cluster"', $query['query']);
+            $this->assertStringNotContainsString('request_events', $query['query']);
+        }
+    }
+
+    public function test_export_writes_bounded_batches_and_clears_only_after_all_batches(): void
+    {
+        config()->set('services.google_sheets.max_rows', 1000);
+        $template = (array) DB::table('requests')->first();
+        $requests = [];
+        for ($index = 1; $index <= 500; $index++) {
+            $requests[] = array_replace($template, ['id' => sprintf('request-%04d', $index)]);
+        }
+        DB::table('requests')->insert($requests);
+
+        $values = Mockery::mock(SpreadsheetsValues::class);
+        $values->shouldReceive('update')->once()->ordered()
+            ->withArgs(fn ($id, $range, $body): bool => $range === "'Sheet1'!A1:S501" && count($body->getValues()) === 501);
+        $values->shouldReceive('update')->once()->ordered()
+            ->withArgs(fn ($id, $range, $body): bool => $range === "'Sheet1'!A502:S502" && count($body->getValues()) === 1);
+        $values->shouldReceive('batchClear')->once()->ordered();
+        $sheets = Mockery::mock(Sheets::class);
+        $sheets->spreadsheets_values = $values;
+
+        $this->assertSame(501, (new GoogleSheetsRequestSync(fn (): Sheets => $sheets))->sync());
+    }
+
+    public function test_latest_workflow_actor_is_selected_without_loading_edit_history(): void
+    {
+        DB::table('profiles')->insert(['id' => 'doc-id', 'name' => 'Current DOC']);
+        $events = [];
+        for ($index = 0; $index < 1200; $index++) {
+            $events[] = ['request_id' => 'request-id', 'event_type' => 'REQUEST_EDITED', 'created_at' => now(), 'actor_id' => 'creator-id'];
+        }
+        DB::table('request_events')->insert($events);
+        DB::table('request_events')->insert([
+            ['request_id' => 'request-id', 'event_type' => 'DRIVER_ASSIGNED', 'created_at' => '2026-10-20 01:00:00', 'actor_id' => 'creator-id'],
+            ['request_id' => 'request-id', 'event_type' => 'DRIVER_REASSIGNED', 'created_at' => '2026-10-21 01:00:00', 'actor_id' => 'doc-id'],
+        ]);
+        $values = Mockery::mock(SpreadsheetsValues::class);
+        $values->shouldReceive('update')->once()
+            ->withArgs(fn ($id, $range, $body): bool => $body->getValues()[1][16] === 'Current DOC');
+        $values->shouldReceive('batchClear')->once();
+        $sheets = Mockery::mock(Sheets::class);
+        $sheets->spreadsheets_values = $values;
+
+        $this->assertSame(1, (new GoogleSheetsRequestSync(fn (): Sheets => $sheets))->sync());
+    }
+
+    public function test_explicit_rolling_window_keeps_archived_requests_out_of_export(): void
+    {
+        $this->travelTo(now()->startOfDay());
+        config()->set('services.google_sheets.max_rows', 1);
+        config()->set('services.google_sheets.lookback_days', 1);
+        $old = (array) DB::table('requests')->first();
+        DB::table('requests')->where('id', 'request-id')->update(['request_timestamp' => now()->subDays(30)]);
+        DB::table('requests')->insert(array_replace($old, ['id' => 'recent', 'cluster' => 'Recent only', 'request_timestamp' => now()]));
+
+        $values = Mockery::mock(SpreadsheetsValues::class);
+        $values->shouldReceive('update')->once()->withArgs(fn ($id, $range, $body): bool => $body->getValues()[1][1] === 'Recent only');
+        $values->shouldReceive('batchClear')->once();
+        $sheets = Mockery::mock(Sheets::class);
+        $sheets->spreadsheets_values = $values;
+        $this->assertSame(1, (new GoogleSheetsRequestSync(fn (): Sheets => $sheets))->sync());
+    }
 }

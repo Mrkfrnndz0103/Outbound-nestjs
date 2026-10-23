@@ -91,8 +91,8 @@ final class WorkflowOutboxRepository
     public function claim(string $id, CarbonImmutable $now): ?object
     {
         return DB::transaction(function () use ($id, $now): ?object {
-            $staleBefore = $now->subSeconds((int) config('workflow_outbox.processing_timeout_seconds', 300));
-            $updated = DB::table('workflow_outbox')
+            $staleBefore = $now->subSeconds(max(1, (int) config('workflow_outbox.processing_timeout_seconds', 300)));
+            $eligible = DB::table('workflow_outbox')
                 ->where('id', $id)
                 ->where(function ($query) use ($now, $staleBefore): void {
                     $query
@@ -104,13 +104,27 @@ final class WorkflowOutboxRepository
                             $processing->where('status', WorkflowOutboxStatus::Processing->value)
                                 ->where('processing_started_at', '<=', $staleBefore);
                         });
-                })
-                ->update([
-                    'status' => WorkflowOutboxStatus::Processing->value,
-                    'attempts' => DB::raw('attempts + 1'),
-                    'processing_started_at' => $now,
-                    'updated_at' => $now,
-                ]);
+                });
+
+            // A crashed final attempt must not increment past the database cap.
+            // Both updates recheck eligibility under the database row lock.
+            $exhausted = (clone $eligible)->whereColumn('attempts', '>=', 'max_attempts')->update([
+                'status' => WorkflowOutboxStatus::DeadLetter->value,
+                'processing_started_at' => null,
+                'dead_lettered_at' => $now,
+                'last_error' => 'Processing attempts exhausted after abandoned work.',
+                'updated_at' => $now,
+            ]);
+            if ($exhausted === 1) {
+                return null;
+            }
+
+            $updated = $eligible->whereColumn('attempts', '<', 'max_attempts')->update([
+                'status' => WorkflowOutboxStatus::Processing->value,
+                'attempts' => DB::raw('attempts + 1'),
+                'processing_started_at' => $now,
+                'updated_at' => $now,
+            ]);
 
             return $updated === 1 ? $this->find($id) : null;
         });

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PDO;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -19,6 +20,7 @@ final class BackroomPasswordResetTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Http::preventStrayRequests();
         if (! in_array('sqlite', PDO::getAvailableDrivers(), true)) {
             $this->markTestSkipped('The pdo_sqlite extension is required for isolated password reset tests.');
         }
@@ -91,6 +93,52 @@ final class BackroomPasswordResetTest extends TestCase
         $request->attributes->set('actor', (object) ['id' => (string) Str::uuid(), 'role' => 'fte_ops']);
 
         return $request;
+    }
+
+    #[DataProvider('deniedDocResetTargets')]
+    public function test_doc_reset_denies_inactive_or_non_backroom_targets(array $overrides): void
+    {
+        $id = $this->insertProfile(['role' => 'doc_officer'] + $overrides);
+        Http::fake();
+        try {
+            (new UserController)->resetPassword($this->request($id), $id);
+            $this->fail('An unavailable Backroom target must be rejected.');
+        } catch (HttpException $exception) {
+            $this->assertSame(404, $exception->getStatusCode());
+        }
+        Http::assertNothingSent();
+    }
+
+    public static function deniedDocResetTargets(): iterable
+    {
+        yield 'inactive' => [['is_active' => false]];
+        yield 'SeaTalk identity' => [['ops_id' => null]];
+    }
+
+    public function test_doc_reset_denies_unauthorized_actor(): void
+    {
+        $id = $this->insertProfile(['role' => 'doc_officer']);
+        $request = $this->request($id);
+        $request->attributes->get('actor')->role = 'doc_officer';
+        Http::fake();
+        try {
+            (new UserController)->resetPassword($request, $id);
+            $this->fail('DOC cannot reset accounts.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_active_doc_reset_uses_audited_forced_password_change(): void
+    {
+        $id = $this->insertProfile(['role' => 'doc_officer']);
+        Http::fake(['https://test-project.supabase.co/auth/v1/admin/users/*' => Http::response(['id' => $id], 200)]);
+        $response = (new UserController)->resetPassword($this->request($id), $id);
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertNotEmpty($response->getData(true)['initial_password']);
+        $this->assertDatabaseHas('profiles', ['id' => $id, 'must_change_password' => true, 'password_changed_at' => null]);
+        $this->assertDatabaseHas('user_events', ['user_id' => $id, 'event_type' => 'PASSWORD_RESET']);
     }
 
     public function test_reset_sets_first_login_state_and_returns_temporary_password(): void

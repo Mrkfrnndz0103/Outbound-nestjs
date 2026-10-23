@@ -22,6 +22,10 @@ final class AuthenticateSupabase
             abort_unless($profile, 401, 'Invalid or expired SeaTalk session.');
             $profile->is_admin = in_array(strtolower((string) $profile->email), array_map('strtolower', config('services.admin_emails', [])), true);
             $profile->original_role = $profile->role;
+            $viewRole = $request->header('X-View-Role');
+            if ($profile->is_admin && in_array($viewRole, ['ops_pic', 'fte_ops', 'fte_mm', 'doc_officer'], true)) {
+                $profile->role = $viewRole;
+            }
             $request->attributes->set('actor', $profile);
             $request->attributes->set('supabase_user_updated_at', null);
 

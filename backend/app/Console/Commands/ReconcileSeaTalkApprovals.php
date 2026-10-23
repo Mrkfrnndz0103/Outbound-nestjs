@@ -29,7 +29,10 @@ final class ReconcileSeaTalkApprovals extends Command
         $limit = max(1, min(1000, (int) $this->option('limit')));
         $items = DB::table('seatalk_approval_items as items')
             ->join('requests', 'requests.id', '=', 'items.request_id')
-            ->whereIn('items.status', ['PENDING', 'ACTIVE', 'FAILED'])
+            ->where(function ($query): void {
+                $query->whereIn('items.status', ['PENDING', 'ACTIVE', 'FAILED'])
+                    ->orWhereRaw("items.status <> CASE requests.approval_status WHEN 'APPROVED' THEN 'APPROVED' WHEN 'REJECTED' THEN 'REJECTED' WHEN 'CANCELLED' THEN 'CLOSED' ELSE 'ACTIVE' END");
+            })
             ->orderBy('items.updated_at')
             ->limit($limit)
             ->get(['items.id', 'items.request_id', 'items.status', 'items.provider_item_id', 'items.failure_reason', 'requests.approval_status']);

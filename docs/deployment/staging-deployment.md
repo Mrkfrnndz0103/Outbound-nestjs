@@ -74,23 +74,10 @@ version` must succeed.
 
 ### Step 4. Initialize the staging Supabase database
 
-The SQL files in [`supabase/migrations/`](../../supabase/migrations/) manage
-the Supabase application schema and related policies/functions. They are
-separate from Laravel migrations.
-
-1. Review the migrations and
-   [`setup-guide.md`](../docs/setup-guide.md) with the database owner.
-2. Agree on the correct migration order for this release. The directory has
-   historical duplicate numeric prefixes and timestamped files; do not guess
-   order from filename prefixes or blindly replay scripts.
-3. Apply each required migration once in the **staging** Supabase SQL Editor.
-   Record filenames and outcomes.
-4. For an existing staging project, compare its applied migration history and
-   schema first. Take a recoverable snapshot before schema changes.
-5. Confirm the expected tables, RLS policies, functions, triggers, and
-   Realtime configuration are present.
-
-Never run staging SQL against production.
+Follow [the canonical fresh/upgrade migration procedure](production-migrations.md).
+Prepare and review history here; execute its A / Laravel B / C sequence after the
+release image and environment are ready in Step 8. Do not apply all Supabase SQL
+before Laravel. Never run the CI auth-stub installer against staging or production.
 
 ### Step 5. Configure staging Auth
 
@@ -177,8 +164,8 @@ From the repository root on the staging host:
 
 ```sh
 git status --short
-docker compose --env-file backend/.env config --quiet
-docker compose --env-file backend/.env build
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml config --quiet
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml build
 ```
 
 Stop if the checkout is dirty, Compose validation fails, or the build fails.
@@ -189,17 +176,14 @@ do not pass server secrets to the frontend.
 
 ### Step 8. Apply Laravel migrations and verify configuration
 
-Supabase SQL migrations were applied separately in Step 4. Apply pending
-Laravel migrations to the staging database:
-
-```sh
-docker compose --env-file backend/.env run --rm api php artisan migrate --force
-```
+Execute the reviewed [A / Laravel B / C plan](production-migrations.md) on the
+explicit staging target. Review existing migration history and a recoverable
+snapshot first. This replaces the former Supabase-then-Laravel instructions.
 
 Then run the staging deployment checks:
 
 ```sh
-docker compose --env-file backend/.env run --rm api php artisan system:verify-config --staging
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml run --rm api php artisan system:verify-config --staging
 ```
 
 The configuration check requires `APP_ENV=staging`, `APP_DEBUG=false`, an
@@ -210,8 +194,8 @@ any errors before proceeding.
 ### Step 9. Start the staging stack
 
 ```sh
-docker compose --env-file backend/.env up --build -d
-docker compose --env-file backend/.env ps
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml up --build -d
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml ps
 ```
 
 The API and scheduler use `backend/.env`. The web container serves the built
@@ -221,9 +205,9 @@ port 6379 should not be exposed publicly.
 Check health and logs:
 
 ```sh
-docker compose --env-file backend/.env logs --tail 200 api
-docker compose --env-file backend/.env logs --tail 200 scheduler
-docker compose --env-file backend/.env logs --tail 200 web
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml logs --tail 200 api
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml logs --tail 200 scheduler
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml logs --tail 200 web
 curl --fail http://127.0.0.1:4173/
 curl --fail http://127.0.0.1:4173/up
 ```
@@ -272,7 +256,7 @@ application logs, scheduler failures, and Supabase errors.
 To stop staging without removing its stored volumes:
 
 ```sh
-docker compose --env-file backend/.env down
+docker compose --env-file backend/.env -f docker-compose.yml -f docker-compose.async.yml down
 ```
 
 Do not use `docker compose down --volumes` for routine cleanup; it deletes

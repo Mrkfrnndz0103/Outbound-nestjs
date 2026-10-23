@@ -15,6 +15,13 @@ import { createNotificationSound } from "../lib/notificationSound";
 import type { User } from "../types";
 import { supabase } from "../lib/supabase";
 
+export function createRealtimeTopics() {
+  // Generate per effect execution, including StrictMode replay. Removal awaits
+  // unsubscribe acknowledgement, so a retiring topic must never be reused.
+  const scope = crypto.randomUUID();
+  return { requests: `requests-realtime-${scope}`, intraday: `intraday-realtime-${scope}`, notifications: `notifications-realtime-${scope}` };
+}
+
 export type RealtimeSubscriptionStatus =
   | "SUBSCRIBED"
   | "TIMED_OUT"
@@ -70,6 +77,7 @@ export function useRequestRealtime(user: Pick<User, "id" | "role">, enabled = tr
   const { id, role } = user;
   useEffect(() => {
     if (!enabled) return;
+    const topics = createRealtimeTopics();
     const sound = createNotificationSound();
     const unlock = () => sound.unlock();
     window.addEventListener("pointerdown", unlock);
@@ -97,13 +105,13 @@ export function useRequestRealtime(user: Pick<User, "id" | "role">, enabled = tr
     const recover = createRealtimeRecoveryTracker<RealtimeMetricChannel>(channels => { channels.forEach(channel => refresh.schedule(channel)); });
     const signal = (channel: RealtimeMetricChannel) => { recordRealtimeSignal(channel); refresh.schedule(channel); };
     let lastSoundAt = Number.NEGATIVE_INFINITY;
-    const requests = supabase.channel("requests-realtime")
+    const requests = supabase.channel(topics.requests)
       .on("postgres_changes", { event: "*", schema: "public", table: "requests" }, () => signal("requests"))
       .subscribe(status => recover("requests", status));
-    const intraday = supabase.channel("intraday-realtime")
+    const intraday = supabase.channel(topics.intraday)
       .on("postgres_changes", { event: "*", schema: "public", table: "intraday_dispatch" }, () => signal("intraday"))
       .subscribe(status => recover("intraday", status));
-    const notifications = supabase.channel("notifications-realtime")
+    const notifications = supabase.channel(topics.notifications)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, payload => {
         if (!isNotificationForUser(payload.new, { id, role })) return;
         if (Date.now() - lastSoundAt >= REALTIME_REFRESH_INTERVAL_MS) { sound.play(); lastSoundAt = Date.now(); }

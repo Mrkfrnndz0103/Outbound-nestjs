@@ -4,11 +4,15 @@ namespace Tests\Feature;
 
 use App\Features\Approvals\ApprovalItemProvisioner;
 use App\Features\Approvals\ApprovalItemSynchronizer;
+use App\Features\Approvals\ApprovalToken;
 use App\Integrations\SeaTalk\ApprovalItemPayload;
+use App\Integrations\SeaTalk\ProviderItemResult;
 use App\Integrations\SeaTalk\SeaTalkApprovalCenterGateway;
 use App\Integrations\SeaTalk\SeaTalkProviderException;
+use App\Integrations\SeaTalk\SeaTalkResponse;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
 use PDO;
@@ -21,6 +25,7 @@ final class ApprovalItemSynchronizationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Http::preventStrayRequests();
         if (! in_array('sqlite', PDO::getAvailableDrivers(), true)) {
             $this->markTestSkipped('The pdo_sqlite extension is required for isolated synchronization tests.');
         }
@@ -31,6 +36,35 @@ final class ApprovalItemSynchronizationTest extends TestCase
         DB::purge('sqlite');
         DB::reconnect('sqlite');
         $this->createSchema();
+    }
+
+    public function test_active_synchronization_binds_both_callbacks_to_assignment_token(): void
+    {
+        config()->set('services.seatalk.approval.token_secret', 'synthetic-secret');
+        DB::table('requests')->update(['approval_status' => 'PENDING']);
+        $expected = app(ApprovalToken::class)->forAssignment('cccccccc-cccc-cccc-cccc-cccccccccccc');
+        $captured = null;
+        $gateway = Mockery::mock(SeaTalkApprovalCenterGateway::class);
+        $gateway->expects('updateItem')->andReturnUsing(function ($id, $payload) use (&$captured) {
+            $captured = $payload;
+        });
+        $this->assertTrue($this->synchronizer($gateway)->synchronize($this->requestId)->synchronized());
+        $this->assertSame($expected, $captured->pendingList[0]['token'] ?? null);
+        $this->assertStringContainsString('token='.$expected, $captured->approveUrl);
+        $this->assertStringContainsString('token='.$expected, $captured->rejectUrl);
+    }
+
+    public function test_reconciliation_repairs_terminal_local_divergence(): void
+    {
+        DB::table('requests')->update(['approval_status' => 'PENDING']);
+        DB::table('seatalk_approval_items')->update(['status' => 'REJECTED']);
+        config()->set('services.seatalk.approval.token_secret', 'synthetic-secret');
+        $gateway = Mockery::mock(SeaTalkApprovalCenterGateway::class);
+        $gateway->expects('getItem')->andReturn(new ProviderItemResult(new SeaTalkResponse(200, ['code' => 0])));
+        $gateway->expects('updateItem');
+        $this->app->instance(SeaTalkApprovalCenterGateway::class, $gateway);
+        $this->artisan('seatalk:reconcile-approvals', ['--repair' => true])->assertExitCode(0);
+        $this->assertDatabaseHas('seatalk_approval_items', ['status' => 'ACTIVE']);
     }
 
     public function test_approved_state_updates_provider_lists_and_status(): void

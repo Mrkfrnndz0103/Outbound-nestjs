@@ -190,11 +190,11 @@ export function Overview({
         `/requests?per_page=100&${range}${detailStatus !== "ALL" ? `&status=${detailStatus}` : ""}`,
           { signal },
       ),
-    enabled: detailStatus !== null,
+    enabled: !preview && detailStatus !== null,
   });
   const dispatchChart = useMemo(() => {
     const valuesByHour = new Map(
-      (intraday.data?.data ?? []).map((point) => [point.hour, point.orderQty]),
+      (preview ? [] : intraday.data?.data ?? []).map((point) => [point.hour, point.orderQty]),
     );
     const points = INTRADAY_HOURS.map((hour) => ({
       hour,
@@ -225,15 +225,15 @@ export function Overview({
         : "",
       total,
     };
-  }, [intraday.data?.data]);
+  }, [intraday.data?.data, preview]);
   const sizes = ["4W", "4WAUV", "4WCV", "6W", "10W", "6WF"] as const;
-  const truckSizes = summary.data?.analytics.truck_sizes ?? {};
+  const truckSizes = preview ? {} : summary.data?.analytics.truck_sizes ?? {};
   const truckMixSegments: TruckMixSegment[] = sizes.map((size, index) => ({
     label: size,
     value: truckSizes[size] ?? 0,
     color: truckMixColors[index],
   }));
-  const rows = requests.data?.data ?? [];
+  const rows = preview ? [] : requests.data?.data ?? [];
   const dockItems = preview
     ? DOCK_QUEUE_DEMO_DOCKS
     : dockItemsFromRequests(rows);
@@ -247,8 +247,8 @@ export function Overview({
         request.plate_number,
     )
     .slice(0, 4);
-  const totalRequests = summary.data?.metrics.total ?? 0;
-  const byStatus = summary.data?.metrics.by_status ?? {};
+  const totalRequests = preview ? 0 : summary.data?.metrics.total ?? 0;
+  const byStatus = preview ? {} : summary.data?.metrics.by_status ?? {};
   const pendingRequests = byStatus.PENDING ?? 0;
   const forDockingRequests = byStatus.DOCKING ?? 0;
   const dockedRequests = byStatus.DOCKED ?? 0;

@@ -46,3 +46,4 @@
 20261014133744_move_current_role_private.sql
 20261014133811_remove_redundant_account_policies.sql
 20261014133907_optimize_rls_and_drop_duplicate_index.sql
+20261021000000_allow_intraday_dashboard_read.sql

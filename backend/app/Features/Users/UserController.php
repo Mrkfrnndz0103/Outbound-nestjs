@@ -128,7 +128,9 @@ final class UserController
             [$profile, $resetAt, $auditRetryId] = DB::transaction(function () use ($id, $request): array {
                 $profile = DB::table('profiles')
                     ->where('id', $id)
-                    ->where('role', 'ops_pic')
+                    ->whereIn('role', ['ops_pic', 'doc_officer'])
+                    ->whereNotNull('ops_id')
+                    ->where('ops_id', '<>', '')
                     ->where('is_active', true)
                     ->lockForUpdate()
                     ->first(['id', 'ops_id', 'must_change_password', 'password_changed_at', 'password_reset_at']);

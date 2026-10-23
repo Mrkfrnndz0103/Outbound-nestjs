@@ -1,5 +1,13 @@
 # SOC 5 Outbound Staging Setup
 
+> Historical infrastructure reference. Its migration order, `supabase db push`,
+> base-only Compose commands and deploy automation are superseded by
+> [production-migrations.md](production-migrations.md) and the current
+> [staging deployment guide](staging-deployment.md). Do not execute the historical
+> migration/deploy command blocks below; use the reviewed A / Laravel B / C
+> procedure and both Compose files, including the async overlay.
+
+
 Complete staging setup for SOC 5 Outbound using:
 
 - Akamai Cloud / Linode or Alibaba Cloud ECS for the Docker host

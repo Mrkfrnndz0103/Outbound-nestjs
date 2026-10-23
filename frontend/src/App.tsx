@@ -17,6 +17,7 @@ import {
 } from "./lib/seatalkSession";
 import { supabase } from "./lib/supabase";
 import { ChangePassword } from "./pages/ChangePassword";
+import { useUiStore } from "./stores/ui";
 import type { User } from "./types";
 
 type AppState =
@@ -98,6 +99,7 @@ export default function App() {
   const [failure, setFailure] = useState<Failure>(defaultFailure);
   const [profile, setProfile] = useState<User | null>(null);
   const lastToken = useRef<string | null>(null);
+  const currentPrincipal = useRef<string | null>(null);
   const requestSequence = useRef(0);
   const seatalkSession = useRef(false);
 
@@ -114,7 +116,17 @@ export default function App() {
   }, []);
 
   const resolveSession = useCallback(
-    async (session: { access_token: string } | null, force = false) => {
+    async (session: { access_token: string; user?: { id: string } } | null, force = false, tokenRefresh = false) => {
+      if (session && !force && lastToken.current === session.access_token) return;
+      // A verified same-principal token refresh must preserve unsaved page state.
+      // Unknown or replacement identities hide the protected subtree immediately.
+      const preservePage = tokenRefresh && session?.user?.id === currentPrincipal.current;
+      if (!preservePage) {
+        setState("loading");
+        setProfile(null);
+        currentPrincipal.current = null;
+        useUiStore.getState().setViewRole(null);
+      }
       if (!session) {
         lastToken.current = null;
         requestSequence.current += 1;
@@ -124,6 +136,7 @@ export default function App() {
           try {
             const resolvedProfile = await api<User>("/auth/me");
             if (requestId !== requestSequence.current) return;
+            currentPrincipal.current = resolvedProfile.id;
             setProfile(resolvedProfile);
             if (
               window.location.pathname === "/" ||
@@ -156,14 +169,13 @@ export default function App() {
         return;
       }
 
-      if (!force && lastToken.current === session.access_token) return;
-
       lastToken.current = session.access_token;
       const requestId = ++requestSequence.current;
 
       try {
         const resolvedProfile = await api<User>("/auth/me");
         if (requestId !== requestSequence.current) return;
+        currentPrincipal.current = resolvedProfile.id;
         setProfile(resolvedProfile);
         if (
           window.location.pathname === "/" ||
@@ -218,15 +230,14 @@ export default function App() {
         event === "SIGNED_OUT" ||
         event === "TOKEN_REFRESHED"
       ) {
-        window.setTimeout(() => void resolveSession(session), 0);
+        void resolveSession(session, false, event === "TOKEN_REFRESHED");
       }
     });
 
+    const initialSequence = requestSequence.current;
     void supabase.auth.getSession().then(({ data: sessionData, error }) => {
-      if (cancelled || error) return;
-      window.setTimeout(() => {
-        if (!cancelled) void resolveSession(sessionData.session);
-      }, 0);
+      if (cancelled || error || initialSequence !== requestSequence.current) return;
+      void resolveSession(sessionData.session);
     });
 
     return () => {

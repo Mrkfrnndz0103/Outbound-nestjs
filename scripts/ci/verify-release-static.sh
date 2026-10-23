@@ -15,10 +15,7 @@ grep -Fq 'location = /auth/seatalk/callback' frontend/nginx.conf
 grep -Fq 'wss://*.supabase.co' frontend/nginx.conf
 grep -Fq 'wss://*.supabase.in' frontend/nginx.conf
 
-manifest=docs/deployment/supabase-migration-manifest.txt
-test -f "$manifest"
-grep -v '^#' "$manifest" | grep -v '^$' | while IFS= read -r migration; do
-  test -f "supabase/migrations/$migration"
-done
+node scripts/ci/validate-migration-manifest.mjs
+node --test scripts/tests/migration-deployment.test.mjs
 
 echo 'Release static gates passed.'

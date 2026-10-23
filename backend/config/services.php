@@ -66,6 +66,7 @@ return [
         'credentials_path' => env('GOOGLE_SHEETS_CREDENTIALS_PATH'),
         'sync_enabled' => (bool) env('GOOGLE_SHEETS_SYNC_ENABLED', false),
         'max_rows' => (int) env('GOOGLE_SHEETS_MAX_ROWS', 50000),
+        'lookback_days' => (int) env('GOOGLE_SHEETS_LOOKBACK_DAYS', 0),
         'retry_attempts' => (int) env('GOOGLE_SHEETS_RETRY_ATTEMPTS', 3),
         'retry_backoff_ms' => (int) env('GOOGLE_SHEETS_RETRY_BACKOFF_MS', 1000),
     ],

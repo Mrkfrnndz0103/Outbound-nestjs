@@ -70,7 +70,7 @@ final class ApprovalItemSynchronizer
                 ->where('assignments.request_id', $request->id)
                 ->orderBy('assignments.sequence')
                 ->get([
-                    'assignments.status', 'assignments.sent_at', 'assignments.responded_at',
+                    'assignments.id', 'assignments.status', 'assignments.sent_at', 'assignments.responded_at',
                     'assignments.failure_reason', 'profiles.seatalk_employee_code',
                 ])
             : collect();
@@ -85,7 +85,7 @@ final class ApprovalItemSynchronizer
             }
             $timestamp = $assignment->responded_at ?? $assignment->sent_at ?? now();
             if (in_array($assignment->status, ['PENDING', 'ACTIVE'], true)) {
-                $pending[] = ['employee_code' => $code, 'ts' => is_object($timestamp) ? $timestamp->timestamp : now()->parse($timestamp)->timestamp];
+                $pending[] = $this->provisioner->assignmentEntry((string) $assignment->id, $code, is_object($timestamp) ? $timestamp->timestamp : now()->parse($timestamp)->timestamp);
             } elseif ($assignment->status === 'APPROVED') {
                 $approved[] = ['employee_code' => $code, 'ts' => now()->parse($timestamp)->timestamp];
             } elseif ($assignment->status === 'REJECTED') {

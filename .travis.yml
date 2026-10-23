@@ -49,13 +49,8 @@ jobs:
         - npm run lint:a11y
         - npm run format:check
         - npm test
-        - |
-          if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-            test -d "$PLAYWRIGHT_BROWSERS_PATH" && ls "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null 2>&1 || npx playwright install chromium
-            npm run test:e2e
-          else
-            echo "Skipping E2E tests for pull request validation"
-          fi
+        - test -d "$PLAYWRIGHT_BROWSERS_PATH" && ls "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null 2>&1 || npx playwright install chromium
+        - npm run test:e2e
         - npm run build
 
     - name: "Backend"
@@ -81,7 +76,7 @@ jobs:
         - php artisan test --fail-on-skipped --exclude-group=postgres
 
     - name: "Backend PostgreSQL"
-      if: branch = main AND type != pull_request
+      if: type = pull_request OR branch = main
       language: php
       dist: jammy
       php: "8.3"
@@ -113,7 +108,7 @@ jobs:
         - php artisan test --group=postgres --fail-on-skipped
 
     - name: "Backend migration chain"
-      if: branch = main AND type != pull_request
+      if: type = pull_request OR branch = main
       language: php
       dist: jammy
       php: "8.3"
@@ -155,17 +150,44 @@ jobs:
         - deno test --allow-env supabase/functions/sync-clusters/index_test.ts supabase/functions/sync-intraday/index_test.ts
 
     - name: "Deployment Config"
-      language: minimal
+      language: node_js
       dist: jammy
+      node_js: "22"
+      services:
+        - docker
+      addons:
+        apt:
+          packages:
+            - php-cli
+      before_script:
+        - |
+          installer="$(mktemp)"
+          expected="$(curl -fsSL https://composer.github.io/installer.sig)"
+          curl -fsSL https://getcomposer.org/installer -o "$installer"
+          actual="$(php -r 'echo hash_file("sha384", $argv[1]);' "$installer")"
+          test "$expected" = "$actual"
+          sudo php "$installer" --install-dir=/usr/local/bin --filename=composer
+          rm -f "$installer"
       script:
         - cp backend/.env.staging.example backend/.env
+        - docker compose version
         - SUPABASE_URL=https://staging.invalid SUPABASE_PUBLISHABLE_KEY=staging-publishable-key docker compose config -q
         - SUPABASE_URL=https://staging.invalid SUPABASE_PUBLISHABLE_KEY=staging-publishable-key docker compose build --pull api web
         - bash scripts/ci/verify-release-static.sh
 
     - name: "Release Acceptance"
       if: tag IS present
-      language: minimal
+      language: node_js
       dist: jammy
+      node_js: "22"
+      env:
+        - PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright
+      cache:
+        npm: true
+        directories:
+          - $HOME/.cache/ms-playwright
+      before_script:
+        - npm ci --prefer-offline
+        - npx playwright install --with-deps chromium
       script:
         - bash scripts/ci/require-release-acceptance.sh

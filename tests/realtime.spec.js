@@ -50,10 +50,10 @@ test("production Supabase realtime channels join and reconnect", async ({
     .poll(() => [...websocketConnections.values()].some(({ status }) => status === 101))
     .toBeTruthy();
   await expect
-    .poll(() => joinedChannels.has("realtime:requests-realtime"))
+    .poll(() => [...joinedChannels].some((topic) => topic.startsWith("realtime:requests-realtime-")))
     .toBeTruthy();
   await expect
-    .poll(() => joinedChannels.has("realtime:intraday-realtime"))
+    .poll(() => [...joinedChannels].some((topic) => topic.startsWith("realtime:intraday-realtime-")))
     .toBeTruthy();
   await expect
     .poll(() => [...joinedChannels].some((topic) => topic.startsWith("realtime:notifications:")))
@@ -74,8 +74,16 @@ test("production Supabase realtime channels join and reconnect", async ({
 
   expect(websocketErrors).toEqual([]);
   for (const joins of joinsByConnection.values()) {
-    expect(joins.get("realtime:requests-realtime") ?? 0).toBeLessThanOrEqual(1);
-    expect(joins.get("realtime:intraday-realtime") ?? 0).toBeLessThanOrEqual(1);
+    expect(
+      [...joins.entries()]
+        .filter(([topic]) => topic.startsWith("realtime:requests-realtime-"))
+        .reduce((total, [, count]) => total + count, 0),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      [...joins.entries()]
+        .filter(([topic]) => topic.startsWith("realtime:intraday-realtime-"))
+        .reduce((total, [, count]) => total + count, 0),
+    ).toBeLessThanOrEqual(1);
     expect(
       [...joins.entries()]
         .filter(([topic]) => topic.startsWith("realtime:notifications:"))

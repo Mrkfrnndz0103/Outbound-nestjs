@@ -55,12 +55,8 @@ final class NotificationController
                 ->whereNull('read_at')
                 ->update(['read_at' => now()]);
 
-            DB::table('notifications')
-                ->where('target_role', $actor->role)
-                ->orderBy('id')
-                ->pluck('id')
-                ->chunk(500)
-                ->each(fn ($ids) => $this->recordRoleReads($actor->id, $ids->all()));
+            $this->unreadRoleNotifications($actor)->select('n.id')->chunkById(500,
+                fn ($rows) => $this->recordRoleReads($actor->id, $rows->pluck('id')->all()), 'n.id', 'id');
         });
 
         return response()->json(['ok' => true]);
@@ -72,19 +68,11 @@ final class NotificationController
         $actor = $request->attributes->get('actor');
 
         DB::transaction(function () use ($actor, $data): void {
-            $notifications = $this->visibleQuery($actor)
-                ->where('n.request_id', $data['request_id'])
-                ->orderBy('n.id')
-                ->get(['n.id', 'n.user_id']);
-
-            foreach ($notifications->chunk(500) as $chunk) {
-                $personal = $chunk->where('user_id', $actor->id)->pluck('id')->all();
-                $shared = $chunk->reject(fn ($row): bool => $row->user_id === $actor->id)->pluck('id')->all();
-                if ($personal !== []) {
-                    DB::table('notifications')->whereIn('id', $personal)->whereNull('read_at')->update(['read_at' => now()]);
-                }
-                $this->recordRoleReads($actor->id, $shared);
-            }
+            DB::table('notifications')->where('request_id', $data['request_id'])
+                ->where('user_id', $actor->id)->whereNull('read_at')->update(['read_at' => now()]);
+            $this->unreadRoleNotifications($actor)->where('n.request_id', $data['request_id'])
+                ->select('n.id')->chunkById(500,
+                    fn ($rows) => $this->recordRoleReads($actor->id, $rows->pluck('id')->all()), 'n.id', 'id');
         });
 
         return response()->json(['ok' => true]);
@@ -103,6 +91,16 @@ final class NotificationController
             });
     }
 
+    private function unreadRoleNotifications(object $actor)
+    {
+        return DB::table('notifications as n')->where('n.target_role', $actor->role)
+            ->where(fn ($query) => $query->whereNull('n.user_id')->orWhere('n.user_id', '<>', $actor->id))
+            ->whereNotExists(function ($query) use ($actor): void {
+                $query->selectRaw('1')->from('notification_reads as nr')
+                    ->whereColumn('nr.notification_id', 'n.id')->where('nr.user_id', $actor->id);
+            });
+    }
+
     private function recordRoleReads(string $userId, array $notificationIds): void
     {
         if ($notificationIds === []) {
@@ -110,14 +108,12 @@ final class NotificationController
         }
 
         $readAt = now();
-        DB::table('notification_reads')->upsert(
+        DB::table('notification_reads')->insertOrIgnore(
             array_map(fn ($id): array => [
                 'notification_id' => (int) $id,
                 'user_id' => $userId,
                 'read_at' => $readAt,
             ], $notificationIds),
-            ['notification_id', 'user_id'],
-            ['read_at'],
         );
     }
 }

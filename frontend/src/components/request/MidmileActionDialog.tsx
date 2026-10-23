@@ -1,5 +1,5 @@
 import { Truck, X } from "lucide-react";
-import type { FormEvent } from "react";
+import { type FormEvent, useRef } from "react";
 import { buildMidmileAssignmentPayload } from "../../lib/requests";
 import {
   compactFormDialogClass,
@@ -37,6 +37,7 @@ export function MidmileActionDialog({
   onClose: () => void;
   onSubmit: (payload: Record<string, unknown>) => void;
 }) {
+  const assignmentTime = useRef<Date | null>(null);
   const confirming = selection.action === "assign-truck";
   const cancelling = selection.action === "cancel";
   const remarksField = cancelling
@@ -61,7 +62,7 @@ export function MidmileActionDialog({
     }
     onSubmit(
       confirming
-        ? buildMidmileAssignmentPayload(data)
+        ? buildMidmileAssignmentPayload(data, assignmentTime.current ??= new Date())
         : { [remarksField]: remarks },
     );
   }

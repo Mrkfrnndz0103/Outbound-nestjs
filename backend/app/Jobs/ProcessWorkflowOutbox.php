@@ -25,16 +25,22 @@ final class ProcessWorkflowOutbox implements ShouldQueue
         if ($outbox === null) {
             return;
         }
+        if ((int) $outbox->attempts > (int) $outbox->max_attempts) {
+            $repository->deadLetter($this->outboxId, 'Processing attempts exhausted after abandoned work.', $outbox);
+
+            return;
+        }
 
         try {
             $registry->handlerFor((string) $outbox->event_type)->handle($outbox);
-            $repository->complete($this->outboxId);
+            $repository->complete($this->outboxId, $outbox);
         } catch (RetryableWorkflowOutboxException $exception) {
             $this->rescheduleOrDeadLetter($repository, $outbox, $exception);
         } catch (TerminalWorkflowOutboxException $exception) {
-            $repository->deadLetter($this->outboxId, $exception->getMessage());
+            $repository->deadLetter($this->outboxId, $exception->getMessage(), $outbox);
         } catch (Throwable $exception) {
-            $repository->deadLetter($this->outboxId, 'Unexpected outbox handler failure.');
+            report($exception);
+            $repository->deadLetter($this->outboxId, 'Unexpected outbox handler failure.', $outbox);
         }
     }
 
@@ -45,7 +51,7 @@ final class ProcessWorkflowOutbox implements ShouldQueue
     ): void {
         $attempts = (int) $outbox->attempts;
         if ($attempts >= (int) $outbox->max_attempts) {
-            $repository->deadLetter($this->outboxId, $exception->getMessage());
+            $repository->deadLetter($this->outboxId, $exception->getMessage(), $outbox);
 
             return;
         }
@@ -53,6 +59,6 @@ final class ProcessWorkflowOutbox implements ShouldQueue
         $base = max(1, (int) config('workflow_outbox.base_backoff_seconds', 5));
         $maximum = max($base, (int) config('workflow_outbox.max_backoff_seconds', 300));
         $delay = min($maximum, $base * (2 ** max(0, $attempts - 1)));
-        $repository->retry($this->outboxId, $exception->getMessage(), CarbonImmutable::now()->addSeconds($delay));
+        $repository->retry($this->outboxId, $exception->getMessage(), CarbonImmutable::now()->addSeconds($delay), $outbox);
     }
 }

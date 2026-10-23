@@ -117,7 +117,7 @@ final class ApprovalService
                 'approval_correlation_id' => $correlationId,
             ]);
 
-            $this->event(
+            $eventId = $this->event(
                 $requestId,
                 $actor->id,
                 'REQUEST_APPROVED',
@@ -136,6 +136,7 @@ final class ApprovalService
                 'REQUEST_APPROVED',
                 'Request approved',
                 "Request {$requestId} is now REQUESTED.",
+                $eventId,
             );
 
             // Preserve the actual responding assignment's outcome.
@@ -227,7 +228,7 @@ final class ApprovalService
 
             $updated = $this->requests->update($requestId, $fields);
 
-            $this->event(
+            $eventId = $this->event(
                 $requestId,
                 $actor->id,
                 $eventType,
@@ -249,6 +250,7 @@ final class ApprovalService
                     $eventType,
                     'Request rejected',
                     "Request {$requestId} was rejected by FTE Ops.",
+                    $eventId,
                 );
             } else {
                 $this->notify(
@@ -257,6 +259,7 @@ final class ApprovalService
                     $eventType,
                     'Request returned for editing',
                     "Request {$requestId} was rejected by FTE MM: {$reason}",
+                    $eventId,
                 );
             }
 
@@ -486,8 +489,8 @@ final class ApprovalService
         ?string $from,
         string $to,
         array $metadata = [],
-    ): void {
-        DB::table('request_events')->insert([
+    ): string {
+        $eventId = DB::table('request_events')->insertGetId([
             'request_id' => $requestId,
             'actor_id' => $actorId,
             'event_type' => $type,
@@ -496,6 +499,8 @@ final class ApprovalService
             'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
         ]);
         $this->sheets->requestSync();
+
+        return (string) $eventId;
     }
 
     private function notify(
@@ -504,8 +509,9 @@ final class ApprovalService
         string $event,
         string $title,
         string $body,
+        string $eventId,
     ): void {
-        $this->notifications->notify($requestId, $event, $title, $body, targetRole: $role);
+        $this->notifications->notify($requestId, $event, $title, $body, targetRole: $role, correlation: 'request_event:'.$eventId);
     }
 
     private function notifyUser(
@@ -514,7 +520,8 @@ final class ApprovalService
         string $event,
         string $title,
         string $body,
+        string $eventId,
     ): void {
-        $this->notifications->notify($requestId, $event, $title, $body, userId: $userId);
+        $this->notifications->notify($requestId, $event, $title, $body, userId: $userId, correlation: 'request_event:'.$eventId);
     }
 }

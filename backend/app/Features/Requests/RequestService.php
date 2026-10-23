@@ -65,10 +65,10 @@ final class RequestService
 
         return DB::transaction(function () use ($actor, $data) {
             $request = $this->requests->insert($data + ['id' => (string) Str::uuid(), 'created_by' => $actor->id, 'status' => 'PENDING']);
-            $this->event($request->id, $actor->id, 'REQUEST_CREATED', null, 'PENDING', [
+            $eventId = $this->event($request->id, $actor->id, 'REQUEST_CREATED', null, 'PENDING', [
                 'lh_type_request' => $data['truck_type'] ?? null,
             ]);
-            $this->notify($request->id, 'fte_ops', 'REQUEST_CREATED', 'New request', 'A truck request needs review.');
+            $this->notify($request->id, 'fte_ops', 'REQUEST_CREATED', 'New request', 'A truck request needs review.', $eventId);
             if ($this->provisioner !== null) {
                 DB::afterCommit(function () use ($request): void {
                     if ($this->approvalRouter !== null && (bool) config('services.seatalk.approval.enabled', false)) {
@@ -122,14 +122,14 @@ final class RequestService
             }
 
             $updated = $this->requests->update($id, $fields + ['status' => $to]);
-            $this->event($id, $actor->id, $event, $request->status, $to, $metadata);
+            $eventId = $this->event($id, $actor->id, $event, $request->status, $to, $metadata);
             if ($to === 'DOCKED') {
                 foreach (['fte_ops', 'fte_mm', 'doc_officer'] as $role) {
-                    $this->notify($id, $role, $event, 'Docked request updated', "Request {$id} was updated by OPS PIC.");
+                    $this->notify($id, $role, $event, 'Docked request updated', "Request {$id} was updated by OPS PIC.", $eventId);
                 }
             } else {
-                $this->notify($id, 'fte_ops', $event, 'Request needs review', "Request {$id} was updated and needs OPS FTE review.");
-                $this->notifyUser($id, $request->created_by, $event, 'Request updated', "Request {$id} was updated.");
+                $this->notify($id, 'fte_ops', $event, 'Request needs review', "Request {$id} was updated and needs OPS FTE review.", $eventId);
+                $this->notifyUser($id, $request->created_by, $event, 'Request updated', "Request {$id} was updated.", $eventId);
                 if ($event === 'REQUEST_RESUBMITTED'
                     && $this->approvalRouter !== null
                     && (bool) config('services.seatalk.approval.enabled', false)) {
@@ -204,7 +204,7 @@ final class RequestService
                 $fields['docked_time'] = now();
             }
             $updated = $this->requests->update($id, $fields);
-            $this->event($id, $actor->id, $event, $request->status, $to, $fields);
+            $eventId = $this->event($id, $actor->id, $event, $request->status, $to, $fields);
             if ($to === 'DOCKED') {
                 $this->approvals->closeAssignments($id, strtolower($event));
                 $this->approvals->synchronizeAfterCommit($id);
@@ -213,7 +213,7 @@ final class RequestService
                 'DOCKING' => 'doc_officer', default => null
             };
             if ($target) {
-                $this->notify($id, $target, $event, str_replace('_', ' ', $event), "Request {$id} is now {$to}.");
+                $this->notify($id, $target, $event, str_replace('_', ' ', $event), "Request {$id} is now {$to}.", $eventId);
             }
 
             return $updated;
@@ -245,12 +245,12 @@ final class RequestService
                 'driver_assigned_at' => now(),
                 'status' => 'DOCKING',
             ]);
-            $this->event($id, $actor->id, $event, 'DOCKING', 'DOCKING', [
+            $eventId = $this->event($id, $actor->id, $event, 'DOCKING', 'DOCKING', [
                 'driver_id' => $driverId,
                 'previous_driver_id' => $request->driver_id,
                 'source' => 'WEB',
             ]);
-            $this->notifyUser($id, $request->created_by, $event, 'Driver assignment complete', "Driver ID {$driverId} is assigned to request {$id}.");
+            $this->notifyUser($id, $request->created_by, $event, 'Driver assignment complete', "Driver ID {$driverId} is assigned to request {$id}.", $eventId);
 
             return $updated;
         });
@@ -275,14 +275,14 @@ final class RequestService
                 'approval_version' => DB::raw('COALESCE(approval_version, 0) + 1'),
                 'approval_correlation_id' => (string) Str::uuid(),
             ]);
-            $this->event($id, $actor->id, 'REQUEST_CANCELLED', $request->status, 'CANCELLED', [
+            $eventId = $this->event($id, $actor->id, 'REQUEST_CANCELLED', $request->status, 'CANCELLED', [
                 'cancellation_remarks' => $remarks,
                 'source' => 'WEB',
                 'correlation_id' => $updated->approval_correlation_id,
             ]);
-            $this->notifyUser($id, $request->created_by, 'REQUEST_CANCELLED', 'Request cancelled', "Request {$id} was cancelled. {$remarks}");
+            $this->notifyUser($id, $request->created_by, 'REQUEST_CANCELLED', 'Request cancelled', "Request {$id} was cancelled. {$remarks}", $eventId);
             foreach (['fte_ops', 'fte_mm', 'doc_officer'] as $role) {
-                $this->notify($id, $role, 'REQUEST_CANCELLED', 'Request cancelled', "Request {$id} was cancelled. {$remarks}");
+                $this->notify($id, $role, 'REQUEST_CANCELLED', 'Request cancelled', "Request {$id} was cancelled. {$remarks}", $eventId);
             }
             $this->approvals->closeAssignments($id, 'cancelled');
             $this->approvals->synchronizeAfterCommit($id);
@@ -305,19 +305,21 @@ final class RequestService
         });
     }
 
-    private function event(string $id, string $actor, string $type, ?string $from, string $to, array $meta = []): void
+    private function event(string $id, string $actor, string $type, ?string $from, string $to, array $meta = []): string
     {
-        DB::table('request_events')->insert(['request_id' => $id, 'actor_id' => $actor, 'event_type' => $type, 'from_status' => $from, 'to_status' => $to, 'metadata' => json_encode($meta)]);
+        $eventId = DB::table('request_events')->insertGetId(['request_id' => $id, 'actor_id' => $actor, 'event_type' => $type, 'from_status' => $from, 'to_status' => $to, 'metadata' => json_encode($meta)]);
         $this->sheets->requestSync();
+
+        return (string) $eventId;
     }
 
-    private function notify(string $id, string $role, string $event, string $title, string $body): void
+    private function notify(string $id, string $role, string $event, string $title, string $body, string $eventId): void
     {
-        $this->notifications->notify($id, $event, $title, $body, targetRole: $role);
+        $this->notifications->notify($id, $event, $title, $body, targetRole: $role, correlation: 'request_event:'.$eventId);
     }
 
-    private function notifyUser(string $id, string $userId, string $event, string $title, string $body): void
+    private function notifyUser(string $id, string $userId, string $event, string $title, string $body, string $eventId): void
     {
-        $this->notifications->notify($id, $event, $title, $body, userId: $userId);
+        $this->notifications->notify($id, $event, $title, $body, userId: $userId, correlation: 'request_event:'.$eventId);
     }
 }

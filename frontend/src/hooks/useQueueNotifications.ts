@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../lib/api";
+import { fetchRequestQueuePage } from "../lib/requestQueue";
 import { acknowledgeRequestNotifications } from "../lib/notificationAcknowledgment";
 import { requestQueryKey } from "../lib/requestRefresh";
 import type { Status, TruckRequest, User } from "../types";
@@ -13,8 +13,16 @@ export type QueueSnapshot = {
   isPending: boolean;
   error: Error | null;
   acknowledgmentError: Error | null;
+  hasData: boolean;
+  isFetching: boolean;
+  page: number;
+  hasMore: boolean;
+  canPrevious: boolean;
+  nextPage: () => void;
+  previousPage: () => void;
+  isAlerting: (request: TruckRequest) => boolean;
   refetch: () => void;
-  acknowledge: (id: string) => void;
+  acknowledge: (id: string, request?: TruckRequest) => void;
 };
 
 export function queueStatusesForRole(role: User["role"]): Status[] {
@@ -76,6 +84,9 @@ export function useQueueNotifications(
 ): QueueSnapshot {
   const queryClient = useQueryClient();
   const identity = `${user.id}|${user.role}`;
+  const [cursorState, setCursorState] = useState({ identity, cursors: [""] });
+  const cursors = cursorState.identity === identity ? cursorState.cursors : [""];
+  const cursor = cursors[cursors.length - 1];
   const activeIdentity = useRef(identity);
   const inFlight = useRef(new Set<string>());
   const [acknowledgmentError, setAcknowledgmentError] = useState<Error | null>(
@@ -92,9 +103,9 @@ export function useQueueNotifications(
       user.id,
       user.role,
       statuses,
+      cursor,
     ],
-    queryFn: async () =>
-      api<{ data: TruckRequest[]; limit: number }>("/requests/queue?limit=100"),
+    queryFn: ({ signal }) => fetchRequestQueuePage(cursor, signal),
     enabled: isQueueQueryEnabled(preview, user.role),
     refetchInterval: false,
     refetchOnWindowFocus: true,
@@ -120,9 +131,20 @@ export function useQueueNotifications(
     isPending: status !== null && query.isPending,
     error: query.error,
     acknowledgmentError,
+    hasData: query.data !== undefined,
+    isFetching: query.isFetching,
+    page: cursors.length,
+    hasMore: Boolean(query.data?.has_more && query.data.next_cursor),
+    canPrevious: cursors.length > 1,
+    nextPage: () => {
+      const next = query.data?.next_cursor;
+      if (!query.isFetching && query.data?.has_more && next && !cursors.includes(next)) setCursorState({ identity, cursors: [...cursors, next] });
+    },
+    previousPage: () => { if (!query.isFetching && cursors.length > 1) setCursorState({ identity, cursors: cursors.slice(0, -1) }); },
+    isAlerting: request => actionableQueueRows(user.role, [request]).length > 0 && acknowledged.get(request.id) !== queueAlertVersion(request),
     refetch: () => void query.refetch(),
-    acknowledge: (id) => {
-      const request = rows.find((row) => row.id === id);
+    acknowledge: (id, observedRequest) => {
+      const request = observedRequest?.id === id ? observedRequest : rows.find((row) => row.id === id);
       if (!request) return;
       const version = queueAlertVersion(request);
       const key = `${identity}|${id}|${version}`;

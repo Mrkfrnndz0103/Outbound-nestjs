@@ -9,7 +9,7 @@ vi.mock("./supabase", () => ({
   supabase: { auth: { getSession, refreshSession } },
 }));
 
-import { ApiError, api, apiErrorMessage } from "./api";
+import { ApiError, api, apiErrorMessage, getApiCooldownMs } from "./api";
 
 describe("api request helper", () => {
   it("turns conflicts into a recovery-oriented message", () => {
@@ -32,6 +32,7 @@ describe("api request helper", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -156,5 +157,52 @@ describe("api request helper", () => {
     await expect(api("/health")).rejects.toEqual(
       new ApiError("Network error. Check your connection and try again.", 0),
     );
+  });
+
+  it("times out a stalled session lookup before fetch can start", async () => {
+    vi.useFakeTimers();
+    getSession.mockReturnValueOnce(new Promise(() => {}));
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const result = expect(api("/requests")).rejects.toMatchObject({ status: 408 });
+    await vi.advanceTimersByTimeAsync(30_001);
+    await result;
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("aborts a stalled fetch and preserves caller cancellation", async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      signal = init?.signal ?? undefined;
+      return new Promise(() => {});
+    });
+    const timed = expect(api("/requests", { timeoutMs: 50 })).rejects.toMatchObject({ status: 408 });
+    await vi.advanceTimersByTimeAsync(51);
+    await timed;
+    expect(signal?.aborted).toBe(true);
+    const controller = new AbortController();
+    const cancelled = expect(api("/requests", { signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort();
+    await cancelled;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("bounds response body reads as well as the initial fetch", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ text: () => new Promise(() => {}) } as Response);
+    const result = expect(api("/requests", { timeoutMs: 50 })).rejects.toMatchObject({ status: 408 });
+    await vi.advanceTimersByTimeAsync(51);
+    await result;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("honors Retry-After and suppresses requests during the shared cooldown", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response('{"message":"Slow down"}', { status: 429, headers: { "Retry-After": "2" } }));
+    await expect(api("/requests")).rejects.toMatchObject({ status: 429, retryAfterMs: 2000 });
+    expect(getApiCooldownMs()).toBeGreaterThan(0);
+    await expect(api("/requests/queue")).rejects.toMatchObject({ status: 429 });
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

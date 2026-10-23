@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Features\Outbox\Handlers\NotificationOutboxHandler;
 use App\Features\Outbox\WorkflowNotificationOutbox;
 use App\Features\Outbox\WorkflowOutboxDispatcher;
+use App\Features\Outbox\WorkflowOutboxHandlerRegistry;
 use App\Features\Outbox\WorkflowOutboxRepository;
 use App\Features\Outbox\WorkflowOutboxWriter;
 use App\Jobs\ProcessWorkflowOutbox;
@@ -71,6 +72,20 @@ final class WorkflowNotificationOutboxTest extends TestCase
             'request_id' => 'request-1',
             'target_role' => 'fte_ops',
         ]);
+    }
+
+    public function test_distinct_workflow_events_with_identical_text_produce_distinct_notifications(): void
+    {
+        Queue::fake();
+        $notifications = new WorkflowNotificationOutbox(new WorkflowOutboxWriter(new WorkflowOutboxRepository), new WorkflowOutboxDispatcher);
+        foreach (['event-1', 'event-2', 'event-2'] as $eventId) {
+            $notifications->notify('request-1', 'REQUEST_EDITED', 'Updated', 'Review request.', targetRole: 'fte_ops', correlation: $eventId);
+        }
+        foreach (DB::table('workflow_outbox')->pluck('id') as $id) {
+            (new ProcessWorkflowOutbox($id))->handle(new WorkflowOutboxRepository, new WorkflowOutboxHandlerRegistry);
+        }
+        $this->assertDatabaseCount('workflow_outbox', 2);
+        $this->assertDatabaseCount('notifications', 2);
     }
 
     public function test_notification_intent_is_written_in_transaction_and_dispatched_after_commit(): void

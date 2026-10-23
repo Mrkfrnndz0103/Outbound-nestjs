@@ -1,7 +1,7 @@
 FROM php:8.3-fpm-alpine AS runtime
 RUN apk add --no-cache ca-certificates curl libcurl libpq libxml2 nginx oniguruma supervisor \
  && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS curl-dev libpq-dev libxml2-dev linux-headers oniguruma-dev \
- && docker-php-ext-install curl dom mbstring opcache pdo_pgsql \
+ && docker-php-ext-install curl dom mbstring opcache pcntl pdo_pgsql \
  && pecl install excimer \
  && docker-php-ext-enable excimer \
  && echo "zend.exception_ignore_args=Off" > /usr/local/etc/php/conf.d/99-sentry.ini \

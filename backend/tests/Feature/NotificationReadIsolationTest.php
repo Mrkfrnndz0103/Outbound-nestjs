@@ -103,6 +103,44 @@ final class NotificationReadIsolationTest extends TestCase
         (new NotificationController)->readRequest($this->request('fte-one'));
     }
 
+    public function test_repeated_acknowledgment_preserves_the_original_read_receipt(): void
+    {
+        $requestId = '11111111-1111-1111-1111-111111111111';
+        DB::table('notifications')->insert([
+            'request_id' => $requestId, 'target_role' => 'fte_ops', 'event_type' => 'UPDATED',
+            'title' => 'Updated', 'body' => 'Review', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $request = $this->request('fte-one');
+        $request->merge(['request_id' => $requestId]);
+        $controller = new NotificationController;
+        $controller->readRequest($request);
+        $first = DB::table('notification_reads')->value('read_at');
+        $this->travel(10)->minutes();
+        $controller->readRequest($request);
+        $this->assertSame($first, DB::table('notification_reads')->value('read_at'));
+    }
+
+    public function test_large_acknowledgments_fetch_bounded_database_batches(): void
+    {
+        $requestId = '11111111-1111-1111-1111-111111111111';
+        $rows = array_fill(0, 1201, ['request_id' => $requestId, 'target_role' => 'fte_ops', 'event_type' => 'UPDATED', 'title' => 'Updated', 'body' => 'Review', 'created_at' => now(), 'updated_at' => now()]);
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table('notifications')->insert($chunk);
+        }
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $request = $this->request('fte-one');
+        $request->merge(['request_id' => $requestId]);
+        (new NotificationController)->readRequest($request);
+        $selects = array_filter(DB::getQueryLog(), fn ($query) => str_starts_with(strtolower($query['query']), 'select') && str_contains($query['query'], '"notifications" as "n"'));
+        DB::disableQueryLog();
+        $this->assertGreaterThanOrEqual(3, count($selects));
+        foreach ($selects as $select) {
+            $this->assertStringContainsString('limit 500', strtolower($select['query']));
+        }
+        $this->assertDatabaseCount('notification_reads', 1201);
+    }
+
     private function request(string $id): Request
     {
         $request = Request::create('/api/notifications', 'GET');

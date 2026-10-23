@@ -262,7 +262,7 @@ export function OutboundRequests({
 
   function toggleExpanded(row: TruckRequest) {
     setExpandedRow((current) => (current === row.id ? null : row.id));
-    _queue.acknowledge(row.id);
+    _queue.acknowledge(row.id, row);
   }
 
   function approveSelected() {
@@ -275,7 +275,7 @@ export function OutboundRequests({
 
   function selectAllEligible(checked: boolean) {
     setSelectedIds(checked ? new Set(eligibleApprovalIds) : new Set());
-    if (checked) eligibleApprovalRows.forEach((row) => _queue.acknowledge(row.id));
+    if (checked) eligibleApprovalRows.forEach((row) => _queue.acknowledge(row.id, row));
   }
 
   function canEditRow(row: TruckRequest) {
@@ -296,7 +296,7 @@ export function OutboundRequests({
     cancelRequest.reset();
     setCancelling(row);
     setOpenRow(null);
-    _queue.acknowledge(row.id);
+    _queue.acknowledge(row.id, row);
   }
 
   const emptyMessage = requests.isFetching || requests.error || requests.isPlaceholderData
@@ -572,7 +572,7 @@ export function OutboundRequests({
                   )}
                   {rows.map((row, index) => {
                       const isExpanded = expandedRow === row.id;
-                      const isAlerting = _queue.alerts.some((alert) => alert.id === row.id);
+                      const isAlerting = (_queue.isAlerting?.(row) ?? _queue.alerts.some((alert) => alert.id === row.id));
                       return (
                         <Fragment key={row.id}>
                           <RequestRecordRow
@@ -605,7 +605,7 @@ export function OutboundRequests({
                                       ) !== "pending" ||
                                       approveRequests.isPending
                                     }
-                                    onChange={() => { toggleSelected(row.id); _queue.acknowledge(row.id); }}
+                                    onChange={() => { toggleSelected(row.id); _queue.acknowledge(row.id, row); }}
                                     onClick={(event) =>
                                       event.stopPropagation()
                                     }
@@ -820,7 +820,7 @@ export function OutboundRequests({
               ) : (
                 rows.map((row) => (
                   <article
-                    className={`lh-record-card flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap ${_queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
+                    className={`lh-record-card flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap ${(_queue.isAlerting?.(row) ?? _queue.alerts.some((alert) => alert.id === row.id)) ? "request-alert-blink" : ""}`}
                     key={row.id}
                   >
                     <div>
@@ -845,7 +845,7 @@ export function OutboundRequests({
                           <input type="checkbox" className={requestCheckboxClass}
                             aria-label={`Select request ${row.id}`} checked={selectedIds.has(row.id)}
                             disabled={approveRequests.isPending}
-                            onChange={() => { toggleSelected(row.id); _queue.acknowledge(row.id); }} />
+                            onChange={() => { toggleSelected(row.id); _queue.acknowledge(row.id, row); }} />
                           <button type="button" className={requestApproveClass} disabled={approveRequests.isPending}
                             onClick={() => approveRequests.mutate({ ids: [row.id], operationId: crypto.randomUUID() })}>Approve</button>
                           <button type="button" className={requestRejectClass}
@@ -859,7 +859,7 @@ export function OutboundRequests({
                         onClick={(event) => {
                           drawerTrigger.current = event.currentTarget;
                           setSelectedRequest(row);
-                          _queue.acknowledge(row.id);
+                          _queue.acknowledge(row.id, row);
                         }}
                       >
                         View details

@@ -42,3 +42,20 @@ export function buildIdempotencyHeaders(
 }
 
 export const idempotencyHeaders = buildIdempotencyHeaders;
+
+// A key represents a user's operation, not the content of the submitted form.
+// Keep it through an uncertain response and clear only on success or a new form.
+export function createOperationKeys() {
+  const keys = new Map<string, string>();
+  return {
+    headers(scope: string): Record<string, string> {
+      let key = keys.get(scope);
+      if (!key) {
+        key = `${scope.slice(0, 80)}:${crypto.randomUUID()}`;
+        keys.set(scope, key);
+      }
+      return { "Idempotency-Key": key };
+    },
+    clear(scope: string) { keys.delete(scope); },
+  };
+}

@@ -105,7 +105,7 @@ export function UserManagement() {
   const [credentialCopied, setCredentialCopied] = useState(false);
   const users = useQuery({
     queryKey: ["users"],
-    queryFn: () => api<{ data: ManagedUser[] }>("/users"),
+    queryFn: ({ signal }) => api<{ data: ManagedUser[] }>("/users", { signal }),
   });
   const create = useMutation({
     mutationFn: (body: {

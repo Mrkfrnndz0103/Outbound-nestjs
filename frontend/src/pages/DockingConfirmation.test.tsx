@@ -33,6 +33,12 @@ const user: User = {
 };
 const queueAlerts = {
   alerts: [],
+  get rows() { return queue.data?.data ?? []; },
+  get hasData() { return queue.data !== undefined; },
+  get isPending() { return queue.isPending; },
+  get isFetching() { return queue.isFetching; },
+  get error() { return queue.error; },
+  refetch: vi.fn(), page: 1, hasMore: false, canPrevious: false, nextPage: vi.fn(), previousPage: vi.fn(),
   acknowledge: vi.fn(),
 } as unknown as QueueSnapshot;
 

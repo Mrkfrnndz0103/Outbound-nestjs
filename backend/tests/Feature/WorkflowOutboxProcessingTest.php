@@ -11,6 +11,7 @@ use App\Features\Outbox\WorkflowOutboxRepository;
 use App\Features\Outbox\WorkflowOutboxStatusController;
 use App\Features\Outbox\WorkflowOutboxWriter;
 use App\Jobs\ProcessWorkflowOutbox;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -55,6 +56,76 @@ final class WorkflowOutboxProcessingTest extends TestCase
             'status' => 'COMPLETED',
             'attempts' => 1,
         ]);
+    }
+
+    public function test_drainer_dispatches_due_and_abandoned_work_but_not_future_or_completed_rows(): void
+    {
+        Queue::fake();
+        $due = $this->record('due');
+        $stale = $this->record('stale');
+        $future = $this->record('future');
+        $done = $this->record('done');
+        DB::table('workflow_outbox')->where('id', $stale)->update(['status' => 'PROCESSING', 'processing_started_at' => now()->subMinutes(10)]);
+        DB::table('workflow_outbox')->where('id', $future)->update(['available_at' => now()->addHour()]);
+        DB::table('workflow_outbox')->where('id', $done)->update(['status' => 'COMPLETED']);
+
+        $this->artisan('outbox:drain', ['--limit' => 10])->assertExitCode(0);
+
+        Queue::assertPushed(ProcessWorkflowOutbox::class, fn ($job): bool => $job->outboxId === $due);
+        Queue::assertPushed(ProcessWorkflowOutbox::class, fn ($job): bool => $job->outboxId === $stale);
+        Queue::assertPushed(ProcessWorkflowOutbox::class, 2);
+    }
+
+    public function test_retryable_failure_is_dispatched_again_when_due(): void
+    {
+        $id = $this->record('retry-drain');
+        $registry = new WorkflowOutboxHandlerRegistry(['retry-drain' => new class implements WorkflowOutboxHandler
+        {
+            public function handle(object $outbox): void
+            {
+                throw new RetryableWorkflowOutboxException('outage');
+            }
+        }]);
+        (new ProcessWorkflowOutbox($id))->handle(new WorkflowOutboxRepository, $registry);
+        $this->travel(10)->seconds();
+        Queue::fake();
+        $this->artisan('outbox:drain')->assertExitCode(0);
+        Queue::assertPushed(ProcessWorkflowOutbox::class, fn ($job): bool => $job->outboxId === $id);
+    }
+
+    public function test_stale_worker_cannot_complete_a_newer_attempt(): void
+    {
+        $id = $this->record('fenced');
+        $repository = new WorkflowOutboxRepository;
+        $old = $repository->claim($id, CarbonImmutable::now());
+        $this->travel(10)->minutes();
+        $new = $repository->claim($id, CarbonImmutable::now());
+        $repository->complete($id, $old);
+        $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'PROCESSING', 'attempts' => $new->attempts]);
+        $repository->complete($id, $new);
+        $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'COMPLETED']);
+    }
+
+    public function test_abandoned_attempts_are_capped_and_dead_letter_can_be_replayed(): void
+    {
+        $id = $this->record('capped');
+        DB::table('workflow_outbox')->where('id', $id)->update(['status' => 'PROCESSING', 'attempts' => 5, 'processing_started_at' => now()->subMinutes(10)]);
+        $handler = new class implements WorkflowOutboxHandler
+        {
+            public bool $called = false;
+
+            public function handle(object $outbox): void
+            {
+                $this->called = true;
+            }
+        };
+        (new ProcessWorkflowOutbox($id))->handle(new WorkflowOutboxRepository, new WorkflowOutboxHandlerRegistry(['capped' => $handler]));
+        $this->assertFalse($handler->called);
+        $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'DEAD_LETTER']);
+        Queue::fake();
+        $this->artisan('outbox:retry', ['id' => $id])->assertExitCode(0);
+        $this->assertDatabaseHas('workflow_outbox', ['id' => $id, 'status' => 'PENDING', 'attempts' => 0]);
+        Queue::assertPushed(ProcessWorkflowOutbox::class);
     }
 
     public function test_status_endpoint_reports_retry_and_dead_letter_visibility_without_payloads(): void

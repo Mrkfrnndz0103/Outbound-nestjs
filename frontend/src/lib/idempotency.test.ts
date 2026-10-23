@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { buildIdempotencyHeaders, generateIdempotencyKey } from "./idempotency";
+import { buildIdempotencyHeaders, generateIdempotencyKey, createOperationKeys } from "./idempotency";
 
 describe("idempotency keys", () => {
+  it("keeps one operation stable on retry and separates identical later submissions", () => {
+    const operations = createOperationKeys();
+    const first = operations.headers("create");
+    expect(operations.headers("create")).toEqual(first);
+    operations.clear("create");
+    expect(operations.headers("create")).not.toEqual(first);
+    expect(createOperationKeys().headers("create")).not.toEqual(first);
+  });
   it("stays stable for the same logical mutation", () => {
     const first = generateIdempotencyKey("outbound-create", {
       cluster: "DLX",

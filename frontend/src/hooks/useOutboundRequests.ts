@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
-import { buildIdempotencyHeaders } from "../lib/idempotency";
+import { createOperationKeys } from "../lib/idempotency";
 import {
   REQUEST_REALTIME_REFRESH_EVENT,
   type RequestRefreshReason,
@@ -14,6 +14,7 @@ import { useRequestFilters } from "./useRequestFilters";
 
 export function useOutboundRequests() {
   const queryClient = useQueryClient();
+  const operationKeys = useRef(createOperationKeys());
   const { filters, appliedFilters, setFilters, changeFilters, updateSearch } =
     useRequestFilters();
   const [creating, setCreating] = useState(false);
@@ -24,9 +25,10 @@ export function useOutboundRequests() {
     useState<RequestRefreshReason>("initial");
   const requests = useQuery({
     queryKey: [...requestQueryKey("outbound-all"), appliedFilters],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api<Page<TruckRequest>>(
         `/requests?${requestQueryString(appliedFilters)}`,
+        { signal },
       ),
     placeholderData: (previous) => previous,
     staleTime: 30_000,
@@ -78,9 +80,10 @@ export function useOutboundRequests() {
       api<TruckRequest>("/requests", {
         method: "POST",
         body: JSON.stringify(payload),
-        headers: buildIdempotencyHeaders("outbound-create", payload),
+        headers: operationKeys.current.headers("outbound-create"),
       }),
     onSuccess: async () => {
+      operationKeys.current.clear("outbound-create");
       setCreating(false);
       await refreshData("LH request created.");
     },
@@ -90,9 +93,10 @@ export function useOutboundRequests() {
       api<TruckRequest>(`/requests/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
-        headers: buildIdempotencyHeaders("outbound-update", { id, payload }),
+        headers: operationKeys.current.headers(`outbound-update:${id}`),
       }),
-    onSuccess: async () => {
+    onSuccess: async (_, { id }) => {
+      operationKeys.current.clear(`outbound-update:${id}`);
       setEditing(null);
       await refreshData("LH request updated.");
     },
@@ -100,7 +104,6 @@ export function useOutboundRequests() {
   const approveRequests = useMutation({
     mutationFn: async ({
       ids,
-      operationId,
     }: {
       ids: string[];
       operationId: string;
@@ -109,10 +112,7 @@ export function useOutboundRequests() {
         return api<{ data: TruckRequest[] }>("/requests/bulk-approve", {
           method: "POST",
           body: JSON.stringify({ ids }),
-          headers: buildIdempotencyHeaders("outbound-bulk-approve", {
-            ids,
-            operationId,
-          }),
+          headers: operationKeys.current.headers(`outbound-approve:${[...ids].sort().join(",")}`),
         });
       }
 
@@ -121,12 +121,13 @@ export function useOutboundRequests() {
           api<TruckRequest>(workflowActionPath(id, "approve"), {
             method: "POST",
             body: JSON.stringify({}),
-            headers: buildIdempotencyHeaders("outbound-approve", { id }),
+            headers: operationKeys.current.headers(`outbound-approve:${id}`),
           }),
         ),
       );
     },
     onSuccess: async (_, { ids }) => {
+      operationKeys.current.clear(`outbound-approve:${[...ids].sort().join(",")}`);
       await refreshData(
         ids.length > 1
           ? `${ids.length} LH requests bulk approved.`
@@ -145,12 +146,10 @@ export function useOutboundRequests() {
       api<TruckRequest>(workflowActionPath(id, "reject-ops"), {
         method: "POST",
         body: JSON.stringify({ rejection_remarks }),
-        headers: buildIdempotencyHeaders("outbound-reject", {
-          id,
-          rejection_remarks,
-        }),
+        headers: operationKeys.current.headers("outbound-reject"),
       }),
     onSuccess: async () => {
+      operationKeys.current.clear("outbound-reject");
       await refreshData("LH request rejected.");
     },
   });
@@ -159,9 +158,9 @@ export function useOutboundRequests() {
       api<TruckRequest>(workflowActionPath(id, "cancel"), {
         method: "POST",
         body: JSON.stringify({ cancellation_remarks }),
-        headers: buildIdempotencyHeaders("outbound-cancel", { id, cancellation_remarks }),
+        headers: operationKeys.current.headers("outbound-cancel"),
       }),
-    onSuccess: async () => { await refreshData("LH request cancelled."); },
+    onSuccess: async () => { operationKeys.current.clear("outbound-cancel"); await refreshData("LH request cancelled."); },
   });
 
   function sortBy(sort: RequestSort) {
@@ -186,11 +185,11 @@ export function useOutboundRequests() {
     setEditing,
     toast,
     showToast,
-    createRequest,
-    updateRequest,
+    createRequest: { ...createRequest, reset: () => { operationKeys.current.clear("outbound-create"); createRequest.reset(); } },
+    updateRequest: { ...updateRequest, reset: () => { if (editing) operationKeys.current.clear(`outbound-update:${editing.id}`); updateRequest.reset(); } },
     approveRequests,
-    rejectRequest,
-    cancelRequest,
+    rejectRequest: { ...rejectRequest, reset: () => { operationKeys.current.clear("outbound-reject"); rejectRequest.reset(); } },
+    cancelRequest: { ...cancelRequest, reset: () => { operationKeys.current.clear("outbound-cancel"); cancelRequest.reset(); } },
     updateSearch,
     sortBy,
     refreshManually,

@@ -54,6 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
         SentryTest::class,
     ])
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('outbox:drain --limit=100')->everyMinute()->withoutOverlapping();
         $schedule->job(new SyncRequestsToGoogleSheetJob)
             ->everyFiveMinutes()
             ->withoutOverlapping();

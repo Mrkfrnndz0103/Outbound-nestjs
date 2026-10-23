@@ -18,6 +18,7 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly errors: Record<string, string[]> = {},
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "ApiError";
@@ -37,77 +38,70 @@ export function apiErrorMessage(error: unknown): string | undefined {
   return error.message;
 }
 
-export async function api<T = unknown>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const session = await getApiSession();
-  let response: Response;
-  try {
-    const viewRole = useUiStore.getState().viewRole;
-    const headers = new Headers(init.headers);
-    const method = (init.method ?? "GET").toUpperCase();
-    const hasExplicitContentType = headers.has("Content-Type");
-    const hasJsonBody =
-      method !== "GET" &&
-      method !== "HEAD" &&
-      typeof init.body === "string" &&
-      init.body.length > 0 &&
-      !hasExplicitContentType;
+export const API_REQUEST_TIMEOUT_MS = 30_000;
+let cooldownUntil = 0;
+export function getApiCooldownMs(): number {
+  return Math.max(0, cooldownUntil - Date.now());
+}
 
-    if (hasJsonBody) headers.set("Content-Type", "application/json");
-    headers.set("Accept", "application/json");
-    if (session?.access_token)
-      headers.set("Authorization", `Bearer ${session.access_token}`);
-    if (viewRole) headers.set("X-View-Role", viewRole);
-    const xsrf =
-      typeof document === "undefined"
-        ? undefined
-        : document.cookie
-            .split("; ")
-            .find((cookie) => cookie.startsWith("XSRF-TOKEN="))
-            ?.split("=")[1];
-    if (xsrf) headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrf));
-    response = await fetch(`${base}${path}`, {
-      ...init,
-      headers,
-      credentials: init.credentials ?? "same-origin",
-    });
-  } catch {
-    throw new ApiError(
-      "Network error. Check your connection and try again.",
-      0,
-    );
-  }
-  const text = await response.text();
-  let body: unknown = null;
+export type ApiRequestInit = RequestInit & { timeoutMs?: number };
+
+export async function api<T = unknown>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const cooldown = getApiCooldownMs();
+  if (cooldown > 0) throw new ApiError("Too many requests. Please wait before retrying.", 429, {}, cooldown);
+  const { timeoutMs = API_REQUEST_TIMEOUT_MS, signal: callerSignal, ...requestInit } = init;
+  const controller = new AbortController();
+  let timedOut = false;
+  const cancel = () => controller.abort(callerSignal?.reason ?? new DOMException("Request cancelled", "AbortError"));
+  if (callerSignal?.aborted) cancel();
+  else callerSignal?.addEventListener("abort", cancel, { once: true });
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, Math.max(1, timeoutMs));
+  let abortListener: () => void = () => undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abortListener = () => reject(controller.signal.reason);
+    if (controller.signal.aborted) abortListener();
+    else controller.signal.addEventListener("abort", abortListener, { once: true });
+  });
   try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    body = null;
+    const work = (async (): Promise<T> => {
+      const session = await getApiSession();
+      controller.signal.throwIfAborted();
+      const viewRole = useUiStore.getState().viewRole;
+      const headers = new Headers(requestInit.headers);
+      const method = (requestInit.method ?? "GET").toUpperCase();
+      if (method !== "GET" && method !== "HEAD" && typeof requestInit.body === "string" && requestInit.body.length > 0 && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+      headers.set("Accept", "application/json");
+      if (session?.access_token) headers.set("Authorization", `Bearer ${session.access_token}`);
+      if (viewRole) headers.set("X-View-Role", viewRole);
+      const xsrf = typeof document === "undefined" ? undefined : document.cookie.split("; ").find(cookie => cookie.startsWith("XSRF-TOKEN="))?.split("=")[1];
+      if (xsrf) headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrf));
+      const response = await fetch(`${base}${path}`, { ...requestInit, headers, signal: controller.signal, credentials: requestInit.credentials ?? "same-origin" });
+      let body: unknown = null;
+      const text = await response.text();
+      try { body = text ? JSON.parse(text) : null; } catch { /* Empty/non-JSON success responses remain supported. */ }
+      const message = body && typeof body === "object" && "message" in body && typeof body.message === "string" ? body.message : `Request failed (${response.status})`;
+      const errors = body && typeof body === "object" && "errors" in body && body.errors && typeof body.errors === "object"
+        ? Object.fromEntries(Object.entries(body.errors).flatMap(([key,value]) => Array.isArray(value) && value.every(item => typeof item === "string") ? [[key,value]] : [])) : {};
+      let retryAfterMs: number | undefined;
+      if (response.status === 429) {
+        const value = response.headers.get("Retry-After");
+        const seconds = value === null ? Number.NaN : Number(value);
+        retryAfterMs = Number.isFinite(seconds) ? Math.max(1000, seconds * 1000)
+          : value && Number.isFinite(Date.parse(value)) ? Math.max(1000, Date.parse(value) - Date.now()) : 5000;
+        cooldownUntil = Math.max(cooldownUntil, Date.now() + retryAfterMs);
+      }
+      if (!response.ok) throw new ApiError(message, response.status, errors, retryAfterMs);
+      return body as T;
+    })();
+    return await Promise.race([work, aborted]);
+  } catch (error) {
+    if (callerSignal?.aborted) throw callerSignal.reason ?? new DOMException("Request cancelled", "AbortError");
+    if (timedOut) throw new ApiError("Request timed out. Check the latest state before retrying this operation.", 408);
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("Network error. Check your connection and try again.", 0);
+  } finally {
+    clearTimeout(timer);
+    callerSignal?.removeEventListener("abort", cancel);
+    controller.signal.removeEventListener("abort", abortListener);
   }
-  const message =
-    body &&
-    typeof body === "object" &&
-    "message" in body &&
-    typeof body.message === "string"
-      ? body.message
-      : `Request failed (${response.status})`;
-  const errors =
-    body &&
-    typeof body === "object" &&
-    "errors" in body &&
-    body.errors &&
-    typeof body.errors === "object"
-      ? Object.fromEntries(
-          Object.entries(body.errors).flatMap(([key, value]) =>
-            Array.isArray(value) &&
-            value.every((item) => typeof item === "string")
-              ? [[key, value]]
-              : [],
-          ),
-        )
-      : {};
-  if (!response.ok) throw new ApiError(message, response.status, errors);
-  return body as T;
 }

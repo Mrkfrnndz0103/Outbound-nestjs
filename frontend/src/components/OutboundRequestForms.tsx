@@ -55,9 +55,10 @@ export function InlineCreateRow({
   const searchIsCurrent = clusterSearch === clusterText.trim();
   const lookup = useQuery({
     queryKey: ["clusters", clusterSearch],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api<{ data: ClusterLookup[] }>(
         `/clusters?search=${encodeURIComponent(clusterSearch)}`,
+        { signal },
       ),
     enabled: clusterSearch.trim().length >= 3,
   });

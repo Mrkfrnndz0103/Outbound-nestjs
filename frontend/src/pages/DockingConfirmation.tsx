@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, Printer, ShipWheel } from "lucide-react";
 import { useState } from "react";
 import { PrintableTruckLabel } from "../components/PrintableTruckLabel";
@@ -69,16 +69,10 @@ export function DockingConfirmation({
     setSelectedAction(action);
     setSelected(request);
   }
-  const requestQueue = useQuery({
-    queryKey: ["requests", "docking"],
-    queryFn: () =>
-      api<{ data: TruckRequest[]; limit: number }>("/requests/queue?limit=100"),
-    enabled: user.role === "doc_officer" || user.role === "ops_pic",
-    staleTime: 30_000,
-    refetchInterval: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  const requestQueue = {
+    data: queue.hasData ? { data: queue.rows } : undefined,
+    isPending: queue.isPending, isFetching: queue.isFetching, error: queue.error, refetch: queue.refetch,
+  };
   const action = useMutation({
     mutationFn: ({
       request,
@@ -147,7 +141,7 @@ export function DockingConfirmation({
               type="checkbox"
               checked={dockingChecked.has(request.id)}
               onChange={(event) => {
-                if (event.target.checked) queue.acknowledge(request.id);
+                if (event.target.checked) queue.acknowledge(request.id, request);
                 setDockingChecked((current) => {
                   const next = new Set(current);
                   if (event.target.checked) next.add(request.id);
@@ -167,7 +161,7 @@ export function DockingConfirmation({
             className={primaryTableActionClass}
             disabled={action.isPending}
             onClick={() => {
-              queue.acknowledge(request.id);
+              queue.acknowledge(request.id, request);
               openDockDialog(request, "mark-docked");
             }}
           >
@@ -290,7 +284,7 @@ export function DockingConfirmation({
           <RequestTable
             rows={visibleRows}
             actions={actions}
-            alertedIds={new Set(queue.alerts.map((alert) => alert.id))}
+            alertedIds={new Set(rows.filter(row => queue.isAlerting?.(row) ?? queue.alerts.some(alert => alert.id === row.id)).map(row => row.id))}
             emptyMessage={
               requestQueue.error
                 ? "No docking records in the last successful update."
@@ -298,6 +292,13 @@ export function DockingConfirmation({
             }
           />
         ) : null}
+        <nav aria-label="Docking queue pages" className="flex flex-wrap items-center justify-end gap-3 border-t border-soc5-line p-3 text-sm">
+          <span>Page {queue.page}{queue.hasMore ? " — more requests available" : ""}</span>
+          <button type="button" className={secondaryButtonClass} disabled={!queue.canPrevious || queue.isFetching}
+            onClick={queue.previousPage} aria-label="Previous queue page">Previous</button>
+          <button type="button" className={secondaryButtonClass} disabled={!queue.hasMore || queue.isFetching}
+            onClick={queue.nextPage} aria-label="Next queue page">{queue.isFetching ? "Loading..." : "Next"}</button>
+        </nav>
       </section>
       {selected && (
         <DockDialog

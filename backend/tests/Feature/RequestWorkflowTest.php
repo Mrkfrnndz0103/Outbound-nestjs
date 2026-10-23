@@ -11,6 +11,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -66,6 +67,20 @@ final class RequestWorkflowTest extends TestCase
             'user_id' => $request->created_by,
             'event_type' => 'REQUEST_EDITED',
         ]);
+    }
+
+    public function test_each_distinct_edit_records_a_distinct_notification_intent(): void
+    {
+        Queue::fake();
+        (require database_path('migrations/2026_10_13_000003_create_workflow_outbox.php'))->up();
+        Schema::table('notifications', fn (Blueprint $table) => $table->uuid('outbox_id')->nullable()->unique());
+        $request = $this->insertRequest(['status' => 'PENDING']);
+        $actor = (object) ['id' => (string) Str::uuid(), 'role' => 'fte_ops'];
+        foreach (['D-02', 'D-03'] as $dock) {
+            $this->service->updateDetails($request->id, $actor, ['dock_no' => $dock, 'edit_remarks' => 'Corrected dock']);
+        }
+        $this->assertDatabaseCount('request_events', 2);
+        $this->assertDatabaseCount('workflow_outbox', 4);
     }
 
     public function test_fte_ops_edits_require_nonblank_bounded_remarks(): void

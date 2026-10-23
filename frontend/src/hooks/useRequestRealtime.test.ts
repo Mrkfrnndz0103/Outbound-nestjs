@@ -13,12 +13,36 @@ describe("notification audience", () => {
 });
 
 async function settleRecovery() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i = 0; i < 12; i++) await Promise.resolve();
 }
 
 describe("realtime reconnect recovery", () => {
+  it("retries failed recovery without an unhandled rejection or hot loop", async () => {
+    vi.useFakeTimers();
+    const recover = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
+    const track = createRealtimeRecoveryTracker(recover);
+    try {
+      track("requests", "SUBSCRIBED"); track("requests", "CLOSED"); track("requests", "SUBSCRIBED");
+      await settleRecovery();
+      expect(recover).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(recover).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(recover).toHaveBeenCalledTimes(2);
+    } finally { track.dispose(); vi.useRealTimers(); }
+  });
+  it("recovers staggered channels only when each is actually reconnected", async () => {
+    const recover = vi.fn();
+    const track = createRealtimeRecoveryTracker(recover);
+    track("requests", "SUBSCRIBED"); track("intraday", "SUBSCRIBED");
+    track("requests", "CLOSED"); track("intraday", "CLOSED");
+    track("requests", "SUBSCRIBED");
+    await settleRecovery();
+    expect(recover).toHaveBeenNthCalledWith(1, new Set(["requests"]));
+    track("intraday", "SUBSCRIBED");
+    await settleRecovery();
+    expect(recover).toHaveBeenNthCalledWith(2, new Set(["intraday"]));
+  });
   it("does not recover on initial subscriptions and recovers only once when both channels rejoin", async () => {
     const recover = vi.fn();
     const track = createRealtimeRecoveryTracker(recover);

@@ -41,7 +41,7 @@ import { useLinehaulTablePreferences } from "../hooks/useLinehaulTablePreference
 import type { QueueSnapshot } from "../hooks/useQueueNotifications";
 import { useRequestFilters } from "../hooks/useRequestFilters";
 import { api, apiErrorMessage } from "../lib/api";
-import { buildIdempotencyHeaders } from "../lib/idempotency";
+import { createOperationKeys } from "../lib/idempotency";
 import { requestQueryKey } from "../lib/requestRefresh";
 import { openRequestsSheet, requestQueryString } from "../lib/requests";
 import {
@@ -164,6 +164,7 @@ export function MidmileRequests({
   queue: QueueSnapshot;
 }) {
   const queryClient = useQueryClient();
+  const operationKeys = useRef(createOperationKeys());
   const { filters, appliedFilters, setFilters, changeFilters } =
     useRequestFilters();
   const [selected, setSelected] = useState<{
@@ -188,9 +189,10 @@ export function MidmileRequests({
     (visibleColumns as readonly string[]).includes(key);
   const requests = useQuery({
     queryKey: ["requests", "midmile-all", appliedFilters],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api<Page<TruckRequest>>(
         `/requests?${requestQueryString(appliedFilters)}`,
+        { signal },
       ),
     placeholderData: (previous) => previous,
     staleTime: 30_000,
@@ -201,7 +203,7 @@ export function MidmileRequests({
   });
 
   function toggleSelected(id: string) {
-    queue.acknowledge(id);
+    queue.acknowledge(id, requests.data?.data.find(row => row.id === id));
     setSelectedIds((current) => {
       if (current.has(id)) return new Set();
       return new Set([id]);
@@ -228,13 +230,10 @@ export function MidmileRequests({
       api<TruckRequest>(workflowActionPath(request.id, action), {
         method: "POST",
         body: JSON.stringify(payload),
-        headers: buildIdempotencyHeaders(`midmile-${action}`, {
-          requestId: request.id,
-          action,
-          payload,
-        }),
+        headers: operationKeys.current.headers(`midmile-${action}:${request.id}`),
       }),
     onSuccess: async (_, variables) => {
+      operationKeys.current.clear(`midmile-${variables.action}:${variables.request.id}`);
       setSelected(null);
       setSelectedIds(new Set());
       setNotice(
@@ -256,11 +255,12 @@ export function MidmileRequests({
   });
 
   function openAction(request: TruckRequest, action: MmAction) {
+    operationKeys.current.clear(`midmile-${action}:${request.id}`);
     transition.reset();
     setNotice("");
     setSelected({ request, action });
     setOpenRow(null);
-    queue.acknowledge(request.id);
+    queue.acknowledge(request.id, request);
   }
 
   function sortBy(sort: RequestSort) {
@@ -478,7 +478,7 @@ export function MidmileRequests({
                   {(requests.data?.data ?? []).map((row, index) => (
                     <Fragment key={row.id}>
                       <RequestRecordRow
-                        className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${expandedRow === row.id ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
+                        className={`${requestRowClass} ${density === "compact" ? compactRequestRowClass : ""} ${expandedRow === row.id ? requestExpandedRowClass : ""} ${selectedIds.has(row.id) ? requestSelectedRowClass : ""} ${(queue.isAlerting?.(row) ?? queue.alerts.some((alert) => alert.id === row.id)) ? "request-alert-blink" : ""}`}
                         key={row.id}
                         style={{ "--row-index": index } as React.CSSProperties}
                       >
@@ -490,7 +490,7 @@ export function MidmileRequests({
                               setExpandedRow((current) =>
                                 current === row.id ? null : row.id,
                               );
-                              queue.acknowledge(row.id);
+                              queue.acknowledge(row.id, row);
                             }}
                           />
                           {row.status === "REQUESTED" && (
@@ -660,7 +660,7 @@ export function MidmileRequests({
               ) : (
                 (requests.data?.data ?? []).map((row) => (
                   <article
-                    className={`flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap ${queue.alerts.some((alert) => alert.id === row.id) ? "request-alert-blink" : ""}`}
+                    className={`flex min-w-0 min-h-[118px] justify-between gap-[14px] p-[14px] border border-soc5-line rounded-[8px] bg-soc5-panel shadow-[0_1px_2px_rgb(37_37_39/4%)] transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-soc5-line hover:shadow-[0_3px_10px_rgb(37_37_39/7%)] hover:transform-none max-[680px]:flex-wrap ${(queue.isAlerting?.(row) ?? queue.alerts.some((alert) => alert.id === row.id)) ? "request-alert-blink" : ""}`}
                     key={row.id}
                   >
                     <div>
@@ -688,7 +688,7 @@ export function MidmileRequests({
                         className={textButtonClass}
                         onClick={(event) => {
                           modalTrigger.current = event.currentTarget;
-                          queue.acknowledge(row.id);
+                          queue.acknowledge(row.id, row);
                           setPrintRequest(row);
                         }}
                       >

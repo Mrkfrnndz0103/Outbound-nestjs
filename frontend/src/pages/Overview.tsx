@@ -133,9 +133,10 @@ export function Overview({
   const range = `date_from=${from}&date_to=${to}`;
   const requests = useQuery({
     queryKey: ["requests", "dashboard"],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api<Page<TruckRequest>>(
         "/requests?per_page=20&sort=created_at&direction=desc",
+          { signal },
       ),
     placeholderData: (previous) => previous,
     refetchInterval: false,
@@ -143,19 +144,19 @@ export function Overview({
   });
   const summary = useQuery({
     queryKey: ["request-summary", from, to],
-    queryFn: () => api<RequestDashboardSummary>(`/requests/summary?${range}`),
+    queryFn: ({ signal }) => api<RequestDashboardSummary>(`/requests/summary?${range}`, { signal }),
     refetchInterval: false,
     enabled: !preview,
   });
   const intraday = useQuery({
     queryKey: ["intraday-dispatch", intradayFrom, intradayTo],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from("intraday_dispatch")
         .select("hour, order_qty")
         .gte("dispatch_date", intradayFrom)
         .lte("dispatch_date", intradayTo)
-        .order("hour", { ascending: true });
+          .order("hour", { ascending: true }).abortSignal(signal);
 
       if (error) throw error;
 
@@ -184,9 +185,10 @@ export function Overview({
   }, [intraday.dataUpdatedAt]);
   const details = useQuery({
     queryKey: ["request-details", detailStatus, from, to],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api<Page<TruckRequest>>(
         `/requests?per_page=100&${range}${detailStatus !== "ALL" ? `&status=${detailStatus}` : ""}`,
+          { signal },
       ),
     enabled: detailStatus !== null,
   });

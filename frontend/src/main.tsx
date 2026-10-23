@@ -5,12 +5,17 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { supabaseConfigError } from "./lib/supabase";
+import { ApiError } from "./lib/api";
 import "./lib/sentry";
 import "./styles/tailwind.css";
 
 const client = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 10_000, retry: 1 },
+    queries: {
+      staleTime: 10_000,
+      retry: (failures, error) => failures < 1 && (!(error instanceof ApiError) || error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500),
+      retryDelay: (_attempt, error) => error instanceof ApiError && error.retryAfterMs ? error.retryAfterMs : 1000,
+    },
     mutations: { retry: 0 },
   },
 });

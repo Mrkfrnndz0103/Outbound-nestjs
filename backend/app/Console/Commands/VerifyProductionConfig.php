@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 final class VerifyProductionConfig extends Command
 {
-    protected $signature = 'system:verify-config {--production : Apply production-only requirements} {--staging : Apply staging-only requirements}';
+    protected $signature = 'system:verify-config {--production : Apply production-only requirements} {--staging : Apply staging-only requirements} {--worker-timeout= : Validate async worker safety against this queue:work timeout in seconds}';
 
     protected $description = 'Verify required application configuration before startup or deployment';
 
@@ -110,6 +110,10 @@ final class VerifyProductionConfig extends Command
             }
         }
 
+        if ($this->option('worker-timeout') !== null && ! $this->verifyWorker()) {
+            $failed = true;
+        }
+
         if ($failed) {
             return self::FAILURE;
         }
@@ -117,5 +121,40 @@ final class VerifyProductionConfig extends Command
         $this->info('Application configuration is valid.');
 
         return self::SUCCESS;
+    }
+
+    private function verifyWorker(): bool
+    {
+        $timeout = filter_var($this->option('worker-timeout'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($timeout === false) {
+            $this->error('--worker-timeout must be a positive integer matching queue:work --timeout.');
+
+            return false;
+        }
+
+        $connection = (string) config('queue.default');
+        $driver = config("queue.connections.{$connection}.driver");
+        if (! in_array($driver, ['database', 'redis'], true)) {
+            $this->error('Worker preflight requires a database or redis queue connection.');
+
+            return false;
+        }
+
+        $valid = true;
+        $reservation = (int) config("queue.connections.{$connection}.retry_after");
+        if ($timeout >= $reservation) {
+            $this->error('Worker timeout must be less than the queue retry_after reservation.');
+            $valid = false;
+        }
+        if ($reservation >= (int) config('workflow_outbox.processing_timeout_seconds')) {
+            $this->error('Queue retry_after must be less than the workflow outbox processing lease.');
+            $valid = false;
+        }
+        if (! extension_loaded('pcntl')) {
+            $this->error('Async workers require the PHP pcntl extension for timeout and shutdown signals.');
+            $valid = false;
+        }
+
+        return $valid;
     }
 }

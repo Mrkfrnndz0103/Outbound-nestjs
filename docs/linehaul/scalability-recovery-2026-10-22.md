@@ -28,6 +28,14 @@ These are deployment-owner commands; they have not been executed as part of this
 
 The backend image includes PHP `pcntl`, required for Laravel worker timeout signals. Rebuild the image to apply that extension. Container build and process-signal behavior still need verification on a Docker-capable host.
 
+Before starting asynchronous workers, run the preflight in the rebuilt image:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.async.yml run --rm --no-deps worker php artisan system:verify-config --production --worker-timeout=90
+```
+
+Use the actual worker `--timeout` value. This opt-in check rejects nonpositive values, unsupported queue drivers, timeout/reservation/lease conflicts, and missing `pcntl`. It checks the configured default queue connection; keep that connection aligned with the worker command. It verifies configuration and runtime extension availability, not running worker health or scheduler activity. On Windows PHP without `pcntl`, this worker check intentionally fails; run it in the Linux worker image.
+
 The drainer bounds each scan to 100 rows by default; manual limits support 1–1000. Backoff timestamps indicate earliest eligibility: actual dispatch also depends on the one-minute scheduler cadence and worker capacity. Monitor oldest pending age, dead-letter count, worker health, and queue depth; tune capacity against measured traffic.
 
 Inspect outbox health with the existing `php artisan outbox:status`. After correcting a terminal failure, replay a specific dead letter with `php artisan outbox:retry <id>`. Delivery remains at least once; handler idempotency remains required. Worker execution should finish within the configured processing lease timeout (300 seconds by default).

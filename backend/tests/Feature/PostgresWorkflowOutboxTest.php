@@ -92,6 +92,12 @@ final class PostgresWorkflowOutboxTest extends TestCase
             $this->addToAssertionCount(1);
         }
 
+        $snapshot = (new WorkflowOutboxRepository)->statusSnapshot();
+        $this->assertSame(1, $snapshot['counts']['PENDING']);
+        $this->assertSame(1, $snapshot['due_pending']);
+        $this->assertSame(0, $snapshot['delayed_pending']);
+        $this->assertNotNull($snapshot['oldest_due_available_at']);
+
         $claimed = (new WorkflowOutboxRepository)->claim($firstId, $now);
         $this->assertNotNull($claimed);
         $this->assertNull((new WorkflowOutboxRepository)->claim($firstId, $now));

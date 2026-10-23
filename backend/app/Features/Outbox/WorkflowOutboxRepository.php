@@ -8,6 +8,42 @@ use Illuminate\Support\Facades\DB;
 
 final class WorkflowOutboxRepository
 {
+    public function statusSnapshot(): array
+    {
+        $now = CarbonImmutable::now();
+        $stale = $now->subSeconds(max(1, (int) config('workflow_outbox.processing_timeout_seconds', 300)));
+        $query = DB::table('workflow_outbox');
+        foreach (['PENDING', 'PROCESSING', 'COMPLETED', 'DEAD_LETTER'] as $status) {
+            $alias = strtolower($status);
+            $query->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS {$alias}", [$status]);
+        }
+        $row = $query
+            ->selectRaw("MIN(CASE WHEN status = 'PENDING' THEN created_at END) AS oldest_pending")
+            ->selectRaw("MIN(CASE WHEN status = 'DEAD_LETTER' THEN created_at END) AS oldest_dead_letter")
+            ->selectRaw("SUM(CASE WHEN status = 'PENDING' AND available_at <= ? THEN 1 ELSE 0 END) AS due_pending", [$now])
+            ->selectRaw("SUM(CASE WHEN status = 'PENDING' AND available_at > ? THEN 1 ELSE 0 END) AS delayed_pending", [$now])
+            ->selectRaw("SUM(CASE WHEN status = 'PROCESSING' AND processing_started_at <= ? THEN 1 ELSE 0 END) AS stale_processing", [$stale])
+            ->selectRaw("MIN(CASE WHEN status = 'PENDING' AND available_at <= ? THEN available_at END) AS oldest_due_available_at", [$now])
+            ->selectRaw("MIN(CASE WHEN status = 'PROCESSING' THEN processing_started_at END) AS oldest_processing_started_at")
+            ->first();
+
+        $counts = [];
+        foreach (['PENDING', 'PROCESSING', 'COMPLETED', 'DEAD_LETTER'] as $status) {
+            $counts[$status] = (int) $row->{strtolower($status)};
+        }
+
+        return [
+            'counts' => $counts,
+            'oldest_pending' => $row->oldest_pending,
+            'oldest_dead_letter' => $row->oldest_dead_letter,
+            'due_pending' => (int) $row->due_pending,
+            'delayed_pending' => (int) $row->delayed_pending,
+            'stale_processing' => (int) $row->stale_processing,
+            'oldest_due_available_at' => $row->oldest_due_available_at,
+            'oldest_processing_started_at' => $row->oldest_processing_started_at,
+        ];
+    }
+
     public function dueIds(int $limit): array
     {
         $now = CarbonImmutable::now();

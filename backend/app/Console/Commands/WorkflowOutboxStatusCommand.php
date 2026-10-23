@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Features\Outbox\WorkflowOutboxRepository;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 final class WorkflowOutboxStatusCommand extends Command
 {
@@ -13,18 +13,21 @@ final class WorkflowOutboxStatusCommand extends Command
 
     public function handle(): int
     {
-        foreach (['PENDING', 'PROCESSING', 'COMPLETED', 'DEAD_LETTER'] as $status) {
-            $count = DB::table('workflow_outbox')->where('status', $status)->count();
+        $snapshot = app(WorkflowOutboxRepository::class)->statusSnapshot();
+        foreach ($snapshot['counts'] as $status => $count) {
             $this->line("{$status}: {$count}");
         }
 
         foreach (['PENDING', 'DEAD_LETTER'] as $status) {
-            $oldest = DB::table('workflow_outbox')
-                ->where('status', $status)
-                ->orderBy('created_at')
-                ->value('created_at');
+            $oldest = $snapshot['oldest_'.strtolower($status)];
             $this->line("Oldest {$status}: ".($oldest ?? 'none'));
         }
+
+        $this->line('Due pending: '.$snapshot['due_pending']);
+        $this->line('Delayed pending: '.$snapshot['delayed_pending']);
+        $this->line('Stale processing: '.$snapshot['stale_processing']);
+        $this->line('Oldest due available at: '.($snapshot['oldest_due_available_at'] ?? 'none'));
+        $this->line('Oldest processing started at: '.($snapshot['oldest_processing_started_at'] ?? 'none'));
 
         return self::SUCCESS;
     }

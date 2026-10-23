@@ -40,6 +40,8 @@ The drainer bounds each scan to 100 rows by default; manual limits support 1–1
 
 Inspect outbox health with the existing `php artisan outbox:status`. After correcting a terminal failure, replay a specific dead letter with `php artisan outbox:retry <id>`. Delivery remains at least once; handler idempotency remains required. Worker execution should finish within the configured processing lease timeout (300 seconds by default).
 
+Status diagnostics now distinguish due pending work (`available_at <= now`), delayed pending retries, and stale processing leases (at or beyond the configured processing timeout). CLI and the admin-only status endpoint share one aggregate database snapshot, including the oldest due availability and processing-start timestamps. No payloads or provider error text are returned. An increasing due backlog suggests scheduler/worker capacity trouble; stale processing suggests abandoned or overlong attempts. These are observations, not proof that a specific process is healthy. The aggregate scans stored outbox history, so avoid polling it at request/realtime frequency.
+
 The frontend API cooldown is scoped to its JavaScript runtime. Cursor pages bound each queue response; cursor history retains navigation tokens. Neither mechanism replaces server-side capacity planning or a production load test.
 
 ## Verification

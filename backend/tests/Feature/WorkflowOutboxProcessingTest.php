@@ -152,6 +152,44 @@ final class WorkflowOutboxProcessingTest extends TestCase
         (new WorkflowOutboxStatusController)->show($request);
     }
 
+    public function test_status_distinguishes_due_delayed_and_abandoned_work(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-23 10:00:00'));
+        $this->record('due-status');
+        $delayed = $this->record('delayed-status');
+        $stale = $this->record('stale-status');
+        $fresh = $this->record('fresh-status');
+        DB::table('workflow_outbox')->where('id', $delayed)->update(['available_at' => now()->addMinute()]);
+        DB::table('workflow_outbox')->where('id', $stale)->update(['status' => 'PROCESSING', 'processing_started_at' => now()->subSeconds(300)]);
+        DB::table('workflow_outbox')->where('id', $fresh)->update(['status' => 'PROCESSING', 'processing_started_at' => now()->subSeconds(299)]);
+        $request = Request::create('/api/operations/outbox/status', 'GET');
+        $request->attributes->set('actor', (object) ['role' => 'ops_pic', 'is_admin' => true]);
+
+        $response = (new WorkflowOutboxStatusController)->show($request)->getData(true);
+
+        $this->assertSame(1, $response['due_pending']);
+        $this->assertSame(1, $response['delayed_pending']);
+        $this->assertSame(1, $response['stale_processing']);
+        $this->assertSame('2026-10-23 10:00:00', $response['oldest_due_available_at']);
+        $this->assertSame('2026-10-23 09:55:00', $response['oldest_processing_started_at']);
+        $this->artisan('outbox:status')
+            ->expectsOutput('Due pending: 1')
+            ->expectsOutput('Delayed pending: 1')
+            ->expectsOutput('Stale processing: 1')
+            ->assertExitCode(0);
+    }
+
+    public function test_empty_status_has_zero_counts_and_null_oldest_times(): void
+    {
+        $request = Request::create('/api/operations/outbox/status', 'GET');
+        $request->attributes->set('actor', (object) ['role' => 'ops_pic', 'is_admin' => true]);
+        $response = (new WorkflowOutboxStatusController)->show($request)->getData(true);
+        $this->assertSame(0, $response['due_pending']);
+        $this->assertSame(0, $response['stale_processing']);
+        $this->assertNull($response['oldest_due_available_at']);
+        $this->assertNull($response['oldest_processing_started_at']);
+    }
+
     public function test_retryable_failure_reschedules_the_row(): void
     {
         $id = $this->record('retry');

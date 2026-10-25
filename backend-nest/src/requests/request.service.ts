@@ -50,13 +50,33 @@ export class RequestService {
     return result.rows[0];
   }
 
-  async action(id: string, action: string, input: RequestActionDto) {
+  async action(id: string, action: string, input: RequestActionDto, actorId: string) {
     if (action === 'cancel') {
-      const result = await this.database().query(
-        `update requests set status = 'CANCELLED', cancellation_remarks = $2 where id = $1 returning *`,
-        [id, input.rejectionRemarks ?? null],
-      );
-      return result.rows[0] ?? null;
+      const client = await this.database().connect();
+      try {
+        await client.query('begin');
+        const result = await client.query(
+          `update requests
+           set status = 'CANCELLED', cancellation_remarks = $2, updated_by = $3
+           where id = $1 and status not in ('CANCELLED', 'REJECTED')
+           returning *`,
+          [id, input.rejectionRemarks ?? null, actorId],
+        );
+        if (result.rows[0]) {
+          await client.query(
+            `insert into request_events (request_id, event_type, actor_id, metadata)
+             values ($1, 'CANCELLED', $2, $3::jsonb)`,
+            [id, actorId, JSON.stringify({ remarks: input.rejectionRemarks ?? null })],
+          );
+        }
+        await client.query('commit');
+        return result.rows[0] ?? null;
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
     }
     throw new ServiceUnavailableException('Request workflow action is not migrated yet.');
   }

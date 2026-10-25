@@ -31,9 +31,15 @@ export class RequestController {
   }
 
   @Post(':id/:action')
-  async action(@Param() params: RequestIdParam & { action: string }, @Body() input: RequestActionDto) {
-    const request = await this.requests.action(params.id, params.action, input);
-    if (!request) throw new NotFoundException('Request not found.');
-    return request;
+  async action(
+    @Param() params: RequestIdParam & { action: string },
+    @Body() input: RequestActionDto,
+    @Req() httpRequest: AuthenticatedRequest,
+  ) {
+    const actorId = httpRequest.user?.sub;
+    if (!actorId) throw new NotFoundException('Authenticated user identity is missing.');
+    const updatedRequest = await this.requests.action(params.id, params.action, input, actorId);
+    if (!updatedRequest) throw new NotFoundException('Request not found.');
+    return updatedRequest;
   }
 }

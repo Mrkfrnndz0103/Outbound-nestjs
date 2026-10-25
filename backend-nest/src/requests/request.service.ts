@@ -1,15 +1,11 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import type { Pool } from 'pg';
+import { DATABASE_POOL } from '../database/database.module.js';
 import type { CreateRequestDto, ListRequestsQuery, RequestActionDto } from './request.dto.js';
 
 @Injectable()
 export class RequestService {
-  private readonly pool?: Pool;
-
-  constructor() {
-    const url = process.env.DATABASE_URL;
-    if (url) this.pool = new Pool({ connectionString: url, max: 5, idleTimeoutMillis: 10_000 });
-  }
+  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool | null) {}
 
   private database(): Pool {
     if (!this.pool) throw new ServiceUnavailableException('Database is not configured.');

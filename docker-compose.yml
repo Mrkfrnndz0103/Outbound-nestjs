@@ -1,4 +1,20 @@
 services:
+  api-nest:
+    build: ./backend-nest
+    image: soc5-outbound-api-nest:local
+    env_file: ./backend-nest/.env
+    expose: ["3001"]
+    init: true
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:3001/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
   api:
     build: ./backend
     image: soc5-outbound-api:local

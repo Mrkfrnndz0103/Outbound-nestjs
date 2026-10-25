@@ -7,6 +7,8 @@ import { requestContextMiddleware } from './common/request-context.middleware.js
 import { HealthController } from './health/health.controller.js';
 import { RequestModule } from './requests/request.module.js';
 import { OperationsModule } from './operations/operations.module.js';
+import { KpiModule } from './kpi/kpi.module.js';
+import { DispatchModule } from './dispatch/dispatch.module.js';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { OperationsModule } from './operations/operations.module.js';
     AuthModule,
     RequestModule,
     OperationsModule,
+    KpiModule,
+    DispatchModule,
   ],
   controllers: [HealthController],
 })

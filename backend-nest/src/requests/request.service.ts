@@ -82,6 +82,14 @@ export class RequestService {
     try {
       await client.query('begin');
       const value = action === 'assign-truck' ? input.plateNumber : action === 'reassign-driver' ? input.driverId : input.rejectionRemarks;
+      const current = await client.query(
+        `select id from requests where id = $1 for update`,
+        [id],
+      );
+      if (!current.rows[0]) {
+        await client.query('commit');
+        return null;
+      }
       const result = transition.extra
         ? await client.query(
             `update requests set status = $1, ${transition.extra} updated_by = $3 where id = $4 and status not in ('CANCELLED', 'REJECTED') returning *`,

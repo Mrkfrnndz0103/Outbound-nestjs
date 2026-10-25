@@ -1,0 +1,63 @@
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Pool } from 'pg';
+import type { CreateRequestDto, ListRequestsQuery, RequestActionDto } from './request.dto.js';
+
+@Injectable()
+export class RequestService {
+  private readonly pool?: Pool;
+
+  constructor() {
+    const url = process.env.DATABASE_URL;
+    if (url) this.pool = new Pool({ connectionString: url, max: 5, idleTimeoutMillis: 10_000 });
+  }
+
+  private database(): Pool {
+    if (!this.pool) throw new ServiceUnavailableException('Database is not configured.');
+    return this.pool;
+  }
+
+  async list(query: ListRequestsQuery) {
+    const values: string[] = [];
+    const predicates: string[] = [];
+    if (query.status) {
+      values.push(query.status);
+      predicates.push(`status = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${query.search.toLowerCase()}%`);
+      predicates.push(`(lower(cluster) like $${values.length} or lower(region) like $${values.length})`);
+    }
+    const where = predicates.length ? `where ${predicates.join(' and ')}` : '';
+    const result = await this.database().query(
+      `select * from requests ${where} order by created_at desc limit 100`,
+      values,
+    );
+    return { data: result.rows };
+  }
+
+  async get(id: string) {
+    const result = await this.database().query('select * from requests where id = $1', [id]);
+    if (!result.rows[0]) return null;
+    return result.rows[0];
+  }
+
+  async create(input: CreateRequestDto, actorId: string) {
+    const result = await this.database().query(
+      `insert into requests (cluster, region, truck_type, truck_size, dock_no, created_by, status)
+       values ($1, $2, $3, $4, $5, $6, 'PENDING') returning *`,
+      [input.cluster, input.region, input.truckType, input.truckSize ?? null, input.dockNo ?? null, actorId],
+    );
+    return result.rows[0];
+  }
+
+  async action(id: string, action: string, input: RequestActionDto) {
+    if (action === 'cancel') {
+      const result = await this.database().query(
+        `update requests set status = 'CANCELLED', cancellation_remarks = $2 where id = $1 returning *`,
+        [id, input.rejectionRemarks ?? null],
+      );
+      return result.rows[0] ?? null;
+    }
+    throw new ServiceUnavailableException('Request workflow action is not migrated yet.');
+  }
+}

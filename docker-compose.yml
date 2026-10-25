@@ -15,28 +15,6 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
-  api:
-    build: ./backend
-    image: soc5-outbound-api:local
-    env_file: ./backend/.env
-    expose: ["8000"]
-    init: true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8000/up"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 45s
-  scheduler:
-    image: soc5-outbound-api:local
-    env_file: ./backend/.env
-    command: php artisan schedule:work
-    init: true
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
   web:
     build:
       context: ./frontend
@@ -48,7 +26,7 @@ services:
     # port 4173. NGINX inside this image serves the built /app/dist output.
     ports: ["127.0.0.1:4173:80"]
     depends_on:
-      api:
+      api-nest:
         condition: service_healthy
     restart: unless-stopped
   redis:

@@ -9,6 +9,7 @@ import { RequestModule } from './requests/request.module.js';
 import { OperationsModule } from './operations/operations.module.js';
 import { KpiModule } from './kpi/kpi.module.js';
 import { DispatchModule } from './dispatch/dispatch.module.js';
+import { PresenceModule } from './presence/presence.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DispatchModule } from './dispatch/dispatch.module.js';
     OperationsModule,
     KpiModule,
     DispatchModule,
+    PresenceModule,
   ],
   controllers: [HealthController],
 })

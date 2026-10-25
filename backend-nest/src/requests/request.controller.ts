@@ -1,8 +1,10 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, Query, ServiceUnavailableException } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { CreateRequestDto, ListRequestsQuery, RequestActionDto, RequestIdParam } from './request.dto.js';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
-import { UseGuards } from '@nestjs/common';
 import { RequestService } from './request.service.js';
+
+type AuthenticatedRequest = Request & { user?: { sub?: string } };
 
 @Controller('requests')
 @UseGuards(SupabaseAuthGuard)
@@ -22,8 +24,10 @@ export class RequestController {
   }
 
   @Post()
-  create(@Body() _input: CreateRequestDto) {
-    throw new ServiceUnavailableException('Request creation is unavailable until role authorization migration is complete.');
+  create(@Body() input: CreateRequestDto, @Req() request: AuthenticatedRequest) {
+    const actorId = request.user?.sub;
+    if (!actorId) throw new NotFoundException('Authenticated user identity is missing.');
+    return this.requests.create(input, actorId);
   }
 
   @Post(':id/:action')

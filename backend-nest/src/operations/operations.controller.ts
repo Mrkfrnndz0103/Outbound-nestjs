@@ -38,6 +38,35 @@ export class OperationsController {
     return { data: result.rows };
   }
 
+  @Get('kpi/daily')
+  async kpiDaily() {
+    const result = await this.db().query(
+      `select date_trunc('day', created_at)::date as day,
+              count(*)::int as total,
+              count(*) filter (where status = 'PENDING')::int as pending,
+              count(*) filter (where status = 'REQUESTED')::int as requested,
+              count(*) filter (where status = 'DOCKED')::int as docked,
+              count(*) filter (where status = 'CANCELLED')::int as cancelled,
+              count(*) filter (where status = 'REJECTED')::int as rejected
+       from requests
+       where created_at >= current_date - interval '30 days'
+       group by 1
+       order by day asc`,
+    );
+    return { data: result.rows };
+  }
+
+  @Get('operations/outbox/status')
+  async outboxStatus() {
+    const result = await this.db().query(
+      `select status, count(*)::int as count, min(created_at) as oldest_created_at
+       from workflow_outbox
+       group by status
+       order by status`,
+    );
+    return { data: result.rows };
+  }
+
   @Get('dispatch/intraday')
   async dispatch() {
     const result = await this.db().query("select * from requests where status not in ('CANCELLED', 'REJECTED') order by created_at desc limit 100");

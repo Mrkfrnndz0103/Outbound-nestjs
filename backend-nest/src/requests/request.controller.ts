@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { CreateRequestDto, ListRequestsQuery, RequestActionDto, RequestIdParam } from './request.dto.js';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
@@ -14,6 +14,33 @@ export class RequestController {
   @Get()
   list(@Query() query: ListRequestsQuery) {
     return this.requests.list(query);
+  }
+
+  @Get('queue')
+  queue(@Query('limit') limit?: string, @Query('cursor') cursor?: string) {
+    return this.requests.queue(limit ? Number(limit) : 100, cursor);
+  }
+
+  @Get('summary')
+  summary() {
+    return this.requests.summary();
+  }
+
+  @Get('metrics')
+  metrics() {
+    return this.requests.metrics();
+  }
+
+  @Get('analytics')
+  analytics() {
+    return this.requests.analytics();
+  }
+
+  @Post('bulk-approve')
+  bulkApprove(@Body() input: { ids?: string[] }, @Req() request: AuthenticatedRequest) {
+    const actorId = request.user?.sub;
+    if (!actorId) throw new NotFoundException('Authenticated user identity is missing.');
+    return this.requests.bulkApprove(input.ids ?? [], actorId);
   }
 
   @Get(':id/events')

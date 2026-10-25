@@ -31,6 +31,72 @@ export class RequestService {
     return { data: result.rows };
   }
 
+  async queue(limit = 100, cursor?: string) {
+    const boundedLimit = Math.min(Math.max(Number.isFinite(limit) ? Math.trunc(limit) : 100, 1), 100);
+    const values: string[] = [];
+    const cursorPredicate = cursor ? 'where created_at < $1' : '';
+    if (cursor) values.push(cursor);
+    const result = await this.database().query(
+      `select * from requests ${cursorPredicate} order by created_at desc limit ${boundedLimit + 1}`,
+      values,
+    );
+    const rows = result.rows.slice(0, boundedLimit);
+    return { data: rows, next_cursor: result.rows.length > boundedLimit ? rows.at(-1)?.created_at ?? null : null };
+  }
+
+  async summary() {
+    const result = await this.database().query(
+      'select status, count(*)::int as count from requests group by status order by status',
+    );
+    return { data: result.rows };
+  }
+
+  async metrics() {
+    const result = await this.database().query(
+      `select count(*)::int as total,
+              count(*) filter (where status = 'PENDING')::int as pending,
+              count(*) filter (where status = 'REQUESTED')::int as requested,
+              count(*) filter (where status = 'DOCKED')::int as docked
+       from requests`,
+    );
+    return { data: result.rows[0] ?? {} };
+  }
+
+  async analytics() {
+    const result = await this.database().query(
+      `select date_trunc('day', created_at)::date as day, status, count(*)::int as count
+       from requests group by 1, 2 order by day desc limit 90`,
+    );
+    return { data: result.rows };
+  }
+
+  async bulkApprove(ids: string[], actorId: string) {
+    const uniqueIds = [...new Set(ids)].filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 100);
+    if (!uniqueIds.length) return { data: [], approved: 0 };
+    const client = await this.database().connect();
+    try {
+      await client.query('begin');
+      const result = await client.query(
+        `update requests set status = 'REQUESTED', updated_by = $1
+         where id = any($2::uuid[]) and status = 'PENDING' returning *`,
+        [actorId, uniqueIds],
+      );
+      for (const row of result.rows) {
+        await client.query(
+          `insert into request_events (request_id, event_type, actor_id, metadata) values ($1, 'APPROVED', $2, '{}'::jsonb)`,
+          [row.id, actorId],
+        );
+      }
+      await client.query('commit');
+      return { data: result.rows, approved: result.rows.length };
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async get(id: string) {
     const result = await this.database().query('select * from requests where id = $1', [id]);
     if (!result.rows[0]) return null;

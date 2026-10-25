@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "start:dev": "node --loader ts-node/esm src/main.ts",
-    "test": "jest --passWithNoTests"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

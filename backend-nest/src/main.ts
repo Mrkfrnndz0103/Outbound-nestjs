@@ -12,6 +12,7 @@ async function bootstrap() {
     credentials: true,
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.enableShutdownHooks();
 
   await app.listen(Number(process.env.PORT ?? 3001), '0.0.0.0');
 }

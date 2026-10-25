@@ -6,6 +6,7 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
 import { requestContextMiddleware } from './common/request-context.middleware.js';
 import { HealthController } from './health/health.controller.js';
 import { RequestModule } from './requests/request.module.js';
+import { OperationsModule } from './operations/operations.module.js';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { RequestModule } from './requests/request.module.js';
     IntegrationsModule,
     AuthModule,
     RequestModule,
+    OperationsModule,
   ],
   controllers: [HealthController],
 })

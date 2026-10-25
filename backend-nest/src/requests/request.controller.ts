@@ -6,7 +6,7 @@ import { RequestService } from './request.service.js';
 
 type AuthenticatedRequest = Request & { user?: { sub?: string } };
 
-@Controller('requests')
+@Controller(['requests', 'v1/requests'])
 @UseGuards(SupabaseAuthGuard)
 export class RequestController {
   constructor(private readonly requests: RequestService) {}

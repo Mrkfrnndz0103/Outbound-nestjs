@@ -1,6 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 
-@Controller('auth')
+@Controller(['auth', 'v1/auth'])
 export class AuthController {
   @Get('status')
   getStatus() {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { CreateRequestDto, ListRequestsQuery, RequestActionDto, RequestIdParam } from './request.dto.js';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
@@ -16,6 +16,13 @@ export class RequestController {
     return this.requests.list(query);
   }
 
+  @Get(':id/events')
+  async events(@Param() params: RequestIdParam) {
+    const request = await this.requests.get(params.id);
+    if (!request) throw new NotFoundException('Request not found.');
+    return this.requests.events(params.id);
+  }
+
   @Get(':id')
   async show(@Param() params: RequestIdParam) {
     const request = await this.requests.get(params.id);
@@ -28,6 +35,19 @@ export class RequestController {
     const actorId = request.user?.sub;
     if (!actorId) throw new NotFoundException('Authenticated user identity is missing.');
     return this.requests.create(input, actorId);
+  }
+
+  @Put(':id')
+  async update(
+    @Param() params: RequestIdParam,
+    @Body() input: CreateRequestDto,
+    @Req() httpRequest: AuthenticatedRequest,
+  ) {
+    const actorId = httpRequest.user?.sub;
+    if (!actorId) throw new NotFoundException('Authenticated user identity is missing.');
+    const updatedRequest = await this.requests.update(params.id, input, actorId);
+    if (!updatedRequest) throw new NotFoundException('Request not found.');
+    return updatedRequest;
   }
 
   @Post(':id/:action')

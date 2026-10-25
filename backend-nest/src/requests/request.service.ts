@@ -46,6 +46,25 @@ export class RequestService {
     return result.rows[0];
   }
 
+  async events(id: string) {
+    const result = await this.database().query(
+      'select * from request_events where request_id = $1 order by created_at asc',
+      [id],
+    );
+    return { data: result.rows };
+  }
+
+  async update(id: string, input: CreateRequestDto, actorId: string) {
+    const result = await this.database().query(
+      `update requests
+       set cluster = $1, region = $2, truck_type = $3, truck_size = $4, dock_no = $5, updated_by = $6
+       where id = $7 and status not in ('CANCELLED', 'REJECTED')
+       returning *`,
+      [input.cluster, input.region, input.truckType, input.truckSize ?? null, input.dockNo ?? null, actorId, id],
+    );
+    return result.rows[0] ?? null;
+  }
+
   async action(id: string, action: string, input: RequestActionDto, actorId: string) {
     const transitions: Record<string, { status: string; event: string; extra: string }> = {
       approve: { status: 'REQUESTED', event: 'APPROVED', extra: '' },

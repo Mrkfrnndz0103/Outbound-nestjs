@@ -251,16 +251,24 @@ export default function App() {
   if (state === "signed-out") return <UnauthenticatedEntry />;
   if (state === "unauthorized") {
     return (
-      <main className="p-12 text-center">
-        <h1>{failure.title}</h1>
-        <p className="error text-(--color-danger)">{failure.message}</p>
-        <p>{failure.detail}</p>
-        <button type="button" onClick={() => void retrySession()}>
-          Try again
-        </button>{" "}
-        <button type="button" onClick={() => void supabase.auth.signOut()}>
-          Sign out
-        </button>
+      <main className="grid min-h-dvh place-items-center bg-soc5-page px-4 py-8 text-soc5-ink">
+        <section className="w-full max-w-md rounded-2xl border border-soc5-line bg-soc5-panel p-6 shadow-lh-2026-lg sm:p-8" aria-labelledby="access-error-title">
+          <div className="mb-6 grid size-12 place-items-center rounded-xl bg-status-danger-surface text-status-danger-ink" aria-hidden="true">
+            <span className="text-xl font-bold">!</span>
+          </div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-linehaul-teal-ink">SOC5 Outbound</p>
+          <h1 id="access-error-title" className="text-2xl font-bold tracking-tight">{failure.title}</h1>
+          <p className="mt-3 text-sm font-medium text-status-danger-ink">{failure.message}</p>
+          <p className="mt-2 text-sm leading-6 text-soc5-muted">{failure.detail}</p>
+          <div className="mt-7 flex flex-col gap-2 sm:flex-row">
+            <button className="min-h-11 flex-1 rounded-lg bg-linehaul-teal px-4 py-2 text-sm font-semibold text-white transition hover:bg-linehaul-teal-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-linehaul-teal" type="button" onClick={() => void retrySession()}>
+              Try again
+            </button>
+            <button className="min-h-11 flex-1 rounded-lg border border-soc5-line bg-soc5-panel px-4 py-2 text-sm font-semibold text-soc5-ink transition hover:bg-linehaul-surface-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-linehaul-teal" type="button" onClick={() => void supabase.auth.signOut()}>
+              Sign out
+            </button>
+          </div>
+        </section>
       </main>
     );
   }

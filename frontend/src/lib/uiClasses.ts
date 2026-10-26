@@ -13,7 +13,7 @@ export const mutedCaptionClass = "text-xs text-soc5-muted";
 export const toastBodyClass = mutedCaptionClass;
 
 export const dashboardViewClass =
-  "workspace-view dashboard-view text-soc5-ink min-h-[calc(100dvh_-_3.8rem)] w-full min-w-0 overflow-wrap-anywhere bg-[radial-gradient(circle_at_96%_2%,rgb(214_250_45_/_11%),transparent_27.733333rem),var(--soc5-page)] px-[var(--app-page-gutter)] pt-[clamp(1.25rem,1.5vw,1.75rem)] pb-[clamp(3rem,5vw,5rem)] max-[960px]:px-[.8rem] max-[960px]:pt-[.8rem] max-[960px]:pb-16 max-[480px]:px-2 dark:bg-none dark:bg-soc5-page";
+  "workspace-view dashboard-view text-soc5-ink min-h-[calc(100dvh_-_3.8rem)] w-full min-w-0 overflow-wrap-anywhere bg-[radial-gradient(circle_at_96%_2%,rgb(214_250_45_/_11%),transparent_27.733333rem),var(--soc5-page)] px-[var(--app-page-gutter)] pt-[clamp(1.25rem,1.5vw,1.75rem)] pb-[clamp(3rem,5vw,5rem)] max-[960px]:px-[.8rem] max-[960px]:pt-[.8rem] max-[960px]:pb-16 max-[480px]:px-2 max-[480px]:pt-3 dark:bg-none dark:bg-soc5-page";
 export const workspaceViewClass =
   "workspace-view text-soc5-ink relative z-[3] flex min-h-0 w-full max-w-full min-w-0 flex-1 px-[var(--app-page-gutter)]";
 

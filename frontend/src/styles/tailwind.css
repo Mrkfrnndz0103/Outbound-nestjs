@@ -350,6 +350,21 @@ body {
     background: var(--color-soc5-lime);
     color: var(--color-soc5-ink);
   }
+
+  :where(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-linehaul-teal);
+    outline-offset: 2px;
+  }
+
+  :where(button, a) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (max-width: 680px) {
+    input, select, textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

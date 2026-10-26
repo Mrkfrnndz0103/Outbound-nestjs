@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: false });
+  const app = await NestFactory.create(AppModule, { cors: false, rawBody: true });
   // Keep both the canonical versioned API and Laravel's legacy unversioned paths during cutover.
   app.setGlobalPrefix('api', { exclude: ['up', 'health'] });
   app.use(helmet());

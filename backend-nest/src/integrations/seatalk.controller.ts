@@ -5,10 +5,16 @@ import type { Pool } from 'pg';
 import { Inject } from '@nestjs/common';
 import { DATABASE_POOL } from '../database/database.module.js';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
+import { SeaTalkApprovalService } from './seatalk-approval.service.js';
+
+type RequestWithRawBody = Request & { rawBody?: Buffer };
 
 @Controller(['auth/seatalk', 'v1/auth/seatalk', 'integrations/seatalk', 'v1/integrations/seatalk'])
 export class SeaTalkController {
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool | null) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool | null,
+    private readonly approvals: SeaTalkApprovalService,
+  ) {}
 
   @Get('login')
   login(@Res() response: Response) {
@@ -62,7 +68,13 @@ export class SeaTalkController {
   @Get('config')
   @UseGuards(SupabaseAuthGuard)
   config() {
-    return { configured: Boolean(process.env.SEATALK_BASE_URL && process.env.SEATALK_APP_ID) };
+    return {
+      appId: process.env.SEATALK_APP_ID ?? null,
+      callbackUrl: process.env.SEATALK_CALLBACK_URL ?? null,
+      configured: Boolean(process.env.SEATALK_APP_ID && process.env.SEATALK_APP_SECRET),
+      approvalConfigured: this.approvals.configured(),
+      approvalEnabled: this.approvals.enabled(),
+    };
   }
 
   @Post('logout')
@@ -79,35 +91,46 @@ export class SeaTalkController {
 
   @Post('approval/approve')
   @HttpCode(200)
-  approve(@Req() request: Request, @Headers('authorization') authorization?: string, @Headers('date') date?: string, @Headers('x-seatalk-token') token?: string, @Headers('content-type') contentType?: string) {
-    this.verifyApproval(request, authorization, date, token, contentType);
-    return { ok: true };
+  async approve(@Req() request: RequestWithRawBody, @Headers('authorization') authorization?: string, @Headers('date') date?: string, @Headers('content-type') contentType?: string) {
+    const token = this.approvalToken(request);
+    const rawBody = this.verifyApproval(request, authorization, date, token, contentType);
+    await this.approvals.handleCallback('approve', request.body as Record<string, unknown>, rawBody, token!);
+    return { code: 0 };
   }
 
   @Post('approval/reject')
   @HttpCode(200)
-  reject(@Req() request: Request, @Headers('authorization') authorization?: string, @Headers('date') date?: string, @Headers('x-seatalk-token') token?: string, @Headers('content-type') contentType?: string) {
-    this.verifyApproval(request, authorization, date, token, contentType);
-    return { ok: true };
+  async reject(@Req() request: RequestWithRawBody, @Headers('authorization') authorization?: string, @Headers('date') date?: string, @Headers('content-type') contentType?: string) {
+    const token = this.approvalToken(request);
+    const rawBody = this.verifyApproval(request, authorization, date, token, contentType);
+    await this.approvals.handleCallback('reject', request.body as Record<string, unknown>, rawBody, token!);
+    return { code: 0 };
   }
 
-  private verifyEvent(request: Request, signature?: string) {
+  private verifyEvent(request: RequestWithRawBody, signature?: string) {
     const secret = process.env.SEATALK_APP_SECRET ?? '';
-    const rawBody = JSON.stringify(request.body ?? {});
-    const expected = createHash('sha256').update(rawBody + secret).digest('hex');
+    const rawBody = request.rawBody ?? Buffer.from(JSON.stringify(request.body ?? {}));
+    const expected = createHash('sha256').update(rawBody).update(secret).digest('hex');
     if (!signature || signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) throw new UnauthorizedException('Invalid SeaTalk signature.');
   }
 
-  private verifyApproval(request: Request, authorization?: string, date?: string, token?: string, contentType?: string) {
+  private approvalToken(request: Request) {
+    const value = request.headers['x-token'] ?? request.headers['x-seatalk-token'];
+    return Array.isArray(value) ? value[0] : value;
+  }
+
+  private verifyApproval(request: RequestWithRawBody, authorization?: string, date?: string, token?: string, contentType?: string) {
     if (!authorization || !date || !token || !contentType) throw new UnauthorizedException('Invalid SeaTalk signature.');
-    const secret = process.env.SEATALK_APP_SECRET ?? '';
+    const secret = process.env.SEATALK_CALLBACK_SIGNING_SECRET ?? '';
+    if (!secret) throw new UnauthorizedException('SeaTalk callback verification is not configured.');
     const target = request.originalUrl.split('?');
     const query = new URLSearchParams(target[1] ?? '');
     const canonicalQuery = [...query.entries()].sort().map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
-    const rawBody = JSON.stringify(request.body ?? {});
+    const rawBody = request.rawBody ?? Buffer.from(JSON.stringify(request.body ?? {}));
     const canonical = [request.method, target[0], contentType, createHash('md5').update(rawBody).digest('hex'), date, token, canonicalQuery].join('\n');
     const expected = Buffer.from(createHmac('sha1', secret).update(canonical).digest('base64'));
     const received = Buffer.from(authorization.trim());
     if (expected.length !== received.length || !timingSafeEqual(expected, received)) throw new UnauthorizedException('Invalid SeaTalk signature.');
+    return rawBody;
   }
 }

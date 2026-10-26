@@ -2,10 +2,14 @@ import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common'
 import type { Pool } from 'pg';
 import { DATABASE_POOL } from '../database/database.module.js';
 import type { CreateRequestDto, ListRequestsQuery, RequestActionDto } from './request.dto.js';
+import { SeaTalkApprovalService } from '../integrations/seatalk-approval.service.js';
 
 @Injectable()
 export class RequestService {
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool | null) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool | null,
+    private readonly seatalkApprovals: SeaTalkApprovalService,
+  ) {}
 
   private database(): Pool {
     if (!this.pool) throw new ServiceUnavailableException('Database is not configured.');
@@ -109,7 +113,9 @@ export class RequestService {
        values ($1, $2, $3, $4, $5, $6, 'PENDING') returning *`,
       [input.cluster, input.region, input.truckType, input.truckSize ?? null, input.dockNo ?? null, actorId],
     );
-    return result.rows[0];
+    const request = result.rows[0];
+    await this.seatalkApprovals.provision(request.id);
+    return request;
   }
 
   async events(id: string) {

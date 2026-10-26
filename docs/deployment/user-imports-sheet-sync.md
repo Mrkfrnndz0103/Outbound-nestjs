@@ -1,5 +1,21 @@
 # User imports Google Sheets sync
 
+## NestJS runtime
+
+The active NestJS backend now owns this worker. Set the variables below, grant the service account Viewer access to the spreadsheet, and start the normal Nest process. It performs an initial sync on boot and repeats every 15 minutes by default; set `GOOGLE_USER_IMPORTS_SYNC_INTERVAL_MS` to change the interval.
+
+```dotenv
+GOOGLE_USER_IMPORTS_SYNC_ENABLED=true
+GOOGLE_USER_IMPORTS_SPREADSHEET_ID=your-spreadsheet-id
+GOOGLE_USER_IMPORTS_SHEET_NAME=user
+GOOGLE_USER_IMPORTS_MAX_ROWS=5000
+GOOGLE_USER_IMPORTS_SYNC_INTERVAL_MS=900000
+GOOGLE_SHEETS_CREDENTIALS_PATH=/run/secrets/google-sheets-credentials.json
+# or GOOGLE_SHEETS_CREDENTIALS_JSON={...}
+```
+
+The worker is idempotent, validates the complete snapshot before opening a database transaction, upserts active rows, and deactivates missing rows without deleting their auth links. It logs counts only, never user data. `OUTBOX_WORKER_ENABLED` remains the separate durable workflow worker; both workers run inside Nest when configured.
+
 The Laravel scheduler reads the `user` tab and upserts its staged account identities into `public.user_imports` every 15 minutes. It does not write back to Google Sheets.
 
 ## Configuration

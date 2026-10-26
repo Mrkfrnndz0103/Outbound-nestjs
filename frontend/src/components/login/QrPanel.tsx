@@ -105,7 +105,7 @@ export function QrPanel({
 
   return (
     <section
-      className={`relative ${compact ? "flex lg:justify-center" : "hidden lg:flex"} min-w-0 flex-col overflow-hidden ${compact ? "px-4 pb-4 pt-4 sm:px-6" : "px-5 pb-24 pt-6 sm:px-7"}`}
+      className={`relative ${compact ? "flex justify-center" : "hidden lg:flex"} min-w-0 flex-col overflow-hidden ${compact ? "px-6 py-7 sm:px-8" : "px-5 pb-24 pt-6 sm:px-7"}`}
     >
       <div
         aria-hidden
@@ -150,7 +150,7 @@ export function QrPanel({
 
       <Reveal delay={180} className={compact ? "mt-3" : "mt-6"}>
         <div
-          className={`${compact ? "space-y-2" : "rounded-2xl border border-auth-line bg-white/[0.03] p-4"} text-center`}
+          className={`${compact ? "rounded-2xl border border-slate-200 bg-white p-4 shadow-lg" : "rounded-2xl border border-auth-line bg-white p-4"} text-center`}
         >
           <fieldset
             ref={widgetRef}

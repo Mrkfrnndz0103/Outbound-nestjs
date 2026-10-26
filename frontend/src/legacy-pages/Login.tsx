@@ -220,12 +220,7 @@ export function Login({
       modal={modal}
       visible={visible}
       beforeAuthentication={
-        <div>
-          <span className="mb-2 block text-[.68rem] font-semibold uppercase tracking-[.16em] text-auth-faint">
-            Login as
-          </span>
-          <UserTypeToggle value={type} onChange={switchType} />
-        </div>
+        <UserTypeToggle value={type} onChange={switchType} />
       }
     >
       {type === "fte" ? (

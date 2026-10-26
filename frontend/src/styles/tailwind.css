@@ -138,19 +138,19 @@ body {
   --animate-login-modal-enter: login-modal-enter .62s cubic-bezier(.22,1,.36,1) both;
 
   --color-auth-surface: #ffffff;
-  --color-auth-page-2: #e7efec;
-  --color-auth-deep-2: #dbe9e5;
-  --color-auth-success: #24764d;
-  --color-auth-page: #f3f7f5;
-  --color-auth-deep: #e8f0ed;
-  --color-auth-ink: #182426;
-  --color-auth-muted: #5e6e70;
-  --color-auth-faint: #667577;
-  --color-auth-accent: #087f7c;
-  --color-auth-accent-2: #056e6b;
-  --color-auth-link: #087f7c;
-  --color-auth-line: rgb(24 61 63 / 14%);
-  --color-auth-danger: #a13d49;
+  --color-auth-page-2: #eef2ff;
+  --color-auth-deep-2: #e0e7ff;
+  --color-auth-success: #15803d;
+  --color-auth-page: #f8fafc;
+  --color-auth-deep: #eff6ff;
+  --color-auth-ink: #0f172a;
+  --color-auth-muted: #64748b;
+  --color-auth-faint: #64748b;
+  --color-auth-accent: #0066ff;
+  --color-auth-accent-2: #0052cc;
+  --color-auth-link: #0066ff;
+  --color-auth-line: rgb(148 163 184 / 38%);
+  --color-auth-danger: #be123c;
 
   --color-gray-500: rgb(102 112 133);
   --color-gray-700: rgb(52 64 84);

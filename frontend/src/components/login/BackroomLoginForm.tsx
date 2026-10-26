@@ -168,7 +168,7 @@ export function BackroomLoginForm({
         Ops ID
       </label>
       <div
-        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-auth-accent focus-within:bg-white/11 focus-within:ring-4 focus-within:ring-auth-accent/20 ${
+        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-slate-50 transition-all duration-200 focus-within:border-auth-accent focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100 ${
           shaking ? "animate-login-shake motion-reduce:animate-none" : ""
         } ${error ? "border-auth-danger/70" : "border-auth-line"}`}
       >
@@ -195,7 +195,7 @@ export function BackroomLoginForm({
         Password
       </label>
       <div
-        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-white/[0.07] transition-all duration-200 focus-within:border-auth-accent focus-within:bg-white/[0.11] focus-within:ring-4 focus-within:ring-auth-accent/20 ${
+        className={`mt-1.5 flex h-11 items-stretch rounded-xl border bg-slate-50 transition-all duration-200 focus-within:border-auth-accent focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100 ${
           shaking ? "animate-login-shake motion-reduce:animate-none" : ""
         } ${error ? "border-auth-danger/70" : "border-auth-line"}`}
       >
@@ -281,7 +281,7 @@ export function BackroomLoginForm({
       <button
         type="submit"
         disabled={busy}
-        className={`${loginShineButtonClass} group mt-5 flex h-[48px] min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-auth-accent font-display text-sm font-semibold text-white shadow-[0_.7rem_1.3rem_rgb(29_100_216_/_28%)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-auth-accent-2 hover:shadow-xl hover:shadow-auth-accent/35 hover:brightness-110 active:translate-y-0 active:scale-[.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-auth-accent/35 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
+        className={`${loginShineButtonClass} group mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-auth-accent font-display text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all duration-200 hover:bg-auth-accent-2 active:scale-[.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-wait disabled:opacity-70`}
       >
         {busy ? (
           <>

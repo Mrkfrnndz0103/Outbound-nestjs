@@ -77,7 +77,7 @@ export function FteLoginForm({
         Work Email
       </label>
       <div
-        className={`mt-2 flex h-12 items-stretch rounded-xl border bg-black/10 transition-[border-color,background-color,box-shadow] duration-200 focus-within:border-auth-accent focus-within:bg-white/[0.1] focus-within:ring-4 focus-within:ring-auth-accent/20 ${error ? "border-auth-danger/70" : "border-auth-line"}`}
+        className={`mt-2 flex h-11 items-stretch rounded-lg border bg-slate-50 transition-[border-color,background-color,box-shadow] duration-200 focus-within:border-auth-accent focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100 ${error ? "border-auth-danger/70" : "border-slate-300"}`}
       >
         <span className="grid w-10 shrink-0 place-items-center text-auth-faint">
           <AtSign className="h-4 w-4" />
@@ -109,7 +109,7 @@ export function FteLoginForm({
       <button
         type="submit"
         disabled={busy}
-        className={`${loginShineButtonClass} group mt-4 flex h-[48px] min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-auth-accent font-display text-sm font-semibold text-white shadow-[0_.7rem_1.3rem_rgb(29_100_216_/_28%)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-auth-accent-2 hover:brightness-110 active:translate-y-0 active:scale-[.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-auth-accent/35 disabled:cursor-wait disabled:opacity-85 tracking-tight`}
+        className={`${loginShineButtonClass} group mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-auth-accent font-display text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all duration-200 hover:bg-auth-accent-2 active:scale-[.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-wait disabled:opacity-70`}
       >
         {busy ? (
           <>
@@ -136,7 +136,7 @@ export function FteLoginForm({
         type="button"
         onClick={onGoogleSignIn}
         disabled={busy}
-        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-auth-line bg-white/[0.06] font-display text-sm font-semibold text-auth-ink transition-all duration-300 hover:border-white/25 hover:bg-white/[0.11] active:scale-[.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-auth-accent/35 disabled:cursor-wait disabled:opacity-50"
+        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white font-display text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-slate-400 hover:bg-slate-50 active:scale-[.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:cursor-wait disabled:opacity-50"
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
           <path

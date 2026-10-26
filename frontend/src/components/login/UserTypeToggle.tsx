@@ -18,12 +18,12 @@ export function UserTypeToggle({ value, onChange }: UserTypeToggleProps) {
     <div
       role="tablist"
       aria-label="Login as"
-      className="relative grid grid-cols-2 gap-1 rounded-xl border border-auth-line bg-black/10 p-1.5 shadow-[inset_0_1px_0_rgb(255_255_255_/_6%)] backdrop-blur-sm"
+      className="relative grid grid-cols-2 gap-1 rounded-xl border border-slate-200/70 bg-slate-100/90 p-1"
     >
       {/* sliding indicator */}
       <span
         aria-hidden
-        className="absolute inset-y-1.5 left-1.5 w-[calc(50%-0.375rem)] rounded-lg bg-auth-accent shadow-[0_.35rem_.9rem_rgb(29_100_216_/_30%),inset_0_1px_0_rgb(255_255_255_/_18%)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-auth-accent shadow-[0_4px_14px_rgb(0_102_255_/_25%)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{ transform: `translateX(${index * 100}%)` }}
       />
       {OPTIONS.map((o) => {
@@ -36,8 +36,8 @@ export function UserTypeToggle({ value, onChange }: UserTypeToggleProps) {
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.key)}
-            className={`relative z-10 flex h-9 items-center justify-center gap-1.5 rounded-lg font-display text-xs font-semibold transition-[color,transform] duration-200 active:scale-[.98] ${
-              active ? "text-white" : "text-auth-faint hover:text-auth-ink"
+            className={`relative z-10 flex h-9 items-center justify-center gap-2 rounded-lg font-display text-xs font-semibold transition-[color,transform] duration-200 active:scale-[.98] ${
+              active ? "text-white" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" strokeWidth={2.1} />

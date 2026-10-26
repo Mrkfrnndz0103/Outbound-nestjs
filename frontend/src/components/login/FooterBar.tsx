@@ -51,12 +51,12 @@ const ITEMS = [
 export function FooterBar({ compact = false }: { compact?: boolean }) {
   return (
     <footer
-      className={`border-t border-auth-line bg-white/[0.04] ${compact ? "hidden grid-cols-3 divide-x divide-auth-line sm:grid" : "grid grid-cols-1 divide-y divide-auth-line sm:grid-cols-3 sm:divide-x sm:divide-y-0"}`}
+      className={`border-t border-slate-200 bg-slate-50/70 ${compact ? "hidden grid-cols-3 divide-x divide-slate-200 sm:grid" : "grid grid-cols-1 divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0"}`}
     >
       {ITEMS.map((item, i) => (
         <Reveal key={item.title} delay={i * 100}>
           <div
-            className={`group flex h-full items-center transition-colors duration-300 hover:bg-white/[0.05] sm:justify-center ${compact ? "min-w-0 flex-col gap-1 px-1 py-1.5 text-center sm:flex-row sm:gap-1.5 sm:px-2" : "gap-3 px-5 py-4"}`}
+            className={`group flex h-full items-center transition-colors duration-300 hover:bg-white sm:justify-center ${compact ? "min-w-0 flex-col gap-1 px-1 py-1.5 text-center sm:flex-row sm:gap-1.5 sm:px-2" : "gap-3 px-5 py-4"}`}
           >
             <span
               className={`grid ${compact ? "h-5 w-5" : "h-8 w-8"} shrink-0 place-items-center rounded-full bg-auth-accent/15 text-auth-link ring-1 ring-auth-accent/30 transition-all duration-300 group-hover:scale-105 group-hover:bg-auth-accent/25 group-hover:ring-auth-accent/55`}

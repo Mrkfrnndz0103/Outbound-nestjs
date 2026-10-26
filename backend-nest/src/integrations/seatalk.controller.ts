@@ -13,7 +13,7 @@ type RequestWithRawBody = Request & { rawBody?: Buffer };
 export class SeaTalkController {
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool | null,
-    private readonly approvals: SeaTalkApprovalService,
+    @Inject(SeaTalkApprovalService) private readonly approvals: SeaTalkApprovalService,
   ) {}
 
   @Get('login')

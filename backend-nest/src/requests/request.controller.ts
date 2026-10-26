@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { CreateRequestDto, ListRequestsQuery, RequestActionDto, RequestIdParam } from './request.dto.js';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
@@ -9,7 +9,7 @@ type AuthenticatedRequest = Request & { user?: { sub?: string } };
 @Controller(['requests', 'v1/requests'])
 @UseGuards(SupabaseAuthGuard)
 export class RequestController {
-  constructor(private readonly requests: RequestService) {}
+  constructor(@Inject(RequestService) private readonly requests: RequestService) {}
 
   @Get()
   list(@Query() query: ListRequestsQuery) {

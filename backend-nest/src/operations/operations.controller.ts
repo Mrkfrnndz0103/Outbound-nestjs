@@ -1,6 +1,5 @@
-import { Controller, Get, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import type { Request } from 'express';
 import type { Pool } from 'pg';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
 import { DATABASE_POOL } from '../database/database.module.js';
@@ -13,34 +12,6 @@ export class OperationsController {
   private db(): Pool {
     if (!this.pool) throw new Error('Database is not configured.');
     return this.pool;
-  }
-
-  @Get('users')
-  async users() {
-    const result = await this.db().query('select * from users order by created_at desc limit 100');
-    return { data: result.rows };
-  }
-
-  @Get('notifications')
-  async notifications(@Req() request: Request & { user?: { sub?: string } }) {
-    const userId = request.user?.sub;
-    if (!userId) return { data: [] };
-    const result = await this.db().query(
-      'select * from notifications where user_id = $1 order by created_at desc limit 100',
-      [userId],
-    );
-    return { data: result.rows };
-  }
-
-  @Patch('notifications/read-all')
-  async readAll(@Req() request: Request & { user?: { sub?: string } }) {
-    const userId = request.user?.sub;
-    if (!userId) return { ok: false };
-    await this.db().query(
-      'update notifications set read_at = coalesce(read_at, now()) where user_id = $1 and read_at is null',
-      [userId],
-    );
-    return { ok: true };
   }
 
   @Get('kpi/summary')

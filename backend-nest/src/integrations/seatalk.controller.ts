@@ -1,15 +1,18 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
 
 @Controller(['auth/seatalk', 'v1/auth/seatalk', 'integrations/seatalk', 'v1/integrations/seatalk'])
 export class SeaTalkController {
   @Get('config')
+  @UseGuards(SupabaseAuthGuard)
   config() {
     return { configured: Boolean(process.env.SEATALK_BASE_URL && process.env.SEATALK_APP_ID) };
   }
 
   @Post('logout')
+  @UseGuards(SupabaseAuthGuard)
   @HttpCode(204)
   logout() {}
 

@@ -1,10 +1,64 @@
-import { Controller, Get, Headers, HttpCode, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { Controller, Get, Headers, HttpCode, Post, Req, Res, UnauthorizedException, UseGuards, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import type { Pool } from 'pg';
+import { Inject } from '@nestjs/common';
+import { DATABASE_POOL } from '../database/database.module.js';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
 
 @Controller(['auth/seatalk', 'v1/auth/seatalk', 'integrations/seatalk', 'v1/integrations/seatalk'])
 export class SeaTalkController {
+  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool | null) {}
+
+  @Get('login')
+  login(@Res() response: Response) {
+    const appId = process.env.SEATALK_APP_ID;
+    const redirectUri = process.env.SEATALK_REDIRECT_URI;
+    if (!appId || !redirectUri) throw new ServiceUnavailableException('SeaTalk login is not configured.');
+    const state = randomBytes(32).toString('base64url');
+    const cookie = `seatalk_oauth_state=${state}; Max-Age=600; Path=/auth/seatalk; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+    response.setHeader('set-cookie', cookie);
+    const url = new URL(process.env.SEATALK_AUTHORIZE_URL ?? 'https://openapi.seatalk.io/open_login/qrlogin');
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('app_id', appId);
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('state', state);
+    return response.redirect(url.toString());
+  }
+
+  @Get('callback')
+  async callback(@Req() request: Request, @Res() response: Response) {
+    const code = typeof request.query.code === 'string' ? request.query.code : '';
+    const state = typeof request.query.state === 'string' ? request.query.state : '';
+    const expectedState = request.headers.cookie?.match(/(?:^|;\\s*)seatalk_oauth_state=([^;]+)/)?.[1] ?? '';
+    if (!code || !state || !expectedState || state.length !== expectedState.length || !timingSafeEqual(Buffer.from(state), Buffer.from(expectedState))) {
+      throw new BadRequestException('Invalid SeaTalk OAuth callback.');
+    }
+    const tokenUrl = process.env.SEATALK_TOKEN_URL;
+    const userUrl = process.env.SEATALK_USER_URL;
+    const appId = process.env.SEATALK_APP_ID;
+    const appSecret = process.env.SEATALK_APP_SECRET;
+    const redirectUri = process.env.SEATALK_REDIRECT_URI;
+    if (!tokenUrl || !userUrl || !appId || !appSecret || !redirectUri || !this.pool) {
+      throw new ServiceUnavailableException('SeaTalk login is not configured.');
+    }
+    const tokenResponse = await fetch(tokenUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ app_id: appId, app_secret: appSecret }), signal: AbortSignal.timeout(10000) });
+    if (!tokenResponse.ok) throw new UnauthorizedException('SeaTalk login failed.');
+    const token = (await tokenResponse.json()) as { access_token?: string };
+    if (!token.access_token) throw new UnauthorizedException('SeaTalk login failed.');
+    const userResponse = await fetch(userUrl, { method: 'POST', headers: { authorization: `Bearer ${token.access_token}`, 'content-type': 'application/json' }, body: JSON.stringify({ code, redirect_uri: redirectUri }), signal: AbortSignal.timeout(10000) });
+    if (!userResponse.ok) throw new UnauthorizedException('SeaTalk identity lookup failed.');
+    const identity = (await userResponse.json()) as { email?: string; data?: { email?: string } };
+    const email = (identity.email ?? identity.data?.email ?? '').trim().toLowerCase();
+    if (!email) throw new UnauthorizedException('SeaTalk did not return an email address.');
+    const profile = await this.pool.query('select id from profiles where lower(email) = $1 and is_active = true limit 1', [email]);
+    if (!profile.rowCount) throw new UnauthorizedException('This SeaTalk account is not authorized.');
+    response.setHeader('set-cookie', 'seatalk_oauth_state=; Max-Age=0; Path=/auth/seatalk; HttpOnly; SameSite=Lax');
+    const target = new URL(process.env.SEATALK_SUCCESS_REDIRECT ?? '/', process.env.APP_URL ?? redirectUri);
+    target.searchParams.set('seatalk', 'success');
+    return response.redirect(target.toString());
+  }
+
   @Get('config')
   @UseGuards(SupabaseAuthGuard)
   config() {

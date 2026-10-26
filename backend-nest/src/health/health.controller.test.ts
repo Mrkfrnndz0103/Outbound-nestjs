@@ -3,7 +3,7 @@ import test from 'node:test';
 import { HealthController } from './health.controller.js';
 
 test('health endpoint reports service availability', () => {
-  const response = new HealthController().getHealth();
+  const response = new HealthController(null).getHealth();
 
   assert.equal(response.status, 'ok');
   assert.equal(response.service, 'backend-nest');

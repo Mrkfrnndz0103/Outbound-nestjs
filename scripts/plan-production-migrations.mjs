@@ -17,8 +17,7 @@ export function migrationPlan(root, history, target) {
   }
   // Reject gaps: mixed/unknown historical installations require DBA reconciliation.
   if (entries.slice(0, applied.size).some(x => !applied.has(x))) throw new Error('History is not an exact manifest prefix; reconcile actual schema/history before proceeding');
-  const split = entries.indexOf('20261013060000_workflow_outbox.sql');
-  return { target, mode: history.mode, phaseA: entries.slice(0, split + 1).filter(x => !applied.has(x)), phaseB: 'Review artisan migrate:status then php artisan migrate --force on the SAME target; never rerun recorded Laravel migrations', phaseC: entries.slice(split + 1).filter(x => !applied.has(x)) };
+  return { target, mode: history.mode, migrations: entries.filter(x => !applied.has(x)) };
 }
 if (process.argv[1]?.endsWith('plan-production-migrations.mjs')) {
   try {

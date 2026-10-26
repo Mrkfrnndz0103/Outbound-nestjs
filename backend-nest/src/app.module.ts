@@ -13,6 +13,7 @@ import { PresenceModule } from './presence/presence.module.js';
 import { UsersModule } from './users/users.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { AccessRequestModule } from './users/access-request.module.js';
+import { OutboxModule } from './outbox/outbox.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AccessRequestModule } from './users/access-request.module.js';
     UsersModule,
     NotificationsModule,
     AccessRequestModule,
+    OutboxModule,
   ],
   controllers: [HealthController],
 })

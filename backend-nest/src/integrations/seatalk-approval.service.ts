@@ -18,7 +18,7 @@ export class SeaTalkApprovalService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool | null,
-    private readonly seatalk: SeaTalkClient,
+    @Inject(SeaTalkClient) private readonly seatalk: SeaTalkClient,
   ) {}
 
   onModuleInit() {

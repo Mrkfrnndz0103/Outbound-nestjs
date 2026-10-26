@@ -8,7 +8,7 @@ import { SeaTalkApprovalService } from '../integrations/seatalk-approval.service
 export class RequestService {
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool | null,
-    private readonly seatalkApprovals: SeaTalkApprovalService,
+    @Inject(SeaTalkApprovalService) private readonly seatalkApprovals: SeaTalkApprovalService,
   ) {}
 
   private database(): Pool {

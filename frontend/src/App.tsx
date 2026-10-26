@@ -16,7 +16,7 @@ import {
   rememberSeatalkSession,
 } from "./lib/seatalkSession";
 import { supabase } from "./lib/supabase";
-import { ChangePassword } from "./pages/ChangePassword";
+import { ChangePassword } from "./legacy-pages/ChangePassword";
 import { useUiStore } from "./stores/ui";
 import type { User } from "./types";
 
@@ -34,11 +34,11 @@ type Failure = {
 };
 
 const Login = lazy(() =>
-  import("./pages/Login").then((module) => ({ default: module.Login })),
+  import("./legacy-pages/Login").then((module) => ({ default: module.Login })),
 );
 
 const Dashboard = lazy(() =>
-  import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
+  import("./legacy-pages/Dashboard").then((module) => ({ default: module.Dashboard })),
 );
 
 const defaultFailure: Failure = {

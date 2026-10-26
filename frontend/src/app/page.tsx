@@ -3,11 +3,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { BrowserRouter } from 'react-router-dom'
-import App from '../../src/App'
-import { ErrorBoundary } from '../../src/components/ErrorBoundary'
-import { ApiError } from '../../src/lib/api'
-import { supabaseConfigError } from '../../src/lib/supabase'
-import '../../src/styles/tailwind.css'
+import App from '../App'
+import { ErrorBoundary } from '../components/ErrorBoundary'
+import { ApiError } from '../lib/api'
+import { supabaseConfigError } from '../lib/supabase'
+import '../styles/tailwind.css'
 
 export default function Page() {
   const [client] = useState(() => new QueryClient({

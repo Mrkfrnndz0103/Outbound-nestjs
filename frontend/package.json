@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev next-app --webpack",
-    "build": "npm run check:source && npm run check:api-versioning && next build next-app --webpack",
-    "start": "next start next-app",
+    "dev": "next dev --webpack",
+    "build": "npm run check:source && npm run check:api-versioning && next build --webpack",
+    "start": "next start",
     "check:api-versioning": "node scripts/check-api-versioning.mjs",
     "check:encoding": "node scripts/check-visible-text-encoding.mjs",
     "check:source": "node scripts/check-source-artifacts.mjs",

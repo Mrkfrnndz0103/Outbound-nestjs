@@ -1,5 +1,5 @@
 import { Truck, Users } from "lucide-react";
-import type { UserType } from "../../pages/Login";
+import type { UserType } from "../../legacy-pages/Login";
 
 const OPTIONS: { key: UserType; label: string; icon: typeof Users }[] = [
   { key: "fte", label: "FTE", icon: Users },

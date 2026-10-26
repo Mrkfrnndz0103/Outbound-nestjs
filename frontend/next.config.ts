@@ -1,10 +1,11 @@
 import path from 'node:path'
 import type { NextConfig } from 'next'
 
-const projectRoot = path.resolve(__dirname, '..')
+const projectRoot = __dirname
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  pageExtensions: ['tsx', 'ts'],
   turbopack: {
     root: projectRoot,
     resolveAlias: { '@': path.join(projectRoot, 'src') },

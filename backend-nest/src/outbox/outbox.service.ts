@@ -88,10 +88,24 @@ export class OutboxService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handle(row: OutboxRow): Promise<void> {
-    if (row.event_type !== 'workflow.notification.created') {
-      throw new Error(`No Nest handler registered for ${row.event_type}.`);
-    }
     const payload = row.payload ?? {};
+    switch (row.event_type) {
+      case 'workflow.notification.created':
+        await this.handleNotification(row.id, payload);
+        return;
+      case 'workflow.seatalk.provisioning.requested':
+      case 'workflow.seatalk.synchronization.requested':
+        await this.handleProviderWebhook('SEATALK_OUTBOX_WEBHOOK_URL', row.event_type, row.id, payload);
+        return;
+      case 'workflow.google_sheets.synchronization.requested':
+        await this.handleProviderWebhook('GOOGLE_SHEETS_OUTBOX_WEBHOOK_URL', row.event_type, row.id, payload);
+        return;
+      default:
+        throw new Error(`No Nest handler registered for ${row.event_type}.`);
+    }
+  }
+
+  private async handleNotification(outboxId: string, payload: Record<string, unknown>): Promise<void> {
     for (const key of ['request_id', 'event_type', 'title', 'body']) {
       if (typeof payload[key] !== 'string' || payload[key].trim() === '') throw new Error(`Notification payload is missing ${key}.`);
     }
@@ -99,8 +113,25 @@ export class OutboxService implements OnModuleInit, OnModuleDestroy {
       `insert into notifications (request_id, user_id, target_role, event_type, title, body, outbox_id)
        values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (outbox_id) do nothing`,
-      [payload.request_id, payload.user_id ?? null, payload.target_role ?? null, payload.event_type, payload.title, payload.body, row.id],
+      [payload.request_id, payload.user_id ?? null, payload.target_role ?? null, payload.event_type, payload.title, payload.body, outboxId],
     );
+  }
+
+  private async handleProviderWebhook(
+    envName: 'SEATALK_OUTBOX_WEBHOOK_URL' | 'GOOGLE_SHEETS_OUTBOX_WEBHOOK_URL',
+    eventType: string,
+    outboxId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const target = process.env[envName];
+    if (!target) throw new Error(`${envName} is not configured for ${eventType}.`);
+    const response = await fetch(target, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-outbox-id': outboxId, 'x-outbox-event-type': eventType },
+      body: JSON.stringify({ id: outboxId, event_type: eventType, payload }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`${eventType} provider returned HTTP ${response.status}.`);
   }
 
   private async markCompleted(id: string, attempts: number): Promise<void> {
@@ -113,7 +144,12 @@ export class OutboxService implements OnModuleInit, OnModuleDestroy {
 
   private async markFailed(id: string, row: OutboxRow, error: unknown): Promise<void> {
     const message = error instanceof Error ? error.message.slice(0, 5000) : 'Unexpected outbox handler failure.';
-    const terminal = row.event_type !== 'workflow.notification.created';
+    const terminal = ![
+      'workflow.notification.created',
+      'workflow.seatalk.provisioning.requested',
+      'workflow.seatalk.synchronization.requested',
+      'workflow.google_sheets.synchronization.requested',
+    ].includes(row.event_type);
     const exhausted = row.attempts >= row.max_attempts;
     if (terminal || exhausted) {
       await this.pool!.query(

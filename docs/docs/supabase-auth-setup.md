@@ -22,8 +22,8 @@ You need:
 - The project URL, publishable key, secret/service-role key, and PostgreSQL
   connection details.
 
-The secret/service-role key belongs only in `backend/.env`. Never place it in a
-frontend environment variable, browser code, screenshot, ticket, or commit.
+The secret/service-role key belongs only in `backend-nest/.env`. Never place it
+in a frontend environment variable, browser code, screenshot, ticket, or commit.
 
 ## 2. Create or select the Supabase project
 
@@ -35,24 +35,28 @@ frontend environment variable, browser code, screenshot, ticket, or commit.
    - Project URL
    - Publishable key (`sb_publishable_...`) or legacy `anon` key
    - Secret key (`sb_secret_...`) or legacy `service_role` key
-5. Open **Connect** or **Project Settings > Database** and record the transaction
-   pooler connection details used by Laravel.
+5. Open **Connect** or **Project Settings > Database** and copy the transaction
+   pooler URI used as the NestJS `DATABASE_URL`.
 
 ## 3. Apply the database files
 
-Open **SQL Editor > New query**. Run each file separately and in this order:
+Apply **every** SQL file under `supabase/migrations/` in ascending filename
+order. Do not stop at migrations 001–005: later migrations contain current RLS,
+auth hardening, request workflow, SeaTalk Approval Center, callback-event,
+presence, Realtime, and reporting support required by the NestJS runtime.
 
-1. `supabase/migrations/001_initial_schema.sql`
-2. `supabase/migrations/002_cluster_import_compatibility.sql`
-3. `supabase/migrations/003_auth_flows.sql`
-4. `supabase/migrations/004_google_fte_auth.sql`
-5. `docs/outbound/users-seed.sql`
-6. `supabase/migrations/005_repair_existing_fte_profiles.sql`
-7. `docs/outbound/clusters-seed.sql`
+For a fresh project:
 
-Migration 003 creates the FTE provisioning trigger. The user seed must run after
-that migration so eligible FTE emails exist in the private allowlist before
-their first OTP request.
+1. Apply `001_initial_schema.sql` through `004_google_fte_auth.sql` in filename
+   order.
+2. Apply `docs/outbound/users-seed.sql` so eligible FTE emails exist before their
+   first OTP request.
+3. Continue with every remaining migration in filename order, including files
+   with timestamp prefixes.
+4. Apply `docs/outbound/clusters-seed.sql` after the schema migrations complete.
+
+Migration 003 creates the FTE provisioning trigger. Keep each migration atomic
+and stop on the first SQL error; do not skip a failed file and continue.
 
 Verify the installation:
 
@@ -120,8 +124,8 @@ for quick reference.
 Google login still uses the `user_imports` allowlist. Selecting an
 `@spxexpress.com` Google account is not sufficient by itself: migration 004
 rejects new Google identities unless the email belongs to an active `fte_ops`
-or `fte_mm` row. Laravel performs the same effective check on every API request
-by requiring an active profile. Backroom users continue to use OPS ID and
+or `fte_mm` row. The NestJS API performs the same effective check on every
+request by requiring an active profile. Backroom users continue to use OPS ID and
 password; the Google button is shown only on the FTE tab.
 
 ### Google Auth Platform
@@ -229,7 +233,7 @@ If account-owned tokens are unavailable, create a user token under **My Profile
 Edit** permission and account restriction.
 
 Treat this token as the SMTP password. Do not use the Global API Key, place the
-token in this repository, add it to Laravel or Vite environment files, or retain
+token in this repository, add it to NestJS or Vite environment files, or retain
 it in screenshots. Supabase stores it in the project's Auth SMTP configuration.
 
 ### 6.3 Enter the Cloudflare SMTP settings in Supabase
@@ -331,25 +335,44 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
 ```
 
-Create or update `backend/.env`:
+Create `backend-nest/.env` from `backend-nest/.env.example` and configure at
+least:
 
 ```dotenv
-APP_URL=http://127.0.0.1:8000
-FRONTEND_URL=http://localhost:5173
-
-DB_HOST=YOUR_POOLER_HOST
-DB_PORT=6543
-DB_DATABASE=postgres
-DB_USERNAME=YOUR_POOLER_USERNAME
-DB_PASSWORD=REPLACE_ME
-
+NODE_ENV=development
+PORT=3001
+DATABASE_URL=postgresql://POOLER_USER:POOLER_PASSWORD@POOLER_HOST:6543/postgres
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_REPLACE_ME
+CORS_ORIGIN=http://localhost:5173
+APP_URL=http://localhost:3001
 ```
 
-Legacy projects can use the legacy `anon` and `service_role` values in the same
-variables. Restart Vite and Laravel after changing environment files.
+`DATABASE_URL` must be the transaction-pooler URI for the same Supabase project.
+The service-role key is server-only and must never use a `VITE_` prefix. Legacy
+projects can place the legacy `service_role` value in
+`SUPABASE_SERVICE_ROLE_KEY`.
+
+The SeaTalk runtime variables in `backend-nest/.env.example` are optional for
+Supabase Auth itself. Configure them only when enabling SeaTalk login or Approval
+Center. Keep `SEATALK_APPROVAL_ENABLED=false` until the callback URLs, signing
+secret, application credentials, and required migrations are ready.
+
+Install dependencies, then start the two application processes from their
+respective directories:
+
+```bash
+# backend-nest
+npm install
+npm run start:dev
+
+# frontend
+npm install
+npm run dev
+```
+
+The NestJS API listens on port 3001 by default and permits the origin declared by
+`CORS_ORIGIN`. Restart both Vite and NestJS after changing environment files.
 
 ## 10. Test FTE login
 
@@ -369,7 +392,7 @@ The row must have:
 
 Then test:
 
-1. Start Laravel and Vite.
+1. Start NestJS (`backend-nest`) and Vite (`frontend`).
 2. Open `http://localhost:5173`.
 3. Select **FTE**.
 4. Choose **Continue with Google**, select the matching company account, and
@@ -398,7 +421,7 @@ All three records must reference the same UUID.
 ## 11. Backroom account setup
 
 Backroom users do not use email OTP. An authenticated FTE creates a Backroom
-account through `POST /api/users` with a name and OPS ID. Laravel uses the
+account through `POST /api/users` with a name and OPS ID. NestJS uses the
 Supabase Admin API to create an internal identity:
 
 ```text
@@ -411,7 +434,7 @@ it is never written to `profiles` or `user_imports`. The profile is created with
 different password of at least 12 characters.
 
 Backroom provisioning requires a valid `SUPABASE_SERVICE_ROLE_KEY` in the
-Laravel environment. Never create these internal email identities manually
+NestJS environment. Never create these internal email identities manually
 unless repairing a failed provisioning operation and you understand the profile
 UUID requirement.
 
@@ -425,7 +448,7 @@ Use these Dashboard pages during testing:
 - **Table Editor > profiles:** confirms the application profile exists.
 - **Table Editor > user_imports:** confirms the seeded identity was linked.
 
-An Auth user without a same-ID active profile cannot use the Laravel API. This
+An Auth user without a same-ID active profile cannot use the NestJS API. This
 is intentional authorization behavior.
 
 ## 13. Troubleshooting
@@ -483,8 +506,8 @@ left join public.profiles p on p.id = u.id
 where lower(u.email) = lower('name@spxexpress.com');
 ```
 
-Also confirm Laravel has the correct Supabase URL, publishable key, database
-connection, and service-role key for the same project.
+Also confirm NestJS has the correct Supabase URL, pooled `DATABASE_URL`, and
+service-role key for the same project.
 
 ### `Email rate limit exceeded` or HTTP 429
 
@@ -493,8 +516,11 @@ production, configure custom SMTP before raising project-wide send limits.
 
 ## 14. Production readiness checklist
 
-- [ ] All three migrations were applied in order.
-- [ ] User seed ran successfully and only approved FTEs are active.
+- [ ] Every file in `supabase/migrations/` was applied in filename order.
+- [ ] User and cluster seeds ran successfully; only approved FTEs are active.
+- [ ] NestJS starts with the production `DATABASE_URL`, `SUPABASE_URL`, and
+      server-only `SUPABASE_SERVICE_ROLE_KEY`.
+- [ ] `CORS_ORIGIN` and `APP_URL` match the deployed frontend and API origins.
 - [ ] Email provider and first-time signup are enabled.
 - [ ] Magic Link template sends `{{ .Token }}`.
 - [ ] Production Site URL uses HTTPS.
@@ -526,7 +552,7 @@ Reserve these hostnames:
 |---|---|---:|
 | React application | `soc5outboundops.app` | Yes |
 | Optional `www` alias | `www.soc5outboundops.app` | Recommended |
-| Laravel API | `api.soc5outboundops.app` | Yes for separate hosting |
+| NestJS API | `api.soc5outboundops.app` | Yes for separate hosting |
 | Supabase custom domain | `auth.soc5outboundops.app` | No; paid add-on |
 | Authentication sender | `no-reply@soc5outboundops.app` | When SMTP is configured |
 

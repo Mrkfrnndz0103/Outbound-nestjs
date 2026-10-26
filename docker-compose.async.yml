@@ -1,45 +1,7 @@
 services:
-  api:
+  api-nest:
     environment:
-      SESSION_CONNECTION: pgsql
-      DB_CACHE_CONNECTION: pgsql
-      DB_CACHE_LOCK_CONNECTION: pgsql
-      SESSION_DRIVER: database
-      SESSION_SECURE_COOKIE: "true"
-      CACHE_STORE: database
-      QUEUE_CONNECTION: database
-      DB_QUEUE_RETRY_AFTER: 120
-      WORKFLOW_OUTBOX_PROCESSING_TIMEOUT_SECONDS: 300
-
-  scheduler:
-    environment:
-      SESSION_CONNECTION: pgsql
-      DB_CACHE_CONNECTION: pgsql
-      DB_CACHE_LOCK_CONNECTION: pgsql
-      SESSION_DRIVER: database
-      SESSION_SECURE_COOKIE: "true"
-      CACHE_STORE: database
-      QUEUE_CONNECTION: database
-      DB_QUEUE_RETRY_AFTER: 120
-      WORKFLOW_OUTBOX_PROCESSING_TIMEOUT_SECONDS: 300
-
-  worker:
-    image: soc5-outbound-api:local
-    env_file: ./backend/.env
-    environment:
-      SESSION_CONNECTION: pgsql
-      DB_CACHE_CONNECTION: pgsql
-      DB_CACHE_LOCK_CONNECTION: pgsql
-      SESSION_DRIVER: database
-      SESSION_SECURE_COOKIE: "true"
-      CACHE_STORE: database
-      QUEUE_CONNECTION: database
-      DB_QUEUE_RETRY_AFTER: 120
-      WORKFLOW_OUTBOX_PROCESSING_TIMEOUT_SECONDS: 300
-    command: php artisan queue:work database --sleep=3 --tries=3 --backoff=5 --timeout=90
-    stop_grace_period: 100s
-    init: true
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
+      OUTBOX_WORKER_ENABLED: "true"
+      OUTBOX_PROCESSING_TIMEOUT_SECONDS: 300
+      OUTBOX_POLL_INTERVAL_MS: 5000
+      OUTBOX_BATCH_SIZE: 10

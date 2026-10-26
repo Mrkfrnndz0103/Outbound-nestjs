@@ -1,179 +1,163 @@
 # SOC 5 Outbound
 
-SOC 5 Outbound is a lightweight, role-aware truck request portal for Shopee
-Sorting Facility Dispatch. It replaces the Google Sheets workflow with controlled
-request approvals, truck assignment, docking confirmation, realtime updates, and
-an auditable event history.
+SOC 5 Outbound is a role-aware outbound logistics portal for Shopee Sorting Facility Dispatch. It supports authenticated operations, truck requests, assignment, docking confirmation, realtime updates, Google Sheets user imports, durable workflow events, and auditable history.
 
 ## Technology
 
-- Laravel 12 modular-monolith API on PHP 8.4
-- React 19, TypeScript, and Vite
+- NestJS API and workers on Node.js 22
+- Next.js 16, React 19, and TypeScript
 - TanStack Query for server state
-- Zustand for client UI state
-- Sass for styling
 - Supabase PostgreSQL, Auth, and Realtime
-- NGINX and Docker for deployment
+- Google Sheets service-account sync worker
+- Supabase Edge Functions for cluster and intraday feeds
+- Docker and AWS ECS deployment
 
-The MVP intentionally avoids microservices, Redis, Pinecone, and dedicated load
-balancers. These should only be introduced after production measurements establish
-a concrete need. The rationale is documented in [System Design](docs/architecture/system-design.md).
+The active application is the NestJS/Next.js migration. The former Laravel/Vite implementation is retained only in historical documentation and should not be used as the production entrypoint.
 
 ## Project structure
 
 ```text
-backend/                 Laravel API
-frontend/                React/Vite application
-supabase/migrations/     PostgreSQL schema and RLS policies
-docs/                    Product and architecture documents
-tools/php.ini            Base PHP configuration template
-scripts/launchers/       Backend setup and development launchers
+backend-nest/             NestJS API, outbox worker, and Google Sheets worker
+frontend/                 Next.js application
+supabase/migrations/      PostgreSQL schema and RLS policies
+supabase/functions/      sync-clusters and sync-intraday Edge Functions
+docs/                     Product, architecture, deployment, and operations docs
+scripts/                  CI, deployment, and operational scripts
+docker-compose.yml        Local service composition
 ```
 
-## Quick start on this Windows machine
+## Local development
 
-No administrator access is required. The setup script generates the
-machine-local PHP configuration in `tools/php.local.ini` from the tracked
-`tools/php.ini` template; launchers use the generated file automatically.
+Required tools: Node.js 22+, npm, Docker, and Supabase project credentials.
 
-Before starting, ensure `php`, `composer`, `npm`, and `cloudflared` are
-available on `PATH`. Authenticate `cloudflared` once if needed:
-
-```powershell
-cloudflared tunnel login
-```
-
-1. Configure `backend/.env` and `frontend/.env` as described in the
-   [Setup Guide](docs/setup-guide.md).
-2. Initialize the backend and local machine prerequisites:
+1. Configure `backend-nest/.env` and `frontend/.env.local` from the example files.
+2. Install dependencies:
 
    ```powershell
-   .\scripts\bootstrap-machine.ps1
-   .\scripts\launchers\setup-backend.ps1
+   cd backend-nest
+   npm ci
+   cd ..\frontend
+   npm ci
    ```
 
-3. Start the complete development stack from the repository root:
+3. Start the local stack:
 
    ```powershell
-   .\scripts\launchers\start-dev.ps1
+   cd ..
+   docker compose up --build
    ```
 
-   This starts the Laravel backend, Vite frontend, and Cloudflare tunnel in
-   managed jobs. The Cloudflare launcher obtains a token for the configured
-   tunnel at startup and passes it through `TUNNEL_TOKEN`; it does not use a
-   `config.yml` file.
+The Next frontend is served on `http://localhost:3000`. The Nest API is served on
+`http://localhost:3001`; browser `/api/*` requests are rewritten to the API.
 
-   Wait for `ALL SERVICES RUNNING`. Keep this terminal open; press `Ctrl+C` to
-   stop all three services together.
-
-4. Open `http://localhost:5173`, or the Cloudflare hostname when the tunnel is
-   running.
-
-## Staging and production deployment
-
-For the full staging provisioning, environment, migration, rollout, smoke-test,
-and rollback procedure, see the
-[Staging Deployment Setup Guide](docs/deployment/staging-deployment.md).
-
-Before any staging or production rollout, verify the deployment profile:
+For frontend-only development:
 
 ```powershell
-cd backend
-php artisan system:verify-config --staging
-# or
-php artisan system:verify-config --production
+cd frontend
+npm run dev
 ```
 
-The public `soc5outboundops.app` tunnel must use the production Docker web
-container, not the local Vite server. Deploy the stack with:
+## Environment configuration
+
+Frontend variables:
+
+```env
+NEXT_PUBLIC_API_URL=/api/v1
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+NEXT_PUBLIC_SENTRY_DSN=<optional>
+```
+
+Backend variables include `DATABASE_URL`, Supabase server credentials, CORS and app URLs, SeaTalk credentials, and worker configuration. For Google Sheets user imports:
+
+```env
+GOOGLE_USER_IMPORTS_SYNC_ENABLED=true
+GOOGLE_USER_IMPORTS_SPREADSHEET_ID=<spreadsheet-id>
+GOOGLE_USER_IMPORTS_SHEET_NAME=user
+GOOGLE_USER_IMPORTS_MAX_ROWS=5000
+GOOGLE_USER_IMPORTS_SYNC_INTERVAL_MS=900000
+GOOGLE_SHEETS_CREDENTIALS_PATH=/run/secrets/google-sheets-credentials.json
+# or GOOGLE_SHEETS_CREDENTIALS_JSON=<service-account-json>
+```
+
+Grant the Google service account Viewer access to the spreadsheet. Never expose
+`SUPABASE_SERVICE_ROLE_KEY`, database credentials, SeaTalk secrets, or Google
+service-account credentials to the browser or source control.
+
+## Workers and integrations
+
+The Nest process can run the following workers when enabled:
+
+- Google Sheets user-import sync: initial sync on boot, then scheduled sync; safely upserts `user_imports` and deactivates missing rows.
+- Durable outbox worker: processes workflow events and retries failures.
+- Scheduler/presence workers: run according to the configured deployment task definition.
+
+The Supabase Edge Functions remain separate deployments:
+
+- `sync-clusters` receives signed cluster feed requests.
+- `sync-intraday` receives signed intraday feed requests.
+
+Deploy them with the Supabase CLI and configure their shared `SYNC_SECRET`:
 
 ```powershell
-docker compose up --build -d
+supabase functions deploy sync-clusters
+supabase functions deploy sync-intraday
+supabase secrets set SYNC_SECRET="<long-random-secret>"
 ```
 
-The frontend image runs `npm ci`, `npm run build`, and then serves the resulting
-`frontend/dist` files from NGINX. The named-tunnel helper is available for a
-host-managed tunnel:
-
-```powershell
-.\scripts\launchers\start-production.ps1
-```
-
-The production origin is `127.0.0.1:4173`, which is the Docker host binding for
-the NGINX frontend and the configured named tunnel route. SPA routes fall back to `index.html`, and `/api` is
-proxied to Laravel by the frontend NGINX configuration.
-
-Laravel runs on `http://127.0.0.1:8000`; Vite proxies browser `/api` requests to
-that address. To validate the local services from another PowerShell window:
-
-```powershell
-Test-NetConnection 127.0.0.1 -Port 8000
-Test-NetConnection 127.0.0.1 -Port 4173
-```
-
-Both checks should report `TcpTestSucceeded: True`.
-
-## Supabase initialization
-
-Run [001_initial_schema.sql](supabase/migrations/001_initial_schema.sql) once in
-the Supabase SQL Editor. Then create Auth users and matching `public.profiles`
-rows. The profile UUID must equal the corresponding `auth.users.id`.
-
-The publishable key may be used in the browser. Never put the service-role key in
-`frontend/.env`, source control, screenshots, or client-side code.
+See [Google Sheets sync](docs/deployment/user-imports-sheet-sync.md) and
+[Intraday sync setup](docs/docs/intraday-sync-setup.md) for operational details.
 
 ## Validation
 
-Run the repository preflight checks from PowerShell:
+Run the frontend checks:
 
 ```powershell
-.\scripts\preflight.ps1
-```
-
-```powershell
-# Backend
-$env:PHPRC = (Resolve-Path .\tools\php.local.ini).Path
-cd backend
-php artisan test
-.\vendor\bin\pint --test
-
-# Frontend
-cd ..\frontend
+cd frontend
 npm run build
+npm test
+npm run lint
 ```
+
+Run the Nest checks:
+
+```powershell
+cd backend-nest
+npm run build
+npm test
+npm run lint
+```
+
+Validate deployment configuration from the repository root:
+
+```powershell
+bash -n scripts/deploy/deploy-aws-ecs.sh scripts/ci/verify-release-static.sh
+```
+
+## Production deployment
+
+Production releases are driven by tagged Travis CI builds when
+`PRODUCTION_DEPLOY_ENABLED=true`. The pipeline builds the Nest image from
+`backend-nest/Dockerfile`, pushes it to ECR, and updates the ECS API, worker, and
+scheduler services.
+
+Required production setup:
+
+1. Configure AWS account, ECR, ECS cluster, service, and task-definition variables.
+2. Confirm ECS task definitions use container names `api`, `worker`, and `scheduler`, or set the corresponding `ECS_*_CONTAINER_NAME` variables.
+3. Apply Supabase migrations and deploy both Edge Functions.
+4. Configure production environment variables and worker credentials.
+5. Back up the database and verify the previous ECS task definition is available for rollback.
+6. After deployment, check `/health/ready`, login, API requests, Google Sheets sync, outbox processing, and Edge Function requests.
+
+The current release pipeline does not require a staging acceptance job. Production
+rollout therefore requires explicit operator verification of the checks above.
 
 ## Documentation
 
-- [Setup Guide](docs/docs/setup-guide.md)
-- [Supabase Auth Setup](docs/docs/supabase-auth-setup.md)
-- [Outbound Data Import](docs/outbound/IMPORT.md)
-- [Product Requirements](docs/docs/prd.md)
-- [System Design](docs/architecture/system-design.md)
-- [System Blueprint](docs/docs/system-blueprint.md)
-
-## Cloudflare tunnel
-
-See [Tunnel Setup](docs/docs/tunnel-setup.md) for the token and local tunnel
-commands.
-
-
-#tunnel
-cloudflared tunnel token <TUNNEL-ID>
-cloudflared tunnel run --token <TOKEN>
-
-Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
-Get-Process -ErrorAction SilentlyContinue | Stop-Process -Force
-Remove-Item -Recurse -Force .\node_modules
-Remove-Item -Recurse -Force .\Frontend\node_modules
-npm ci
-php artisan optimize:clear
-netstat -ano | findstr ":3000 :5173 :4173 :8080"
-
-cd frontend
-npm run build
-npm run preview -- --host 127.0.0.1 --port 4173 --strictPort .
-
-cd /path/to/soc-5-outbound
-git pull --ff-only origin staging
-docker compose --env-file backend/.env up -d --build
-docker compose --env-file backend/.env ps
+- [Setup guide](docs/docs/setup-guide.md)
+- [System design](docs/architecture/system-design.md)
+- [System blueprint](docs/docs/system-blueprint.md)
+- [Google Sheets sync](docs/deployment/user-imports-sheet-sync.md)
+- [Intraday sync setup](docs/docs/intraday-sync-setup.md)
+- [AWS ECS deployment](docs/deployment/aws-console-setup-simplified.md)

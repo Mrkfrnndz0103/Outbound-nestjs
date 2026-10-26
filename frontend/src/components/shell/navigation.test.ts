@@ -33,4 +33,16 @@ describe("createAppNavigationGroups", () => {
     expect(hrefs).not.toContain("/users");
     expect(hrefs).not.toContain("/docking");
   });
+
+  it("exposes the SeaTalk setup guide only to administrators", () => {
+    const groups = createAppNavigationGroups({
+      role: "ops_pic",
+      is_admin: true,
+      pendingCount: 0,
+    });
+    const hrefs = groups.flatMap((group) => group.items).map((item) => item.href);
+
+    expect(hrefs).toContain("/settings/seatalk-approval");
+    expect(hrefs).not.toContain("/users");
+  });
 });

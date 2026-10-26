@@ -102,7 +102,8 @@ export type AppView =
   | "truck-request"
   | "docking"
   | "kpi"
-  | "users";
+  | "users"
+  | "seatalk-setup";
 export interface Notification {
   id: number;
   request_id: string | null;

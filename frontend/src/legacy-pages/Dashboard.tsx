@@ -56,6 +56,11 @@ const UserManagement = lazy(() =>
     default: module.UserManagement,
   })),
 );
+const SeatalkSetupGuide = lazy(() =>
+  import("./SeatalkSetupGuide").then((module) => ({
+    default: module.SeatalkSetupGuide,
+  })),
+);
 
 export function Dashboard(props: { user: User; preview?: boolean }) {
   const viewRole = useUiStore((state) => state.viewRole);
@@ -93,12 +98,14 @@ function DashboardContent({
     (candidate === "docking" && activeUser.role === "doc_officer") ||
     candidate === "kpi" ||
     (candidate === "users" &&
-      (activeUser.role === "fte_ops" || activeUser.role === "fte_mm"));
+      (activeUser.role === "fte_ops" || activeUser.role === "fte_mm")) ||
+    (candidate === "seatalk-setup" && activeUser.is_admin === true);
   const requestedView = getAppView(pathname);
   const view = !isPreview && allowed(requestedView) ? requestedView : "overview";
   const queue = useQueueNotifications(activeUser, isPreview);
   const navigationGroups = createAppNavigationGroups({
     role: activeUser.role,
+    is_admin: activeUser.is_admin,
     pendingCount: queue.count,
   });
 
@@ -172,6 +179,7 @@ function DashboardContent({
           )}
           {view === "kpi" && <Kpi />}
           {view === "users" && <UserManagement />}
+          {view === "seatalk-setup" && <SeatalkSetupGuide />}
         </Suspense>
       </section>
     </AppShell>

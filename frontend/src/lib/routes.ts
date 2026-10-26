@@ -7,6 +7,7 @@ const paths: Record<AppView, string> = {
   docking: "/docking",
   kpi: "/kpi",
   users: "/users",
+  "seatalk-setup": "/settings/seatalk-approval",
 };
 
 const viewsByPath = Object.fromEntries(

@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookOpenCheck,
   LayoutDashboard,
   Route,
   ShipWheel,
@@ -24,10 +25,14 @@ export type NavigationGroup = {
   items: NavigationItem[];
 };
 
-type NavigationOptions = Pick<User, "role"> & { pendingCount: number };
+type NavigationOptions = Pick<User, "role"> & {
+  is_admin?: User["is_admin"];
+  pendingCount: number;
+};
 
 export function createAppNavigationGroups({
   role,
+  is_admin,
   pendingCount,
 }: NavigationOptions): NavigationGroup[] {
   const badge =
@@ -81,10 +86,23 @@ export function createAppNavigationGroups({
     items: [{ name: "KPI", href: "/kpi", icon: BarChart3 }],
   });
 
-  if (role === "fte_ops" || role === "fte_mm") {
+  if (role === "fte_ops" || role === "fte_mm" || is_admin) {
     groups.push({
       label: "Administration",
-      items: [{ name: "User Management", href: "/users", icon: Users }],
+      items: [
+        ...(role === "fte_ops" || role === "fte_mm"
+          ? [{ name: "User Management", href: "/users", icon: Users }]
+          : []),
+        ...(is_admin
+          ? [
+              {
+                name: "SeaTalk Setup",
+                href: "/settings/seatalk-approval",
+                icon: BookOpenCheck,
+              },
+            ]
+          : []),
+      ],
     });
   }
 

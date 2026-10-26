@@ -1,387 +1,365 @@
-# AWS setup guide (simplified, production-oriented)
+# AWS Console setup (current simplified guide)
 
-This guide walks through the AWS side of SOC 5 Outbound using the AWS Console.
-It assumes:
+> Console labels verified against the current AWS experience in October 2026. AWS
+> occasionally renames or moves controls; use the console search bar if a label
+> differs slightly.
 
-- Firebase Hosting serves the React frontend at `app.soc5outboundops.app`;
-- AWS hosts the Laravel API and its background worker/scheduler;
-- Supabase continues to provide PostgreSQL, Auth, and Realtime; and
-- the production owner controls the AWS account and DNS domain.
+This guide deploys the repository's **NestJS** backend to Amazon ECS on AWS
+Fargate. Supabase continues to provide PostgreSQL, Auth, and Realtime. The React
+frontend remains on Firebase Hosting. Cloudflare can continue to host DNS, so
+Route 53 is optional.
 
-This is a provisioning guide. It does not create AWS resources or deploy the
-application. Use staging first. AWS services such as Fargate, load balancers,
-NAT gateways, logs, and data transfer cost money; create an AWS Budget before
-provisioning them.
+## Target architecture
 
-## What AWS will run
-
-| AWS resource | Plain-language purpose |
+| Resource | Purpose |
 | --- | --- |
-| ECR | Private shelf that stores the backend Docker image |
-| ECS Fargate | Runs the API, background worker, and scheduled tasks without managing servers |
-| VPC/subnets/security groups | Network boundaries around the application |
-| Application Load Balancer (ALB) | Public HTTPS front door for the API |
-| ACM | Provides the HTTPS certificate for the API hostname |
-| Secrets Manager | Holds passwords and application secrets outside the image |
-| CloudWatch | Collects logs and alerts on health problems |
+| Amazon ECR | Stores immutable NestJS container images |
+| Amazon ECS with Fargate | Runs the API and background processes |
+| Application Load Balancer | Public HTTPS endpoint for the API |
+| AWS Certificate Manager | TLS certificate for the API hostname |
+| AWS Secrets Manager | Server-only runtime configuration |
+| CloudWatch Logs and alarms | Logs, health monitoring, and alerts |
+| VPC, subnets, and security groups | Network isolation and outbound access |
 
-Supabase, Firebase, SeaTalk, Google Sheets, and Sentry remain separate
-services. Your domain can stay hosted in Cloudflare; Route 53 is not required.
+Use `Asia Pacific (Singapore) — ap-southeast-1` unless the production owner has
+approved another region. Keep ECR, ECS, the load balancer, certificate, and log
+groups in the same region.
 
-## Before opening the AWS Console
+## Before provisioning
 
-Have these decisions and inputs ready:
+Have the following ready:
 
-- A production AWS account with MFA enabled for administrators.
-- An AWS region. Use `Asia Pacific (Singapore) ap-southeast-1` unless the
-  production owner selects another region.
-- Your domain `soc5outboundops.app` is hosted in Cloudflare, and you can edit
-  its DNS records. This guide uses `app.soc5outboundops.app` for Firebase and
-  `api.soc5outboundops.app` for the AWS API.
-- The production Supabase project URL, pooler host, database username/password,
-  publishable key, and service-role key, stored in an approved password vault.
-- The approved backend source commit and a CI/deployment identity that can
-  publish the image to ECR. Avoid building and deploying unreviewed code from a
-  workstation.
-- A separate staging project/domain for the first deployment.
+- an AWS account whose root user is protected by MFA;
+- named operator access through IAM Identity Center where possible;
+- control of `soc5outboundops.app` DNS in Cloudflare;
+- production and staging Supabase projects;
+- the Supabase **transaction pooler** URI, URL, and service-role key;
+- reviewed SeaTalk credentials and callback URLs if SeaTalk is enabled; and
+- an approved release commit and CI identity.
 
-Do not put passwords or keys in chat, Git, Firebase variables, Docker build
-arguments, or shell command history.
+Never put secrets in Git, Docker build arguments, screenshots, chat, or frontend
+environment variables.
 
-## Phase 1: protect the AWS account and set a budget
+## 1. Set the region and cost controls
 
-1. Sign in as the AWS account owner and turn on MFA.
-2. Create named administrator access for operators. Do not use the root user
-   for routine work. Follow your organization's IAM Identity Center or IAM
-   process.
-3. Open **Billing and Cost Management → Budgets → Create budget**.
-4. Create a monthly cost budget with email alerts at 50%, 80%, and 100% of the
-   amount approved by the owner. Add a separate zero-spend/free-tier alert if
-   available. A budget alert notifies; it does not necessarily stop resources.
-5. Select `ap-southeast-1` in the region menu in the upper-right. Keep the ALB,
-   ECS, ECR, and log groups in the same region.
+1. In the AWS console header, choose **Asia Pacific (Singapore)**.
+2. Open **Billing and Cost Management** from the account menu.
+3. Choose **Budgets → Create budget → Customize (advanced)**.
+4. Select **Cost budget**, set the approved monthly amount, and add email alerts
+   at 50%, 80%, and 100%.
+5. Optionally create a zero-spend budget for Free Tier usage. Budget alerts notify
+   owners; they do not stop resources automatically.
 
-## Phase 2: request the TLS certificate and validate it in Cloudflare DNS
+## 2. Request the API certificate
 
-The certificate is attached to the public API load balancer.
+1. Search for **Certificate Manager** and open AWS Certificate Manager in
+   `ap-southeast-1`.
+2. Choose **Request → Request a public certificate → Next**.
+3. Under **Fully qualified domain name**, enter
+   `api.soc5outboundops.app`.
+4. Keep **DNS validation** and the default key algorithm, then choose **Request**.
+5. Open the new certificate and copy its CNAME name and value.
+6. In Cloudflare, choose **DNS → Records → Add record**, create that CNAME, and
+   set **Proxy status** to **DNS only**.
+7. Wait until ACM shows **Issued**.
 
-1. Open **AWS Certificate Manager (ACM)** in `ap-southeast-1`.
-2. Choose **Request a certificate → Request a public certificate**.
-3. Add `api.soc5outboundops.app`. Add `*.soc5outboundops.app` only if the domain owner has a
-   reason to cover multiple subdomains with one certificate.
-4. Choose DNS validation and request the certificate.
-5. In the Cloudflare dashboard, open the domain and select **DNS → Records →
-   Add record**. Copy the ACM validation CNAME name and target exactly.
-6. Set the validation record to **DNS only** (gray cloud), then save it.
-   ACM validation records must resolve directly; do not orange-cloud proxy the
-   validation CNAME.
-7. Wait until ACM shows **Issued**. Do not continue to HTTPS listener setup
-   until it is issued.
+Do not delete the validation CNAME after issuance; ACM uses it for renewal.
 
-Firebase issues/uses its own certificate for `app.soc5outboundops.app`; the ACM
-certificate is for the AWS API hostname.
+## 3. Create the ECR repository
 
-## Phase 3: create a container image repository
+1. Search for **Elastic Container Registry**.
+2. In the left navigation, choose **Private registry → Repositories**.
+3. Choose **Create repository**.
+4. Keep **Private**, set the repository name to `soc5-outbound-api`, and set
+   **Image tag mutability** to **Immutable**.
+5. Leave encryption at **AES-256** unless the organization requires a KMS key.
+6. Choose **Create repository** and copy its URI.
+7. Configure image scanning under **Private registry → Settings → Scanning**.
+   Repository-level scan-on-push controls are deprecated in the current UI; use
+   basic or enhanced registry scanning with a filter for this repository.
+8. Add a lifecycle policy that expires untagged images while retaining approved
+   release images.
 
-1. Open **Elastic Container Registry (ECR) → Repositories → Create repository**.
-2. Select **Private** and name it `soc5-outbound-api`.
-3. Turn on image scanning if offered. Keep image tags immutable if the account
-   policy permits it. Add a lifecycle policy later to expire old untagged
-   images while retaining approved release images.
-4. Copy the repository URI, which looks like:
-   `123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/soc5-outbound-api`.
-5. Configure the approved CI deployment identity to build the existing
-   `backend-nest/Dockerfile`, tag the image with the source commit SHA, and push it
-   to ECR. The repository has a gated Travis publish/deploy stage, but it needs
-   account-side credentials and ECR/ECS resources before it can run. Do not use
-   a mutable `latest` tag as the release identity.
+CI builds `backend-nest/Dockerfile`. Tag releases with the full commit SHA rather
+than `latest`.
 
-At this point ECR may be empty. ECS cannot start until an approved image has
-been pushed.
+## 4. Create or select the network
 
-### Configure Travis to publish an approved image
+For production, use an approved VPC with:
 
-The repository's CI source of truth is GitLab, mirrored to GitHub, where Travis
-CI is connected. Existing Travis jobs test the mirrored code and validate/build
-Docker configuration. A gated ECR/ECS deployment stage is now wired in the
-repository, but it cannot run until the provider/account settings and AWS
-resources are ready.
+- two public subnets in different Availability Zones for the load balancer;
+- two private subnets in different Availability Zones for Fargate tasks;
+- an internet gateway for the public subnets; and
+- a NAT gateway or approved egress path for private tasks to reach Supabase,
+  SeaTalk, Google APIs, and other HTTPS services.
 
-1. In GitLab, protect `main` and require review plus all required test,
-   PostgreSQL, migration-chain, and deployment-config checks to pass. Confirm
-   the GitHub mirror receives those approved commits. Travis runs against that
-   mirror, not the GitLab project directly.
-2. In AWS IAM, create a deployment identity dedicated to this repository. The
-   included deployment script currently expects a dedicated IAM user's access
-   key and secret key. Keep the policy narrowly scoped and rotate these keys.
-   If your Travis plan supports AWS OIDC, switch the script to short-lived role
-   credentials before removing the key-based authentication.
-3. Scope ECR push permissions to the single `soc5-outbound-api` repository in
-   `ap-southeast-1`. For image publishing, the policy normally needs ECR
-   authorization-token access plus layer upload, image upload, and image
-   manifest operations. Do not grant administrator or account-wide ECR access.
-4. If Travis will also trigger ECS deployment, add only the required ECS
-   describe/register/update permissions for the named cluster/services and
-   `iam:PassRole` for the exact task and execution roles. Keep this separate
-   from the image-publisher permissions when possible.
-5. Add these Travis repository variables. Mark both AWS keys **encrypted**;
-   restrict the production deployment flag to approved release builds:
+A NAT gateway has fixed and data-processing charges. Confirm the design and
+budget before creating one.
+
+### Security groups
+
+Open **EC2 → Network & Security → Security Groups** and create:
+
+1. `soc5-api-alb-sg`
+   - inbound HTTPS TCP 443 from approved public sources (or `0.0.0.0/0` and
+     `::/0` for a public API);
+   - optional inbound HTTP TCP 80 only for redirecting to HTTPS; and
+   - outbound TCP 3001 to `soc5-api-task-sg`.
+2. `soc5-api-task-sg`
+   - inbound TCP 3001 with **source** `soc5-api-alb-sg`; and
+   - outbound HTTPS TCP 443 and required DNS/egress according to policy.
+
+Do not expose ports 3001, 5432, or 6543 publicly.
+
+## 5. Store runtime secrets
+
+1. Search for **Secrets Manager**.
+2. Choose **Secrets → Store a new secret**.
+3. Select **Other type of secret** and use key/value pairs.
+4. Store the secret as `/soc5/production/backend-nest` and create a separate
+   `/soc5/staging/backend-nest` secret.
+5. Keep automatic rotation off unless a tested rotation workflow exists.
+
+At minimum, provide these production values:
+
+```text
+NODE_ENV=production
+PORT=3001
+DATABASE_URL=<Supabase transaction-pooler URI on port 6543>
+DATABASE_SSL=true
+SUPABASE_URL=<production Supabase URL>
+SUPABASE_SERVICE_ROLE_KEY=<server-only service-role key>
+CORS_ORIGIN=https://app.soc5outboundops.app
+APP_URL=https://api.soc5outboundops.app
+```
+
+Use the transaction pooler URI from **Supabase → Connect → Transaction pooler**,
+not `db.<project-ref>.supabase.co`. Remote PostgreSQL connections require TLS.
+
+Add the SeaTalk and Google variables from `backend-nest/.env.example` only when
+those integrations are enabled. Keep `SEATALK_APPROVAL_ENABLED=false` until
+callbacks, signing secrets, Data Scope, migrations, and staging tests are ready.
+
+ECS injects Secrets Manager values through the task definition's **Environment
+variables → Secrets** controls. The task execution role—not the application task
+role—must be able to call `secretsmanager:GetSecretValue` for the exact secret
+ARN and `kms:Decrypt` when a customer-managed KMS key is used.
+
+## 6. Create IAM roles
+
+Open **IAM → Roles → Create role**.
+
+### Task execution role
+
+1. Choose **AWS service** and **Elastic Container Service Task**.
+2. Attach `AmazonECSTaskExecutionRolePolicy`.
+3. Add a narrowly scoped inline policy allowing `secretsmanager:GetSecretValue`
+   for `/soc5/production/backend-nest`.
+4. Name it `soc5EcsTaskExecutionRole`.
+
+This role lets ECS pull from ECR, write logs, and inject secrets.
+
+### Application task role
+
+Create another ECS task role named `soc5BackendTaskRole`. Start with no AWS API
+permissions. Add only permissions the NestJS process actually needs. Access to
+Supabase and SeaTalk uses outbound HTTPS and does not require AWS IAM permissions.
+
+### CI deployment identity
+
+The current Travis deployment script expects `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`. Prefer short-lived OIDC role credentials when the CI
+platform and script are updated to support them. Until then, use a dedicated,
+restricted IAM user and rotate its key.
+
+Grant only:
+
+- ECR authentication and push actions for `soc5-outbound-api`;
+- ECS describe, task-definition registration, and named-service update actions;
+- `iam:PassRole` for the two exact ECS roles; and
+- STS caller identity.
+
+Do not grant administrator access.
+
+## 7. Create the ECS cluster
+
+1. Search for **Elastic Container Service**.
+2. Choose **Clusters → Create cluster**.
+3. Set **Cluster name** to `soc5-outbound-production`.
+4. Under **Infrastructure**, keep **AWS Fargate (serverless)** selected. The
+   current console associates Fargate and Fargate Spot capacity providers
+   automatically.
+5. Under **Monitoring**, enable **Container Insights with enhanced
+   observability** if its additional cost is approved.
+6. Choose **Create**.
+
+Use a separate cluster or, at minimum, separate services and secrets for staging.
+
+## 8. Create the API task definition
+
+1. In ECS, choose **Task definitions → Create new task definition**.
+2. Set **Task definition family** to `soc5-outbound-api`.
+3. Under **Infrastructure requirements**:
+   - choose **AWS Fargate**;
+   - choose Linux/x86_64 unless the image is deliberately built for ARM64;
+   - select initial CPU and memory based on staging measurements;
+   - select `soc5EcsTaskExecutionRole`; and
+   - select `soc5BackendTaskRole`.
+4. Under **Container details**:
+   - name: `api`;
+   - image URI: the ECR image with its immutable commit-SHA tag;
+   - container port: `3001` over TCP;
+   - essential container: enabled.
+5. Under **Environment variables**, add non-sensitive values as plain variables
+   and add sensitive values with **Value type: ValueFrom** using Secrets Manager
+   ARNs. If using one JSON secret, reference individual JSON keys where the
+   console supports the `secret-arn:json-key::` form.
+6. Under **Logging**, select `awslogs`, create/use
+   `/ecs/soc5-outbound/production/api`, and set a retention period in CloudWatch.
+7. Add a container health check:
 
    ```text
-   PRODUCTION_DEPLOY_ENABLED=true
-   AWS_ACCESS_KEY_ID=<restricted-deploy-user-key>
-   AWS_SECRET_ACCESS_KEY=<restricted-deploy-user-secret>
-   AWS_DEFAULT_REGION=ap-southeast-1
-   EXPECTED_AWS_ACCOUNT_ID=<12-digit-production-account-id>
-   ECR_REPOSITORY_URI=<account-id>.dkr.ecr.ap-southeast-1.amazonaws.com/soc5-outbound-api
-   ECS_CLUSTER=soc5-outbound-production
-   ECS_API_SERVICE=<api-service-name>
-   ECS_WORKER_SERVICE=<worker-service-name>
-   ECS_SCHEDULER_SERVICE=<scheduler-service-name>
+   CMD-SHELL,wget -qO- http://localhost:3001/up || exit 1
    ```
 
-   Container names default to `api`, `worker`, and `scheduler`; if your ECS
-   task definitions use different names, also set `ECS_API_CONTAINER_NAME`,
-   `ECS_WORKER_CONTAINER_NAME`, and `ECS_SCHEDULER_CONTAINER_NAME`. Do not put
-   credentials in `.travis.yml`, commit them, expose them to pull-request builds
-   from forks, or print them in logs. Protect release tags in GitLab and make
-   the GitHub mirror read-only to ordinary users so only mirrored, approved
-   tags can trigger Travis.
-6. Add explicit ordered Travis stages so the normal test jobs finish first,
-   tag-gated release acceptance runs next, and publishing/deployment runs last.
-   Add the publish job only for an approved release tag after required checks
-   pass. It should build `backend-nest/Dockerfile`, tag the image with the exact
-   commit SHA, authenticate to ECR, push, then record the pushed image digest.
-   Never publish images from pull-request builds.
-7. Require a human release owner to create the protected release tag in GitLab
-   only after staging passes. Confirm that GitLab mirrors that exact tag and
-   commit to GitHub before Travis starts the deployment stage. The included
-   [`deploy-aws-ecs.sh`](../../scripts/deploy/deploy-aws-ecs.sh) job pushes the
-   immutable commit-SHA image, registers task-definition revisions using the
-   image, then updates API, worker, and scheduler ECS services in that order.
-   It waits for each service to become stable. It does not run database
-   migrations or deploy the Firebase frontend.
-8. Give the IAM identity ECR image push, ECS service/task-definition
-   registration/update/describe, and `iam:PassRole` access only for the named
-   production ECS roles. The deployment script checks the AWS account ID and
-   refuses to run unless it is on a tag and `PRODUCTION_DEPLOY_ENABLED=true`.
-   Record the previous task definition and image digest for rollback.
+   The Alpine runtime image includes BusyBox `wget`. `/up` is liveness;
+   `/up/ready` additionally verifies PostgreSQL and required Supabase settings.
+8. Choose **Create**.
 
-GitLab branch/tag protections, GitHub mirror permissions, Travis account
-settings, AWS identities/secrets, and ECR/ECS resources are outside this
-repository. The gated pipeline implementation is present, but it cannot publish
-or deploy until those account-side settings and exact ECS service names are
-supplied. A failed test or staging acceptance must prevent publishing and
-rollout.
+The container listens on port 3001. TLS terminates at the load balancer.
 
-## Phase 4: create the network
+## 9. Create the target group and load balancer
 
-The ALB needs public network access. Application containers should not accept
-direct public inbound traffic. They need outbound HTTPS access to Supabase and
-external APIs.
+### Target group
 
-### Recommended network for production
+1. Open **EC2 → Load Balancing → Target Groups → Create target group**.
+2. Choose **IP addresses** because Fargate tasks use `awsvpc` networking.
+3. Name it `soc5-outbound-api-tg`, protocol **HTTP**, port **3001**, and select
+   the production VPC.
+4. Set **Health check protocol** to HTTP and **Health check path** to `/up/ready`.
+5. Under **Advanced health check settings**, use success code `200`.
+6. Create the group without manually registering targets; ECS registers tasks.
 
-Ask the AWS/network owner to create or approve a VPC with:
+### Application Load Balancer
 
-- at least two public subnets in different Availability Zones for the ALB;
-- private subnets in at least two Availability Zones for ECS tasks;
-- a NAT gateway or another approved outbound route for the private ECS tasks;
-- an internet gateway attached to the VPC; and
-- routes so public subnets reach the internet gateway and private subnets use
-  approved egress.
+1. Choose **EC2 → Load Balancers → Create load balancer → Application Load
+   Balancer → Create**.
+2. Name it `soc5-outbound-api-alb`, use **Internet-facing**, **IPv4** (or
+   Dualstack when IPv6 is configured), the production VPC, and at least two
+   public subnets.
+3. Select `soc5-api-alb-sg`.
+4. Add an HTTPS listener on port 443 forwarding to `soc5-outbound-api-tg` and
+   select the issued ACM certificate.
+5. Optionally add HTTP port 80 with a redirect action to HTTPS 443.
+6. Create the load balancer and wait for **Active**.
 
-A NAT gateway has a fixed hourly and data-processing cost. Confirm the budget
-and egress design before creating one. Private task subnets are the production
-recommendation; do not expose port 8000 to the internet.
+## 10. Create the ECS API service
 
-If the AWS account already has a production VPC, use the network team's
-approved subnets and firewall rules instead of creating another VPC. Avoid
-choosing the default VPC by accident without checking its routes and security.
+1. Open **ECS → Clusters → soc5-outbound-production → Services → Create**.
+2. Under **Environment**, choose the Fargate launch type or Fargate capacity
+   provider strategy. Do not use Fargate Spot for the only production API task.
+3. Select the `soc5-outbound-api` task definition and latest approved revision.
+4. Set **Service name** to `soc5-outbound-api`.
+5. Set **Desired tasks** to 2 for production availability if budget permits.
+6. Under **Networking**, select the private subnets,
+   `soc5-api-task-sg`, and **Public IP: Turned off**.
+7. Under **Load balancing**, select **Application Load Balancer**, choose the
+   existing load balancer, container `api:3001`, listener, and target group.
+8. Turn on the **deployment circuit breaker with rollback**.
+9. Set **Health check grace period** long enough for application startup.
+10. Choose **Create** and wait for deployment status **Successful** and healthy
+    targets.
 
-### Create security groups
+The NestJS process currently contains its outbox, Google sync, and SeaTalk
+Approval Center schedulers. Do not create PHP Artisan worker or scheduler tasks;
+those belonged to the retired Laravel backend. If separate NestJS worker services
+are retained for operational isolation, use the same image with explicit feature
+flags so only one service owns each scheduler. Never run duplicate schedulers
+without that separation.
 
-Create two security groups in **EC2 → Network & Security → Security Groups**:
+## 11. Configure DNS
 
-1. `soc5-api-alb-sg`: inbound HTTPS TCP 443 from the internet (or the approved
-   public source ranges); outbound to the API task security group on TCP 8000.
-2. `soc5-api-task-sg`: inbound TCP 8000 **from `soc5-api-alb-sg` only**;
-   outbound HTTPS TCP 443 for required database/provider access. Keep the
-   default outbound rule only if approved by the security owner.
+1. Copy the ALB's **DNS name** from its details page.
+2. In Cloudflare **DNS → Records**, create:
+   - type: CNAME;
+   - name: `api`;
+   - target: the ALB DNS name;
+   - proxy status: **DNS only** initially;
+   - TTL: Auto.
+3. Wait for DNS propagation and test
+   `https://api.soc5outboundops.app/up/ready`.
+4. Keep ACM validation CNAME records set to DNS only.
 
-Do not add public inbound rules for TCP 8000, 5432, or Redis port 6379.
+After direct HTTPS works, Cloudflare proxying is optional. If enabled, use
+**SSL/TLS → Overview → Full (strict)**. Never use Flexible mode.
 
-## Phase 5: store production secrets
+## 12. Configure CI deployment variables
 
-1. Open **Secrets Manager → Store a new secret**.
-2. Choose **Other type of secret** and store backend settings as key/value
-   pairs. Create separate secrets for staging and production.
-3. Use names such as `/soc5/production/laravel` and `/soc5/staging/laravel`.
-4. Include only backend runtime values. At minimum, plan values for:
+Add these encrypted variables to the protected Travis deployment environment:
 
-   - `APP_URL=https://api.soc5outboundops.app`;
-   - `FRONTEND_URL=https://app.soc5outboundops.app`;
-   - `SESSION_DOMAIN=.soc5outboundops.app`;
-   - `SEATALK_REDIRECT_URI=https://api.soc5outboundops.app/auth/seatalk/callback`
-     if SeaTalk login is enabled; and
-   - Laravel `APP_KEY` (generate once, retain across releases);
-   - Supabase database host, username, password, and database name;
-   - Supabase URL, publishable key, and service-role key;
-   - `ADMIN_EMAILS` and the production frontend/API URLs; and
-   - Sentry backend DSN if enabled.
+```text
+PRODUCTION_DEPLOY_ENABLED=true
+AWS_ACCESS_KEY_ID=<restricted deployment key>
+AWS_SECRET_ACCESS_KEY=<restricted deployment secret>
+AWS_DEFAULT_REGION=ap-southeast-1
+EXPECTED_AWS_ACCOUNT_ID=<12-digit account ID>
+ECR_REPOSITORY_URI=<account>.dkr.ecr.ap-southeast-1.amazonaws.com/soc5-outbound-api
+ECS_CLUSTER=soc5-outbound-production
+ECS_API_SERVICE=soc5-outbound-api
+ECS_API_CONTAINER_NAME=api
+```
 
-5. Keep SeaTalk Approval Center disabled initially. Add its app secret,
-   callback signing secret, token secret, and URLs only after its production
-   prerequisites and separate enablement review are complete.
-6. Restrict secret read permissions to the ECS task role and approved
-   deployment operators. Never put these values in an image or Firebase.
+The existing deployment script also currently requires worker and scheduler
+service names. Either provision intentionally isolated NestJS services with
+feature flags or update the script before production so it deploys only the API
+service. Do not point those variables to the API service as a workaround.
 
-The complete Laravel variable list is in
-[`aws-firebase-production-setup.md`](aws-firebase-production-setup.md). Its
-example values are placeholders, not ready-to-use credentials.
+Only protected release tags should publish or deploy. Pull-request builds must
+never receive production credentials.
 
-## Phase 6: create ECS cluster and task definitions
+## 13. Logs and alarms
 
-### Create the cluster
+1. Open **CloudWatch → Logs → Log groups** and verify application logs arrive.
+2. Set an explicit retention period; the default never-expire behavior can add
+   cost and conflict with data policy.
+3. Create alarms for:
+   - ALB unhealthy host count;
+   - ALB target 5xx responses;
+   - ECS running task count below desired count;
+   - repeated task exits or failed deployments; and
+   - elevated application errors.
+4. Route alarms through an approved SNS topic and notification destination.
+5. Confirm logs never contain database passwords, service-role keys, access
+   tokens, callback signatures, or request authorization headers.
 
-1. Open **Elastic Container Service (ECS) → Clusters → Create cluster**.
-2. Name it `soc5-outbound-production`.
-3. Choose AWS Fargate as the compute option. Create the cluster.
+## 14. Production release order
 
-### Create the API task definition
+1. Rehearse the same architecture in staging.
+2. Apply every reviewed Supabase migration in filename order and verify the
+   migration ledger.
+3. Build the NestJS image from the approved commit, push the immutable SHA tag,
+   and record its ECR digest.
+4. Register a new task-definition revision using that exact image.
+5. Deploy the API service and wait for ECS stability and healthy `/up/ready`
+   checks.
+6. Deploy the Firebase frontend with only public Supabase settings and the
+   production API URL.
+7. Validate Supabase login, CORS, authorization, request workflow, Realtime,
+   SeaTalk callbacks, outbox processing, Google sync, logs, and alarms.
+8. Keep SeaTalk Approval Center disabled until its staging acceptance and
+   provider configuration gates pass.
+9. Record the release commit, image digest, task-definition revision, service
+   deployment, owner, and rollback revision.
 
-1. Open **Task definitions → Create new task definition**; choose **AWS Fargate**.
-2. Name the family `soc5-outbound-api`.
-3. Start with Linux/x86_64 unless the pushed image was deliberately built for
-   ARM. Set task CPU/memory based on staging measurements; for an initial small
-   deployment, ask the platform owner to size it rather than guessing.
-4. Add an execution role that allows ECR image pulls and CloudWatch log writes.
-   Add a separate task role with permission to read only the production secret.
-5. Add a container named `api`, using the exact ECR image URI and commit SHA.
-6. Set container port `8000` (TCP). Add a CloudWatch log group such as
-   `/ecs/soc5-outbound/production/api`.
-7. Add environment variables for non-secret production settings. Reference
-   sensitive values from Secrets Manager using ECS's **Secrets** section.
-8. Set container health check to request `http://localhost:8000/up` if the
-   image health check configuration supports it; otherwise use the ALB health
-   check in the next phase.
-9. Save the task definition revision.
+## Stop and investigate when
 
-The API container listens on port 8000. The ALB connects to it over HTTP inside
-the VPC; HTTPS terminates at the ALB.
-
-### Create worker and scheduler task definitions
-
-Create two task definition families from the same approved image, secret
-references, network, and logging pattern:
-
-- `soc5-outbound-worker`: command
-  `php artisan queue:work database --sleep=3 --tries=3 --backoff=5 --timeout=90`.
-- `soc5-outbound-scheduler`: command `php artisan schedule:work`.
-
-Set worker stop timeout/grace period above the 90-second job timeout. Run one
-scheduler task at a time. The worker and scheduler use the same database-backed
-queue/cache/session settings as the API. Apply the required Laravel support
-migrations before starting these processes.
-
-## Phase 7: create the load balancer and API service
-
-1. Open **EC2 → Load Balancers → Create load balancer → Application Load
-   Balancer**.
-2. Name it `soc5-outbound-api-alb`, choose **Internet-facing**, and select the
-   approved VPC and at least two public subnets.
-3. Attach `soc5-api-alb-sg`.
-4. Create a target group for **IP addresses**, HTTP, port 8000, in the same VPC.
-5. Set the health check path to `/up`. Use HTTP success code 200.
-6. Add an HTTPS listener on port 443 and select the issued ACM certificate for
-   `api.soc5outboundops.app`. Redirect HTTP port 80 to HTTPS if an HTTP listener is
-   created.
-7. Open **ECS → Clusters → soc5-outbound-production → Services → Create**.
-8. Select the API task definition. Set desired count to 2 for production
-   availability if budget allows; a single task has no task-level redundancy.
-9. Choose Fargate, the approved VPC private subnets, and assign **no public IP**.
-10. Attach `soc5-api-task-sg`; configure the ALB target group and container
-    port 8000. Set deployment health checks and wait for healthy targets.
-11. Create separate ECS services using the worker and scheduler task
-    definitions. They do not need an ALB. Start with one worker and one
-    scheduler. Keep scheduler desired count at one.
-
-If the API task cannot reach Supabase, inspect the private-subnet route, NAT
-egress, DNS resolution, task security group, Supabase TLS settings, and
-credentials. Do not solve this by opening the database port to the internet.
-
-## Phase 8: add DNS in Cloudflare and Firebase
-
-1. In the ALB details, copy its DNS name.
-2. In Cloudflare **DNS → Records**, create a CNAME record:
-   - **Name:** `api`
-   - **Target:** the ALB DNS name copied in the previous step
-   - **Proxy status:** **DNS only** (gray cloud) for initial setup
-   - **TTL:** Auto
-3. In Firebase Console, add `app.soc5outboundops.app` as a Hosting custom domain.
-   Add Firebase's domain verification and routing records in Cloudflare exactly
-   as Firebase displays them. Keep these records DNS only while Firebase
-   verifies the domain and provisions HTTPS.
-4. Wait for both DNS records and certificates to become active.
-5. Keep the API and frontend on the same parent domain so the SeaTalk session
-   cookie flow can work with the reviewed cross-origin frontend changes.
-6. Configure Supabase Auth's site URL and redirect allowlist for the frontend
-   custom domain and enabled OAuth providers.
-
-After the API works over HTTPS with Cloudflare DNS-only records, you may enable
-Cloudflare's orange-cloud proxy for `api.soc5outboundops.app` if you want its proxy or
-WAF features. Set Cloudflare **SSL/TLS encryption mode** to **Full (strict)**;
-the AWS ALB must continue to present the valid ACM certificate. If you enable
-the proxy, update the ALB security group to allow HTTPS from Cloudflare's
-published IP ranges and keep that list current. Do not use Flexible SSL. Keep
-ACM validation CNAME records DNS only even if the API record is proxied.
-
-The frontend changes needed for API URL, `credentials: include`, CORS,
-`X-XSRF-TOKEN`, and shared cookie domain are documented in
-[`aws-firebase-production-setup.md`](aws-firebase-production-setup.md). Do not
-assume the current same-origin frontend build will work unchanged on Firebase.
-
-## Phase 9: logs, alerts, and operational checks
-
-1. In **CloudWatch → Log groups**, confirm API, worker, and scheduler groups
-   receive logs. Set a retention period that matches the data policy.
-2. Create alarms for ALB unhealthy targets and 5xx responses, ECS task restarts,
-   and worker/scheduler stopped tasks.
-3. Add an alert for sustained queue backlog using the queue table/metric
-   approach approved by the application owner.
-4. Confirm no secret values appear in logs.
-5. Confirm ECS deployments roll back or can be manually reverted to the prior
-   task definition/image digest.
-6. Record the release commit, image digest, task definition revisions, owner,
-   and rollback reference.
-
-## First production release order
-
-1. Complete staging with the same AWS/Firebase/Supabase architecture.
-2. Confirm backups and review the production migration plan and migration
-   ledger using [`production-migrations.md`](production-migrations.md).
-3. Apply approved Supabase phase A SQL, Laravel migrations, then phase C SQL;
-   do not reorder or blindly replay migrations.
-4. Run `php artisan system:verify-config --production` as a protected one-off
-   task with the production task definition and secrets.
-5. Deploy the API, confirm `/up` and ALB targets are healthy, then start the
-   worker and single scheduler task.
-6. Deploy the Firebase build with the production API URL and public Supabase
-   settings only.
-7. Validate login, API calls, role authorization, request workflow, realtime,
-   email delivery, logs, and alerts with the release owner.
-8. Keep SeaTalk Approval Center disabled until its separate staging and
-   provider-contract gates pass.
-
-## Stop and get help if
-
-- the AWS budget/resource cost is unclear;
-- you cannot tell staging from production;
-- the selected VPC/subnets have unknown routes or shared workloads;
-- the release image is not tied to an approved commit;
-- production Supabase backup or migration history is uncertain;
-- a secret is missing or has been exposed; or
-- health checks, database connectivity, auth, or queue processing fail.
-
-Do not open port 8000 to make the ALB health check pass, deploy a staging image
-to production, or enable SeaTalk approvals to bypass a failed preflight.
+- the AWS account, region, VPC, or environment is ambiguous;
+- tasks have public IPs or port 3001 is publicly reachable;
+- `/up` succeeds but `/up/ready` fails;
+- the Supabase URL uses the direct `db.<project-ref>` host instead of the pooler;
+- PostgreSQL reports that SSL is required;
+- the ALB reports unhealthy targets;
+- ECS cannot read the secret or pull the image;
+- duplicate scheduler instances process the same work;
+- the release image is not tied to an approved immutable commit; or
+- cost, security, backup, migration, or rollback ownership is unclear.

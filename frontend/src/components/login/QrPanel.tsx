@@ -191,7 +191,7 @@ export function QrPanel({
           className="pointer-events-none absolute inset-x-0 bottom-0 h-32"
         >
           <img
-            src={trucksImage}
+            src={typeof trucksImage === "string" ? trucksImage : trucksImage.src}
             alt=""
             className="h-full w-full object-cover object-bottom [mask-image:linear-gradient(to_top,black_45%,transparent)]"
           />

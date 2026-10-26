@@ -4,27 +4,25 @@ import type { NextConfig } from 'next'
 const projectRoot = path.resolve(__dirname, '..')
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   turbopack: {
     root: projectRoot,
-    resolveAlias: {
-      '@': path.join(projectRoot, 'src'),
-      '@/components/ui': path.join(projectRoot, '@/components/ui'),
-      '@/hooks': path.join(projectRoot, '@/hooks'),
-      '@/lib/utils': path.join(projectRoot, '@/lib/utils'),
-    },
+    resolveAlias: { '@': path.join(projectRoot, 'src') },
   },
   webpack(config) {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.join(projectRoot, 'src'),
-      '@/components/ui': path.join(projectRoot, '@/components/ui'),
-      '@/hooks': path.join(projectRoot, '@/hooks'),
-      '@/lib/utils': path.join(projectRoot, '@/lib/utils'),
     }
     return config
   },
   async rewrites() {
-    return [{ source: '/api/:path*', destination: `${process.env.NEST_API_URL ?? 'http://127.0.0.1:3001'}/api/:path*` }]
+    const api = process.env.NEST_API_URL ?? 'http://api-nest:3001'
+    return [
+      { source: '/api/:path*', destination: `${api}/api/:path*` },
+      { source: '/auth/seatalk/callback', destination: `${api}/auth/seatalk/callback` },
+      { source: '/up', destination: `${api}/up` },
+    ]
   },
 }
 

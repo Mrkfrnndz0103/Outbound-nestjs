@@ -19,12 +19,11 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: /api
-        VITE_SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in the root .env before building the web image}
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?Set SUPABASE_PUBLISHABLE_KEY in the root .env before building the web image}
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in the root .env before building the web image}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?Set SUPABASE_PUBLISHABLE_KEY in the root .env before building the web image}
     # The named Cloudflare Tunnel targets the production frontend origin on
-    # port 4173. NGINX inside this image serves the built /app/dist output.
-    ports: ["127.0.0.1:4173:80"]
+    # port 4173. Next.js serves the application on port 3000.
+    ports: ["127.0.0.1:4173:3000"]
     depends_on:
       api-nest:
         condition: service_healthy

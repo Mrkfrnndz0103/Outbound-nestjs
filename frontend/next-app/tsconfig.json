@@ -2,9 +2,6 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["../src/*"],
-      "@/components/ui/*": ["../@/components/ui/*"],
-      "@/hooks/*": ["../@/hooks/*"],
-      "@/lib/utils": ["../@/lib/utils.ts"],
       "@/types": ["../src/types.ts"]
     },
     "target": "ES2017",
@@ -36,9 +33,12 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    "../src/**/*.ts",
+    "../src/**/*.tsx"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "../@"
   ]
 }

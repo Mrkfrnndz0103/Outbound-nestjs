@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import type { Pool, PoolClient } from 'pg';
 import { DATABASE_POOL } from '../database/database.module.js';
 import { SeaTalkClient } from './seatalk.client.js';
@@ -13,6 +13,7 @@ type ApprovalCallback = {
 
 @Injectable()
 export class SeaTalkApprovalService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(SeaTalkApprovalService.name);
   private timer?: NodeJS.Timeout;
   private running = false;
 
@@ -215,6 +216,9 @@ export class SeaTalkApprovalService implements OnModuleInit, OnModuleDestroy {
           // Keep scanning; the request remains pending and is picked up on the next tick.
         }
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown database error';
+      this.logger.error(`Approval Center scan failed; retrying on the next interval: ${message}`);
     } finally {
       this.running = false;
     }

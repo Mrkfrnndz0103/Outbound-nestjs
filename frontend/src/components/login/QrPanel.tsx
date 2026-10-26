@@ -50,7 +50,7 @@ export function QrPanel({
         credentials: "same-origin",
         headers: { Accept: "application/json" },
       });
-      const config = (await response.json()) as {
+      let config: {
         app_id?: string;
         redirect_uri?: string;
         response_type?: string;
@@ -58,6 +58,11 @@ export function QrPanel({
         sdk_url?: string;
         message?: string;
       };
+      try {
+        config = (await response.json()) as typeof config;
+      } catch {
+        throw new Error("SeaTalk login is currently unavailable.");
+      }
       if (!response.ok || !config.app_id || !config.state) {
         throw new Error(config.message || "SeaTalk login is not configured.");
       }
@@ -132,28 +137,25 @@ export function QrPanel({
         </div>
       </Reveal>
 
-      {/* heading */}
-      <Reveal delay={90} className={compact ? "mt-2" : "mt-5"}>
-        <h1
-          className={`font-display ${compact ? "text-base" : "text-xl"} font-semibold leading-tight tracking-tight text-auth-ink`}
-        >
-          Login to continue
-        </h1>
-        <p
-          className={`${compact ? "mt-0.5" : "mt-2"} text-[.7rem] text-auth-muted leading-relaxed`}
-        >
-          Use your work email or Ops ID to sign in below.
-        </p>
-      </Reveal>
+      {!compact && (
+        <Reveal delay={90} className="mt-5">
+          <h1 className="font-display text-xl font-semibold leading-tight tracking-tight text-auth-ink">
+            Login to continue
+          </h1>
+          <p className="mt-2 text-[.7rem] leading-relaxed text-auth-muted">
+            Use SeaTalk, your work email, or an Ops ID to sign in.
+          </p>
+        </Reveal>
+      )}
 
-      <Reveal delay={180} className={compact ? "mt-2" : "mt-6"}>
+      <Reveal delay={180} className={compact ? "mt-3" : "mt-6"}>
         <div
           className={`${compact ? "space-y-2" : "rounded-2xl border border-auth-line bg-white/[0.03] p-4"} text-center`}
         >
           <fieldset
             ref={widgetRef}
             aria-label="SeaTalk login"
-            className={`mx-auto flex w-full ${compact ? "min-h-[72px] p-1" : "min-h-[176px] p-3"} items-center justify-center overflow-hidden rounded-xl border-0 bg-white`}
+            className={`mx-auto flex w-full ${compact ? "min-h-12 p-1" : "min-h-[176px] p-3"} items-center justify-center overflow-hidden rounded-xl border-0 bg-white`}
           >
             <div
               ref={sdkContainerRef}
@@ -191,7 +193,9 @@ export function QrPanel({
           className="pointer-events-none absolute inset-x-0 bottom-0 h-32"
         >
           <img
-            src={typeof trucksImage === "string" ? trucksImage : trucksImage.src}
+            src={
+              typeof trucksImage === "string" ? trucksImage : trucksImage.src
+            }
             alt=""
             className="h-full w-full object-cover object-bottom [mask-image:linear-gradient(to_top,black_45%,transparent)]"
           />

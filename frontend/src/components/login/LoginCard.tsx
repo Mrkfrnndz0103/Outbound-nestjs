@@ -29,22 +29,27 @@ export function LoginCard({
         overlayClassName={loginModalLayerClass}
         className={loginModalCardClass}
       >
-        <div className="relative grid min-w-0 lg:grid-cols-2">
+        <div className="relative grid min-w-0 bg-[linear-gradient(135deg,#f4faf7_0%,#ffffff_58%)] lg:grid-cols-2">
           <p id="login-dialog-description" className="sr-only">
             Choose a sign-in method for the SOC 5 Outbound operations workspace.
           </p>
           <QrPanel enabled={visible} compact />
           <div
             aria-hidden
-            className="absolute inset-y-0 left-1/2 hidden w-px bg-white/10 lg:block"
+            className="absolute inset-y-0 left-1/2 hidden w-px bg-auth-line lg:block"
           />
-          <section className="min-w-0 border-t border-white/10 bg-[rgb(19_30_39_/_48%)] px-4 py-5 sm:px-6 sm:py-7 lg:border-l lg:border-t-0">
+          <section className="min-w-0 border-t border-auth-line bg-white/75 px-4 py-4 sm:px-6 sm:py-6 lg:border-l lg:border-t-0 lg:px-8">
             <Reveal delay={140} className="mx-auto block w-full max-w-[360px]">
-              {beforeAuthentication}
-              <div className="mt-6 border-t border-white/10 pt-5">
-                <p className="mb-4 font-display text-sm font-semibold text-auth-ink">
-                  Sign in to your operations workspace
+              <header className="mb-4">
+                <p className="text-[.68rem] font-semibold uppercase tracking-[.16em] text-auth-faint">
+                  Secure workspace
                 </p>
+                <p className="mt-1.5 font-display text-lg font-semibold tracking-tight text-auth-ink">
+                  Welcome back
+                </p>
+              </header>
+              {beforeAuthentication}
+              <div className="mt-4 border-t border-auth-line pt-4">
                 {children}
               </div>
             </Reveal>
@@ -56,44 +61,63 @@ export function LoginCard({
   }
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-linear-to-br from-auth-page via-auth-page to-auth-page-2 px-4 py-6">
+    <div className="relative flex min-h-dvh items-start justify-center overflow-x-hidden bg-linear-to-br from-auth-page via-auth-page to-auth-page-2 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
       <AmbientGlows />
 
-      <main className="relative w-full max-w-[860px] overflow-hidden rounded-2xl border border-white/20 bg-white/[0.08] shadow-[0_30px_70px_-28px_rgba(14,24,54,0.65)] backdrop-blur-2xl">
-        <div className="relative grid lg:grid-cols-[1fr_1fr]">
-          {/* Left panel - QR Panel */}
+      <main className="relative w-full max-w-[900px] overflow-hidden rounded-2xl border border-white/20 bg-white/[0.08] shadow-[0_30px_70px_-28px_rgba(14,24,54,0.65)] backdrop-blur-2xl">
+        <div className="relative grid lg:grid-cols-[1.08fr_.92fr]">
           <QrPanel />
 
-          {/* Vertical divider */}
           <div
             aria-hidden
-            className="absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-auth-line lg:block"
+            className="absolute inset-y-0 left-[54%] hidden w-px -translate-x-1/2 bg-auth-line lg:block"
           />
-          <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
-            <span className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted backdrop-blur-md">
-              OR
-            </span>
-          </div>
 
-          {/* Mobile divider */}
-          <div className="flex items-center gap-3 px-5 lg:hidden">
-            <span className="h-px flex-1 bg-auth-line" />
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/25 bg-white/10 font-display text-xs font-semibold tracking-widest text-auth-muted">
-              OR
-            </span>
-            <span className="h-px flex-1 bg-auth-line" />
-          </div>
+          <section
+            aria-labelledby="login-heading"
+            className="flex min-w-0 items-center justify-center px-5 py-6 sm:px-8 sm:py-8 lg:px-9"
+          >
+            <Reveal delay={140} className="w-full max-w-[350px]">
+              <header className="mb-6">
+                <div className="mb-5 flex items-center gap-3 lg:hidden">
+                  <img
+                    src="/dashboard-icon/icon_logo.png"
+                    alt=""
+                    className="size-11 shrink-0 rounded-xl object-cover shadow-lg shadow-auth-accent/30"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-display text-sm font-semibold tracking-tight text-auth-ink">
+                      SOC 5 OUTBOUND
+                    </p>
+                    <p className="text-xs text-auth-muted">
+                      Operations Management System
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-[.16em] text-auth-faint">
+                  Secure workspace
+                </p>
+                <h1
+                  id="login-heading"
+                  className="mt-2 font-display text-2xl font-semibold tracking-tight text-auth-ink"
+                >
+                  Welcome back
+                </h1>
+                <p className="mt-1.5 text-sm leading-relaxed text-auth-muted">
+                  Choose your account type, then sign in with your assigned
+                  credentials.
+                </p>
+              </header>
 
-          {/* Right panel - Form */}
-          <section className="flex items-center justify-center px-5 py-7 sm:px-7">
-            <Reveal delay={140} className="w-full max-w-[330px]">
+              {beforeAuthentication && (
+                <div className="mb-6">{beforeAuthentication}</div>
+              )}
               {children}
             </Reveal>
           </section>
         </div>
 
-        {/* Footer bar */}
-        <FooterBar />
+        <FooterBar compact />
       </main>
     </div>
   );

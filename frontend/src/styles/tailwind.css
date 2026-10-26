@@ -137,20 +137,20 @@ body {
   --animate-login-ready: login-ready 1.7s ease-in-out infinite;
   --animate-login-modal-enter: login-modal-enter .62s cubic-bezier(.22,1,.36,1) both;
 
-  --color-auth-surface: #4d6383;
-  --color-auth-page-2: #3d4a69;
-  --color-auth-deep-2: #25334f;
-  --color-auth-success: #c8fad6;
-  --color-auth-page: #5a6785;
-  --color-auth-deep: #3d4a69;
-  --color-auth-ink: #ffffff;
-  --color-auth-muted: #eef3fb;
-  --color-auth-faint: #eef3fb;
-  --color-auth-accent: #1d64d8;
-  --color-auth-accent-2: #144fb4;
-  --color-auth-link: #eef3fb;
-  --color-auth-line: rgb(238 244 255 / 14%);
-  --color-auth-danger: #ffe1e6;
+  --color-auth-surface: #ffffff;
+  --color-auth-page-2: #e7efec;
+  --color-auth-deep-2: #dbe9e5;
+  --color-auth-success: #24764d;
+  --color-auth-page: #f3f7f5;
+  --color-auth-deep: #e8f0ed;
+  --color-auth-ink: #182426;
+  --color-auth-muted: #5e6e70;
+  --color-auth-faint: #667577;
+  --color-auth-accent: #087f7c;
+  --color-auth-accent-2: #056e6b;
+  --color-auth-link: #087f7c;
+  --color-auth-line: rgb(24 61 63 / 14%);
+  --color-auth-danger: #a13d49;
 
   --color-gray-500: rgb(102 112 133);
   --color-gray-700: rgb(52 64 84);

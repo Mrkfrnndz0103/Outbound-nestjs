@@ -51,7 +51,7 @@ const ITEMS = [
 export function FooterBar({ compact = false }: { compact?: boolean }) {
   return (
     <footer
-      className={`grid border-t border-auth-line bg-white/[0.04] ${compact ? "grid-cols-3 divide-x divide-auth-line" : "grid-cols-1 divide-y divide-auth-line sm:grid-cols-3 sm:divide-x sm:divide-y-0"}`}
+      className={`border-t border-auth-line bg-white/[0.04] ${compact ? "hidden grid-cols-3 divide-x divide-auth-line sm:grid" : "grid grid-cols-1 divide-y divide-auth-line sm:grid-cols-3 sm:divide-x sm:divide-y-0"}`}
     >
       {ITEMS.map((item, i) => (
         <Reveal key={item.title} delay={i * 100}>

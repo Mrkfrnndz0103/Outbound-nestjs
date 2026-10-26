@@ -1,7 +1,7 @@
 import { useUiStore } from "../stores/ui";
 import { supabase } from "./supabase";
 
-const base = process.env.NEXT_PUBLIC_API_URL ?? import.meta.env?.VITE_API_URL ?? "/api/v1";
+const base = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 async function getApiSession() {
   const current = await supabase.auth.getSession();

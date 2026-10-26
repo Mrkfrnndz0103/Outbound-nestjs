@@ -1,6 +1,7 @@
 import { SearchIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { AccessibleDialog } from "@/components/AccessibleDialog";
 import {
   Breadcrumb,
@@ -20,8 +21,8 @@ type SiteHeaderProps = {
 };
 
 export function SiteHeader({ navigationGroups }: SiteHeaderProps) {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const { isMobile, openMobile } = useSidebar();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -83,7 +84,7 @@ export function SiteHeader({ navigationGroups }: SiteHeaderProps) {
             <Breadcrumb className="min-w-0">
               <BreadcrumbList className="flex-nowrap">
                 <BreadcrumbItem className="hidden sm:inline-flex">
-                  <BreadcrumbLink render={<Link to="/dashboard" />}>
+                  <BreadcrumbLink render={<Link href="/dashboard" />}>
                     {currentPage.group}
                   </BreadcrumbLink>
                 </BreadcrumbItem>
@@ -144,7 +145,7 @@ export function SiteHeader({ navigationGroups }: SiteHeaderProps) {
                 matches[0]
               ) {
                 event.preventDefault();
-                navigate(matches[0].href);
+                router.push(matches[0].href);
                 setSearchOpen(false);
               }
             }}
@@ -167,7 +168,7 @@ export function SiteHeader({ navigationGroups }: SiteHeaderProps) {
           {matches.map((item) => (
             <Link
               key={item.href}
-              to={item.href}
+              href={item.href}
               onClick={() => setSearchOpen(false)}
               className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { usePathname, useRouter } from "next/navigation";
 import carLoadingUrl from "../assets/Car loading.svg";
 import { ApiError, api } from "./lib/api";
 import { isKnownAppPath } from "./lib/routes";
@@ -92,7 +92,7 @@ function describeFailure(cause: unknown): Failure {
 }
 
 export default function App() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [state, setState] = useState<AppState>("loading");
   const [startupAnimationComplete, setStartupAnimationComplete] =
     useState(false);
@@ -142,7 +142,7 @@ export default function App() {
               window.location.pathname === "/" ||
               window.location.pathname === "/login"
             ) {
-              navigate("/dashboard", { replace: true });
+              router.replace("/dashboard");
             }
             setState(
               resolvedProfile.must_change_password
@@ -181,7 +181,7 @@ export default function App() {
           window.location.pathname === "/" ||
           window.location.pathname === "/login"
         ) {
-          navigate("/dashboard", { replace: true });
+          router.replace("/dashboard");
         }
         setState(
           resolvedProfile.must_change_password ? "change-password" : "ready",
@@ -192,7 +192,7 @@ export default function App() {
         setState("unauthorized");
       }
     },
-    [navigate],
+    [router],
   );
 
   const retrySession = useCallback(async () => {
@@ -300,14 +300,14 @@ function StartupLoading() {
 }
 
 function UnauthenticatedEntry() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname() ?? "/";
+  const router = useRouter();
 
   useEffect(() => {
-    if (!isKnownAppPath(location.pathname)) {
-      navigate("/dashboard", { replace: true });
+    if (!isKnownAppPath(pathname)) {
+      router.replace("/dashboard");
     }
-  }, [location.pathname, navigate]);
+  }, [pathname, router]);
 
   return (
     <Fragment>

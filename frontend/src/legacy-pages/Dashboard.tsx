@@ -1,6 +1,6 @@
 import { PrincipalQueryScope } from "../lib/PrincipalQueryScope";
 import { lazy, Suspense, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { usePathname, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonTable } from "../components/SkeletonTable";
 import { AppShell } from "../components/shell/AppShell";
@@ -72,8 +72,8 @@ function DashboardContent({
   user: User;
   preview?: boolean;
 }) {
-  const location = useLocation();
-  const routerNavigate = useNavigate();
+  const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const viewRole = useUiStore((state) => state.viewRole);
   const setViewRole = useUiStore((state) => state.setViewRole);
   const isPreview = preview;
@@ -94,7 +94,7 @@ function DashboardContent({
     candidate === "kpi" ||
     (candidate === "users" &&
       (activeUser.role === "fte_ops" || activeUser.role === "fte_mm"));
-  const requestedView = getAppView(location.pathname);
+  const requestedView = getAppView(pathname);
   const view = !isPreview && allowed(requestedView) ? requestedView : "overview";
   const queue = useQueueNotifications(activeUser, isPreview);
   const navigationGroups = createAppNavigationGroups({
@@ -104,13 +104,14 @@ function DashboardContent({
 
   async function switchRole(role: Role) {
     setViewRole(role);
-    routerNavigate(getAppPath("overview"));
+    router.push(getAppPath("overview"));
   }
 
   function navigate(next: AppView, replace = false) {
     if (!allowed(next)) next = "overview";
     const path = getAppPath(next);
-    routerNavigate(path, { replace });
+    if (replace) router.replace(path);
+    else router.push(path);
   }
 
   async function signOut() {
@@ -127,9 +128,9 @@ function DashboardContent({
   }
 
   useEffect(() => {
-    if (!isPreview && location.pathname !== getAppPath(view))
-      routerNavigate(getAppPath(view), { replace: true });
-  }, [isPreview, location.pathname, routerNavigate, view]);
+    if (!isPreview && pathname !== getAppPath(view))
+      router.replace(getAppPath(view));
+  }, [isPreview, pathname, router, view]);
 
   return (
     <AppShell

@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
-import { BrowserRouter } from 'react-router-dom'
 import App from '../App'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { ApiError } from '../lib/api'
@@ -26,10 +25,8 @@ export default function Page() {
   }
 
   return (
-    <BrowserRouter>
-      <QueryClientProvider client={client}>
-        <ErrorBoundary><App /></ErrorBoundary>
-      </QueryClientProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={client}>
+      <ErrorBoundary><App /></ErrorBoundary>
+    </QueryClientProvider>
   )
 }

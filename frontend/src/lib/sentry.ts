@@ -10,13 +10,13 @@ const clampSampleRate = (value: unknown, fallback: number): number => {
   return Math.min(Math.max(parsed, 0), 1);
 };
 
-const dsn = (process.env.NEXT_PUBLIC_SENTRY_DSN ?? import.meta.env?.VITE_SENTRY_DSN)?.trim();
+const dsn = (process.env.NEXT_PUBLIC_SENTRY_DSN)?.trim();
 const environment =
-  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? import.meta.env?.VITE_SENTRY_ENVIRONMENT)?.trim() ||
+  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT)?.trim() ||
   (process.env.NODE_ENV === "production" ? "production" : "development");
-const release = (process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? import.meta.env?.VITE_SENTRY_RELEASE)?.trim() || undefined;
+const release = (process.env.NEXT_PUBLIC_SENTRY_RELEASE)?.trim() || undefined;
 const tracesSampleRate = clampSampleRate(
-  process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? import.meta.env?.VITE_SENTRY_TRACES_SAMPLE_RATE,
+  process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
   0.1,
 );
 

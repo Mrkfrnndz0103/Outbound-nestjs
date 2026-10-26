@@ -7,7 +7,8 @@ import {
   Truck,
 } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Collapsible,
@@ -67,7 +68,7 @@ function isPathActive(pathname: string, href: string) {
 }
 
 function NavItem({ item }: { item: NavigationItem }) {
-  const { pathname } = useLocation();
+  const pathname = usePathname() ?? "/";
   const { isMobile, setOpenMobile } = useSidebar();
   const Icon = item.icon;
 
@@ -78,7 +79,7 @@ function NavItem({ item }: { item: NavigationItem }) {
       isActive={isPathActive(pathname, item.href)}
     >
       <Link
-        to={item.href}
+        href={item.href}
         aria-current={isPathActive(pathname, item.href) ? "page" : undefined}
         onClick={() => {
           if (isMobile) setOpenMobile(false);
@@ -107,7 +108,7 @@ function NavGroupItems({ group }: { group: NavigationGroup }) {
 }
 
 function CollapsibleNavGroup({ group }: { group: NavigationGroup }) {
-  const { pathname } = useLocation();
+  const pathname = usePathname() ?? "/";
   const [openOverride, setOpenOverride] = useState<boolean | null>(null);
   const hasActiveItem = group.items.some((item) =>
     isPathActive(pathname, item.href),
@@ -247,7 +248,7 @@ export function AppSidebar({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild size="lg" tooltip="SOC 5 Outbound">
-                <Link to="/dashboard">
+                <Link href="/dashboard">
                   <span className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                     <Truck className="size-4" />
                   </span>

@@ -59,11 +59,11 @@ export default defineConfig({
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
         env: {
-          VITE_API_URL: process.env.VITE_API_URL ?? '/api',
-          VITE_SUPABASE_URL:
-            process.env.VITE_SUPABASE_URL ?? 'https://example.supabase.co',
-          VITE_SUPABASE_PUBLISHABLE_KEY:
-            process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'playwright-test-key',
+NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? '/api',
+      NEXT_PUBLIC_SUPABASE_URL:
+        process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://example.supabase.co',
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? 'playwright-test-key',
         },
       }
     : undefined,

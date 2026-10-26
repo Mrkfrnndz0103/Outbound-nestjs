@@ -81,8 +81,12 @@ export class RequestService {
     try {
       await client.query('begin');
       const result = await client.query(
-        `update requests set status = 'REQUESTED', updated_by = $1
-         where id = any($2::uuid[]) and status = 'PENDING' returning *`,
+        `update requests
+         set status = 'REQUESTED', updated_by = $1, approval_status = 'APPROVED',
+             approved_by = $1, approved_at = now(), approval_source = 'WEB',
+             approval_version = approval_version + 1
+         where id = any($2::uuid[]) and status = 'PENDING' and approval_status = 'PENDING'
+         returning *`,
         [actorId, uniqueIds],
       );
       for (const row of result.rows) {
@@ -162,13 +166,25 @@ export class RequestService {
         await client.query('commit');
         return null;
       }
+      const approvalFields = action === 'approve'
+        ? `approval_status = 'APPROVED', approved_by = $3, approved_at = now(), approval_source = 'WEB', approval_version = approval_version + 1,`
+        : action === 'reject-ops' || action === 'reject-mm'
+          ? `approval_status = 'REJECTED', rejected_by = $3, rejected_at = now(), approval_source = 'WEB', approval_version = approval_version + 1,`
+          : action === 'cancel'
+            ? `approval_status = 'CANCELLED', approval_source = 'WEB', approval_version = approval_version + 1,`
+            : '';
+      const requiresPendingApproval = ['approve', 'reject-ops', 'reject-mm', 'cancel'].includes(action)
+        ? ` and approval_status = 'PENDING'`
+        : '';
       const result = transition.extra
         ? await client.query(
-            `update requests set status = $1, ${transition.extra} updated_by = $3 where id = $4 and status not in ('CANCELLED', 'REJECTED') returning *`,
+            `update requests set status = $1, ${transition.extra} ${approvalFields} updated_by = $3
+             where id = $4 and status not in ('CANCELLED', 'REJECTED')${requiresPendingApproval} returning *`,
             [transition.status, value ?? null, actorId, id],
           )
         : await client.query(
-            `update requests set status = $1, updated_by = $2 where id = $3 and status not in ('CANCELLED', 'REJECTED') returning *`,
+            `update requests set status = $1, ${approvalFields.replaceAll('$3', '$2')} updated_by = $2
+             where id = $3 and status not in ('CANCELLED', 'REJECTED')${requiresPendingApproval} returning *`,
             [transition.status, actorId, id],
           );
       if (result.rows[0]) {

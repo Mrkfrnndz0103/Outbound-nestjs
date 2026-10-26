@@ -173,15 +173,79 @@ export class SeaTalkApprovalService implements OnModuleInit, OnModuleDestroy {
         `select distinct request_id from seatalk_approval_assignments
          where status = 'ACTIVE' and expires_at <= now() limit 50`,
       );
-      for (const row of expired.rows) await this.reroute(row.request_id);
+      for (const row of expired.rows) {
+        try {
+          await this.reroute(row.request_id);
+        } catch {
+          // Continue processing other requests; the expired assignment remains recoverable.
+        }
+      }
+
+      const retryAfter = Math.max(Number(process.env.SEATALK_APPROVAL_RETRY_SECONDS ?? 300), 30);
+      const failed = await this.pool.query(
+        `select i.id, i.request_id, a.id as assignment_id
+         from seatalk_approval_items i
+         join requests r on r.id = i.request_id
+         join lateral (
+           select id from seatalk_approval_assignments
+           where seatalk_approval_item_id = i.id and status = 'FAILED'
+           order by sequence desc limit 1
+         ) a on true
+         where i.status = 'FAILED' and r.approval_status = 'PENDING'
+           and i.updated_at <= now() - ($1::text || ' seconds')::interval
+         order by i.updated_at limit 25`,
+        [retryAfter],
+      );
+      for (const row of failed.rows) {
+        try {
+          await this.retryDelivery(row.request_id, row.id, row.assignment_id);
+        } catch {
+          // The failed row keeps its error and will be retried on a later tick.
+        }
+      }
+
       const pending = await this.pool.query(
         `select r.id from requests r left join seatalk_approval_items i on i.request_id = r.id
          where r.approval_status = 'PENDING' and i.id is null order by r.created_at limit 50`,
       );
-      for (const row of pending.rows) await this.provision(row.id);
+      for (const row of pending.rows) {
+        try {
+          await this.provision(row.id);
+        } catch {
+          // Keep scanning; the request remains pending and is picked up on the next tick.
+        }
+      }
     } finally {
       this.running = false;
     }
+  }
+
+  private async retryDelivery(requestId: string, itemId: string, assignmentId: string) {
+    if (!this.pool) return;
+    const claimed = await this.pool.query(
+      `update seatalk_approval_assignments a
+       set status = 'PENDING', failure_reason = null
+       from seatalk_approval_items i, requests r
+       where a.id = $1 and i.id = $2 and r.id = $3
+         and a.seatalk_approval_item_id = i.id and i.request_id = r.id
+         and a.status = 'FAILED' and i.status = 'FAILED'
+         and r.approval_status = 'PENDING'
+       returning a.*`,
+      [assignmentId, itemId, requestId],
+    );
+    if (!claimed.rows[0]) return;
+    await this.pool.query(`update seatalk_approval_items set status = 'PENDING', failure_reason = null where id = $1`, [itemId]);
+    const request = await this.pool.query(
+      `select r.*, p.name as applicant_name from requests r join profiles p on p.id = r.created_by where r.id = $1`,
+      [requestId],
+    );
+    if (!request.rows[0]) return;
+    const assignment = await this.pool.query(
+      `select a.*, p.name as approver_name, p.seatalk_employee_code as employee_code
+       from seatalk_approval_assignments a join profiles p on p.id = a.fte_user_id where a.id = $1`,
+      [assignmentId],
+    );
+    await this.deliver(request.rows[0], assignment.rows[0]);
   }
 
   private async reroute(requestId: string) {

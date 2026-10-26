@@ -41,6 +41,7 @@ SEATALK_APPROVAL_CREATE_PATH=/approval_center/v2/create
 SEATALK_APPROVE_CALLBACK_URL=https://<api-host>/api/v1/integrations/seatalk/approval/approve
 SEATALK_REJECT_CALLBACK_URL=https://<api-host>/api/v1/integrations/seatalk/approval/reject
 SEATALK_APPROVAL_ASSIGNMENT_SECONDS=180
+SEATALK_APPROVAL_RETRY_SECONDS=300
 SEATALK_PRESENCE_ACTIVE_SECONDS=60
 SEATALK_RUNTIME_INTERVAL_MS=60000
 SEATALK_HTTP_TIMEOUT_MS=10000
@@ -55,8 +56,10 @@ Keep `SEATALK_APPROVAL_ENABLED=false` until callbacks, permissions, Data Scope, 
 - The eligible approver with the oldest previous assignment is selected, providing sequential round-robin behavior.
 - Only users with a heartbeat inside `SEATALK_PRESENCE_ACTIVE_SECONDS` are eligible.
 - Provider access tokens are cached until shortly before expiry.
+- Failed provider deliveries are retried after `SEATALK_APPROVAL_RETRY_SECONDS`; one failed request does not stop the rest of the scanner batch.
 - Callback signatures are verified against the exact raw body before parsing or database mutation.
 - Callback event hashes provide replay protection; late or duplicate actions are acknowledged without changing the request.
+- Web approvals, rejections, and cancellations update the canonical approval fields as part of the same transaction.
 - The first valid web or SeaTalk transition wins through row locking and `approval_status = 'PENDING'` checks.
 
 The built-in interval is suitable for one API instance and staging. In a multi-instance production deployment, run only one scheduler instance or move `tick()` to the platform's singleton scheduled job/queue worker. Database row locks and uniqueness constraints remain the final concurrency safeguards.

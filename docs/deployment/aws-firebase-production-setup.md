@@ -80,7 +80,7 @@ additional proxy and DNS configuration; it is not provided by this repository.
 | Redis/ElastiCache | Cache/queue/session backend if deliberately selected | Optional; current async profile uses PostgreSQL-backed queue/cache/session |
 
 The repository's `docker-compose.yml` is a single-origin Compose deployment,
-not an ECS task definition. Build the existing `backend/Dockerfile` for ECS,
+not an ECS task definition. Build the existing `backend-nest/Dockerfile` for ECS,
 then add reviewed ECS task definitions and release automation. Do not deploy
 the compose `web` service to Firebase.
 

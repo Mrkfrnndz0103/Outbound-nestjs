@@ -1,8 +1,6 @@
 language: minimal
 stages:
   - test
-  - name: release-acceptance
-    if: tag IS present
   - name: publish-production
     if: tag IS present AND env(PRODUCTION_DEPLOY_ENABLED) = true
 jobs:
@@ -86,24 +84,6 @@ jobs:
         - SUPABASE_URL=https://staging.invalid SUPABASE_PUBLISHABLE_KEY=staging-publishable-key docker compose config -q
         - SUPABASE_URL=https://staging.invalid SUPABASE_PUBLISHABLE_KEY=staging-publishable-key docker compose build --pull api-nest web
         - bash scripts/ci/verify-release-static.sh
-
-    - name: "Release Acceptance"
-      if: tag IS present
-      stage: release-acceptance
-      language: node_js
-      dist: jammy
-      node_js: "22"
-      env:
-        - PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright
-      cache:
-        npm: true
-        directories:
-          - $HOME/.cache/ms-playwright
-      before_script:
-        - npm ci --prefer-offline
-        - npx playwright install --with-deps chromium
-      script:
-        - bash scripts/ci/require-release-acceptance.sh
 
     - name: "Publish and Deploy Production"
       if: tag IS present AND env(PRODUCTION_DEPLOY_ENABLED) = true

@@ -38,7 +38,7 @@ repository_name="${ECR_REPOSITORY_URI#*/}"
 image_uri="${ECR_REPOSITORY_URI}:${TRAVIS_COMMIT}"
 docker login --username AWS --password-stdin "$registry_host" \
   <<< "$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-docker build --pull --file backend/Dockerfile --tag "$image_uri" backend
+docker build --pull --file backend-nest/Dockerfile --tag "$image_uri" backend-nest
 docker push "$image_uri"
 
 image_digest="$(aws ecr describe-images \
@@ -98,7 +98,8 @@ deploy_service() {
     --services "$service_name"
 }
 
-# Roll out the API first and wait for health before changing background tasks.
+# All ECS services run the same NestJS image; deploy the API first, then the
+# outbox and scheduler services using their existing task-definition commands.
 deploy_service "$ECS_API_SERVICE" "${ECS_API_CONTAINER_NAME:-api}"
 deploy_service "$ECS_WORKER_SERVICE" "${ECS_WORKER_CONTAINER_NAME:-worker}"
 deploy_service "$ECS_SCHEDULER_SERVICE" "${ECS_SCHEDULER_CONTAINER_NAME:-scheduler}"

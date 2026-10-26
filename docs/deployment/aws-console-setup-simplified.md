@@ -91,7 +91,7 @@ certificate is for the AWS API hostname.
 4. Copy the repository URI, which looks like:
    `123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/soc5-outbound-api`.
 5. Configure the approved CI deployment identity to build the existing
-   `backend/Dockerfile`, tag the image with the source commit SHA, and push it
+   `backend-nest/Dockerfile`, tag the image with the source commit SHA, and push it
    to ECR. The repository has a gated Travis publish/deploy stage, but it needs
    account-side credentials and ECR/ECS resources before it can run. Do not use
    a mutable `latest` tag as the release identity.
@@ -150,7 +150,7 @@ resources are ready.
 6. Add explicit ordered Travis stages so the normal test jobs finish first,
    tag-gated release acceptance runs next, and publishing/deployment runs last.
    Add the publish job only for an approved release tag after required checks
-   pass. It should build `backend/Dockerfile`, tag the image with the exact
+   pass. It should build `backend-nest/Dockerfile`, tag the image with the exact
    commit SHA, authenticate to ECR, push, then record the pushed image digest.
    Never publish images from pull-request builds.
 7. Require a human release owner to create the protected release tag in GitLab

@@ -33,36 +33,26 @@ function Test-GitIgnored {
 Set-Location $ProjectRoot
 Write-Host "Checking local environment for $ProjectRoot"
 
-foreach ($path in @('backend', 'frontend', 'supabase', 'scripts', 'package.json', 'backend/composer.json', 'supabase/config.toml')) {
+foreach ($path in @('backend-nest', 'frontend', 'supabase', 'scripts', 'backend-nest/package.json', 'frontend/package.json', 'supabase/config.toml')) {
     Check-Condition (Test-Path -LiteralPath (Join-Path $ProjectRoot $path)) "Found $path" "Missing $path"
 }
 
-foreach ($envPath in @('.env', 'backend/.env', 'frontend/.env')) {
-    Check-Condition (Test-Path -LiteralPath (Join-Path $ProjectRoot $envPath)) "Found $envPath" "Missing $envPath; run scripts/setup-local.ps1"
+foreach ($envPath in @('backend-nest/.env', 'frontend/.env')) {
+    Check-Condition (Test-Path -LiteralPath (Join-Path $ProjectRoot $envPath)) "Found $envPath" "Missing $envPath; copy the matching .env.example file"
 }
 
-foreach ($tool in @('php', 'composer', 'node', 'npm')) {
+foreach ($tool in @('node', 'npm')) {
     $toolPath = Get-ToolPath $tool
     Check-Condition ($null -ne $toolPath) "Found $tool at $toolPath" "$tool was not found on PATH"
 }
 
-$phpIni = Join-Path $ProjectRoot 'tools\php.local.ini'
-if (-not (Test-Path -LiteralPath $phpIni -PathType Leaf)) {
-    $phpIni = Join-Path $ProjectRoot 'tools\php.ini'
-}
-Check-Condition (Test-Path -LiteralPath $phpIni -PathType Leaf) "Found PHP project config $phpIni" 'No project PHP configuration found'
-
-$caPath = $env:PHP_CA_BUNDLE
-if (-not $caPath) { $caPath = Join-Path $ProjectRoot 'tools\cacert.pem' }
-Check-Condition (Test-Path -LiteralPath $caPath -PathType Leaf) "Found CA bundle $caPath" "CA bundle not found at $caPath; set PHP_CA_BUNDLE or place cacert.pem in tools"
-
-foreach ($port in @(8000, 5173, 4173)) {
+foreach ($port in @(3000, 3001, 4173)) {
     $listener = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     Check-Condition ($null -eq $listener) "Port $port is available" "Port $port is already in use"
 }
 
 $cloudflared = Get-ToolPath 'cloudflared'
-$backendEnvPath = Join-Path $ProjectRoot 'backend\.env'
+$backendEnvPath = Join-Path $ProjectRoot 'backend-nest\.env'
 $backendEnvContent = if (Test-Path -LiteralPath $backendEnvPath -PathType Leaf) { Get-Content -LiteralPath $backendEnvPath } else { @() }
 . (Join-Path $ProjectRoot 'scripts\cloudflare-tunnel.ps1')
 $cloudflareTunnelId = Get-DotEnvValue -Content $backendEnvContent -Name 'CLOUDFLARE_TUNNEL_ID'
@@ -70,7 +60,7 @@ $configuredCloudflareCert = Get-DotEnvValue -Content $backendEnvContent -Name 'C
 $cloudflareCert = if ($configuredCloudflareCert) { $configuredCloudflareCert } elseif ($env:TUNNEL_ORIGIN_CERT) { $env:TUNNEL_ORIGIN_CERT } else { Join-Path $env:USERPROFILE '.cloudflared\cert.pem' }
 if ($RequireCloudflare) {
     $seatalkCallback = Get-DotEnvValue -Content $backendEnvContent -Name 'SEATALK_REDIRECT_URI'
-    Check-Condition (-not [string]::IsNullOrWhiteSpace($cloudflareTunnelId)) 'Cloudflare tunnel ID is configured' 'CLOUDFLARE_TUNNEL_ID is missing from backend/.env'
+    Check-Condition (-not [string]::IsNullOrWhiteSpace($cloudflareTunnelId)) 'Cloudflare tunnel ID is configured' 'CLOUDFLARE_TUNNEL_ID is missing from backend-nest/.env'
     Check-Condition ($seatalkCallback -ceq (Get-ExpectedSeatalkCallbackUrl)) 'SeaTalk callback matches the Cloudflare public URL' 'SEATALK_REDIRECT_URI must equal https://soc5outboundops.app/auth/seatalk/callback'
     Check-Condition ($null -ne $cloudflared) 'cloudflared is available' 'cloudflared was not found on PATH'
     Check-Condition (Test-Path -LiteralPath $cloudflareCert -PathType Leaf) "Found Cloudflare origin certificate $cloudflareCert" "Cloudflare origin certificate not found at $cloudflareCert; run cloudflared tunnel login"
@@ -94,9 +84,8 @@ if ($RequireSupabase) {
     Write-Host "[INFO] Supabase CLI: $(if ($supabase) { 'available' } else { 'optional/not found' })"
 }
 
-Check-Condition (Test-GitIgnored 'tools/php.local.ini') 'Machine-local PHP config is ignored' 'tools/php.local.ini is not Git-ignored'
-Check-Condition (Test-GitIgnored 'tools/cacert.pem') 'Machine-local CA bundle is ignored' 'tools/cacert.pem is not Git-ignored'
-Check-Condition (Test-GitIgnored 'backend/.env') 'Backend environment file is ignored' 'backend/.env is not Git-ignored'
+Check-Condition (Test-GitIgnored 'backend-nest/.env') 'NestJS environment file is ignored' 'backend-nest/.env is not Git-ignored'
+Check-Condition (Test-GitIgnored 'frontend/.env') 'Frontend environment file is ignored' 'frontend/.env is not Git-ignored'
 
 if ($Failures.Count -gt 0) {
     Write-Host "`nLocal environment check failed with $($Failures.Count) issue(s)." -ForegroundColor Red

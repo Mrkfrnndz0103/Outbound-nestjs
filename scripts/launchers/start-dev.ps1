@@ -40,8 +40,7 @@ function Stop-ExistingDevelopmentServers {
 
     $processesToStop = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         $_.ProcessId -ne $PID -and $_.CommandLine -and (
-            $_.CommandLine -match 'npm\s+run\s+start:dev' -or
-            $_.CommandLine -match 'artisan\s+serve|server\.php' -or
+            $_.CommandLine -match 'npm\s+run\s+(start:dev|dev)' -or
             $_.CommandLine -match 'cloudflared(\.exe)?\s+.*tunnel\s+(run|--token)'
         )
     })
@@ -50,7 +49,7 @@ function Stop-ExistingDevelopmentServers {
         $candidateIds[[int]$process.ProcessId] = $true
     }
 
-    foreach ($port in @(8000, 5173, 4173)) {
+    foreach ($port in @(3000, 3001, 4173)) {
         $connections = @(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue)
         foreach ($connection in $connections) {
             if ($connection.OwningProcess -and $connection.OwningProcess -ne $PID) {

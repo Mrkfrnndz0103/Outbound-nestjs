@@ -27,8 +27,8 @@ function Stop-ProductionStack {
 try {
     Set-Location $root
 
-    # frontend/Dockerfile performs npm ci -> npm run build, then NGINX serves
-    # the resulting frontend/dist files.
+    # frontend/Dockerfile builds the Next.js standalone server. The web service
+    # publishes it on 127.0.0.1:4173 for the Cloudflare Tunnel.
     & docker @compose up --build -d
     if ($LASTEXITCODE -ne 0) {
         throw 'Production Docker Compose startup failed.'
@@ -48,7 +48,7 @@ try {
     $token = Get-CloudflareTokenFromOutput -Output ([string[]]$tokenOutput)
 
     Write-Host 'Production Docker stack is running.' -ForegroundColor Green
-    Write-Host 'Frontend origin: http://127.0.0.1:4173 (NGINX serving frontend/dist)' -ForegroundColor Cyan
+    Write-Host 'Public origin target: http://127.0.0.1:4173 (Next.js standalone server)' -ForegroundColor Cyan
     Write-Host 'Starting the named Cloudflare Tunnel. Press Ctrl+C to stop the tunnel and stack.' -ForegroundColor Yellow
     & $cloudflared tunnel run --token $token
 }

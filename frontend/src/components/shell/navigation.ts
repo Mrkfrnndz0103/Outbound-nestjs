@@ -95,5 +95,5 @@ export const roleOptions: Array<{ value: Role; label: string }> = [
   { value: "ops_pic", label: "Ops PIC" },
   { value: "fte_ops", label: "FTE Ops" },
   { value: "fte_mm", label: "FTE Midmile" },
-  { value: "doc_officer", label: "Document Officer" },
+  { value: "doc_officer", label: "Doc Officer" },
 ];

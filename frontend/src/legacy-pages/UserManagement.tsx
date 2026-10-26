@@ -66,7 +66,7 @@ const roleLabels: Record<Role, string> = {
   ops_pic: "Ops PIC",
   fte_ops: "FTE Operations",
   fte_mm: "FTE Midmile",
-  doc_officer: "DOC Officer",
+  doc_officer: "Doc Officer",
 };
 
 function initials(name: string) {
@@ -597,7 +597,7 @@ function CreateUser({
             defaultValue="ops_pic"
           >
             <option value="ops_pic">Ops PIC</option>
-            <option value="doc_officer">DOC Officer</option>
+            <option value="doc_officer">Doc Officer</option>
           </select>
         </label>
         <label className={dialogLabelClass}>

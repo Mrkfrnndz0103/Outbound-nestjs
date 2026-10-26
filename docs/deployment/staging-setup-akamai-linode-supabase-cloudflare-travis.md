@@ -1054,7 +1054,7 @@ Verify the expected roles and permissions for:
 - FTE operations
 - FTE midmile
 - Backroom operations
-- Document or dock officers
+- Doc Officers
 - Administrators
 
 Confirm that unauthorized users cannot read or mutate protected resources.

@@ -7,9 +7,6 @@ npm --prefix frontend run check:encoding
 npm --prefix frontend run check:robots
 npm --prefix frontend audit --package-lock-only --audit-level=high
 npm audit --package-lock-only --audit-level=high
-composer --working-dir=backend validate --no-check-publish
-composer --working-dir=backend audit --locked --no-dev --abandoned=ignore
-
 grep -Fq 'location = /auth/seatalk/callback' frontend/nginx.conf
 ! grep -Fq 'location ^~ /auth/seatalk/callback' frontend/nginx.conf
 grep -Fq 'wss://*.supabase.co' frontend/nginx.conf

@@ -296,8 +296,6 @@ if ($RunDevScripts) {
 
     Run-Step "Development script syntax and tests" {
         $scriptFiles = @(
-            (Join-Path $Root 'scripts\launchers\setup-backend.ps1'),
-            (Join-Path $Root 'scripts\launchers\start-backend.ps1'),
             (Join-Path $Root 'scripts\launchers\start-dev.ps1'),
             (Join-Path $Root 'scripts\preflight.ps1'),
             (Join-Path $Root 'scripts\cloudflare-tunnel.ps1')

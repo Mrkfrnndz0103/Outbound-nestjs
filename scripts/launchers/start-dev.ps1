@@ -40,7 +40,7 @@ function Stop-ExistingDevelopmentServers {
 
     $processesToStop = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         $_.ProcessId -ne $PID -and $_.CommandLine -and (
-            $_.CommandLine -match 'start-backend\.ps1' -or
+            $_.CommandLine -match 'npm\s+run\s+start:dev' -or
             $_.CommandLine -match 'artisan\s+serve|server\.php' -or
             $_.CommandLine -match 'cloudflared(\.exe)?\s+.*tunnel\s+(run|--token)'
         )
@@ -125,7 +125,7 @@ if ($LASTEXITCODE -ne 0) {
 . $cloudflareTunnelScript
 $token = Get-CloudflareTokenFromOutput -Output ([string[]]$tokenOutput)
 
-Start-DevProcess -Name 'soc5-backend' -FilePath $powershell -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $root 'scripts\launchers\start-backend.ps1')) -WorkingDirectory $root
+Start-DevProcess -Name 'soc5-backend-nest' -FilePath $npm -ArgumentList @('--prefix', (Join-Path $root 'backend-nest'), 'run', 'start:dev') -WorkingDirectory $root
 Start-DevProcess -Name 'soc5-frontend' -FilePath $npm -ArgumentList @('run', 'dev') -WorkingDirectory (Join-Path $root 'frontend')
 Start-DevProcess -Name 'soc5-cloudflared' -FilePath $cloudflared -ArgumentList @('tunnel', 'run', '--token', $token) -WorkingDirectory $root
 

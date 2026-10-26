@@ -9,7 +9,6 @@
 .env.production
 .envrc
 !.env.example
-!backend/.env.staging.example
 !frontend/.env.staging.example
 *.pem
 *.key
@@ -31,7 +30,6 @@ tools/google/google-service-account.json
 tools/php.local.ini
 tools/cacert.pem
 
-backend/.env
 frontend/.env
 
 # JavaScript / Vite
@@ -55,20 +53,7 @@ src/**/*.d.ts
 !src/types.ts
 !src/vite-env.d.ts
 
-# PHP / Laravel
 vendor/
-backend/bootstrap/cache/*.php
-backend/storage/*.key
-backend/storage/framework/cache/*
-backend/storage/framework/sessions/*
-backend/storage/framework/views/*
-backend/storage/logs/*
-!backend/storage/framework/cache/.gitkeep
-!backend/storage/framework/sessions/.gitkeep
-!backend/storage/framework/views/.gitkeep
-!backend/storage/logs/.gitkeep
-.phpunit.cache/
-.phpunit.result.cache
 coverage/
 clover.xml
 junit.xml

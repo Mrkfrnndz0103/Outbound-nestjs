@@ -5,7 +5,7 @@ import { DATABASE_POOL } from '../database/database.module.js';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard.js';
 import { UseGuards } from '@nestjs/common';
 
-type AuthenticatedRequest = Request & { user?: { sub?: string; role?: string; user_metadata?: { role?: string } } };
+type AuthenticatedRequest = Request & { user?: { sub?: string; role?: string; app_metadata?: { role?: string } } };
 
 @Controller(['presence', 'v1/presence'])
 @UseGuards(SupabaseAuthGuard)
@@ -15,7 +15,7 @@ export class PresenceController {
   @Post('heartbeat')
   async heartbeat(@Req() request: AuthenticatedRequest) {
     const user = request.user;
-    const role = user?.role ?? user?.user_metadata?.role;
+    const role = user?.role ?? user?.app_metadata?.role;
     if (!user?.sub || role !== 'fte_ops') throw new ForbiddenException('Only FTE Ops users can send approval presence heartbeats.');
     if (!this.pool) throw new HttpException('Database is not configured.', 503);
 

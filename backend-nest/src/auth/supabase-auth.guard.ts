@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { Request } from 'express';
 
-type Actor = JWTPayload & { role?: string; user_metadata?: { role?: string } };
+type Actor = JWTPayload & { role?: string; app_metadata?: { role?: string } };
 
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
